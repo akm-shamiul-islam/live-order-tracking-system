@@ -1,0 +1,8 @@
+backup/
+documentation/audit/
+documentation/plan/
+documentation/to-do/
+.env
+node_modules/
+dist/
+**/*.tsbuildinfo
