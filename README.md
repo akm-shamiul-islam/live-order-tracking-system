@@ -26,7 +26,7 @@
 
 ## 🌟 Overview & Key Features
 
-**KitchenToDoor** supports guest food orders, live order updates, staff dispatch, and simulated courier movement. See [the current codebase review](documentation/docs/CODEBASE_REVIEW.md) for fixes, verification, and remaining production gaps.
+**KitchenToDoor** supports guest food orders, live order updates, staff dispatch, and simulated courier movement.
 
 - ⚡ **High-Throughput Fastify Engine:** Powered by NestJS + Fastify (`@nestjs/platform-fastify`), serving HTTP and Socket.io requests. Comparative throughput has not been benchmarked.
 - 🛰️ **Live Telemetry & Radar Simulation:** Dynamic radar showing simulated courier movement with real-time GPS coordinate broadcasting.
@@ -46,7 +46,7 @@
 
 ## 🛠️ Technology Stack & Role Matrix
 
-Declared dependency minimums and badges were checked against npm on 2026-10-20. See the [complete dependency audit](documentation/docs/DEPENDENCIES.md) for every installed version and migration notes. Run `pnpm deps:check` to repeat the online comparison. The `^` prefix allows compatible newer releases; the lockfile records the exact installation.
+Package manifests define dependency versions and ranges; the lockfile records exact installed versions. The `^` prefix allows compatible newer releases. Run `pnpm deps:check` to compare declared and installed package versions with npm.
 
 | Category               | Technology                                  | Target Version                  | Role & Justification / Project Usage Notes                                                                              |
 | :--------------------- | :------------------------------------------ | :------------------------------ | :---------------------------------------------------------------------------------------------------------------------- |
@@ -75,7 +75,7 @@ Declared dependency minimums and badges were checked against npm on 2026-10-20. 
 | **Styling**            | `tailwindcss` + `@tailwindcss/vite`         | `^4.3.3`                        | Utility-first CSS framework using native CSS cascade layers and customized dark/light mode tokens.                      |
 | **Animations**         | `motion` (`motion/react`)                   | `^14.4.0`                       | Rebranded Framer Motion library powering smooth route transitions, glowing order steppers, and telemetry radar.         |
 | **Icons & UI**         | `lucide-react` + `clsx` + `tailwind-merge`  | `^1.60.0` / `^2.1.1` / `^3.7.0` | Accessible Feather-style SVG icons and clean conditional class merging.                                                 |
-| **Testing**            | `vitest`                                    | `^5.0.5`                        | Instant Vite 8 native test runner with 100% passing test suites across workspace packages.                              |
+| **Testing**            | `vitest`                                    | `^5.0.5`                        | Runs unit and HTTP regression tests across the workspace packages.                                                      |
 
 ---
 
@@ -121,9 +121,7 @@ kitchen-to-door/
 │   ├── package.json
 │   └── tsconfig.json
 ├── documentation/
-│   ├── docs/                               # Technical architecture & deployment guides
-│   ├── audit/                              # Ignored audit files
-│   └── plan/                               # Ignored master execution plans
+│   └── docs/                               # Technical architecture & configuration guides
 ├── .env.example                            # Environment template; generate your own JWT secret
 ├── .oxlintrc.json                          # Workspace Oxlint configuration
 ├── .oxfmtrc.json                           # Workspace Oxfmt configuration
@@ -221,8 +219,6 @@ Backend constructors use explicit NestJS injection tokens because the `tsx` deve
 - **Session synchronization:** One [AuthSessionSync](frontend/src/components/auth/AuthSessionSync.tsx) mounted inside `QueryClientProvider` listens for other tabs' storage changes, requests `/api/auth/me` when a token is available, and updates socket authentication. Logout also removes staff and session-verification query data.
 - **State responsibilities:** TanStack Query owns order data and the session-verification cache. TanStack Router owns the current page and selected order URL. Cart contents, dialogs, and form drafts remain local React state in the shared layout or page.
 - **Authorization:** Backend JWT and role guards enforce access. Client role flags control the UI. Sign-out clears this browser's saved session and synchronizes open tabs on the same origin; server-side token revocation and automatic token refresh are not implemented.
-
-See the [session architecture](documentation/docs/ARCHITECTURE.md#frontend-state-and-session-lifecycle) for source responsibilities, the [implementation report](documentation/docs/IMPLEMENTATION_AND_VERIFICATION_REPORT.md) for verification, and the [codebase review](documentation/docs/CODEBASE_REVIEW.md) for remaining gaps.
 
 ## Shared package builds
 
