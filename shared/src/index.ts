@@ -7,3 +7,4 @@ export * from './schemas/public-config.schema.js';
 export * from './socket-events.js';
 export * from './catalog.js';
 export * from './pricing.js';
+export * from './pagination.js';

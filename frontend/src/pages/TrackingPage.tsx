@@ -94,7 +94,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
             <div className="relative">
               <Search
                 aria-hidden="true"
-                className="absolute left-3.5 top-3 h-4 w-4 text-slate-400"
+                className="pointer-events-none absolute left-0 top-0 h-10 w-10 p-3 text-slate-400"
               />
               <input
                 {...form.field('orderId')}
@@ -111,9 +111,10 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
           </div>
           <button
             type="submit"
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 text-xs font-bold text-white shadow-sm hover:from-emerald-600 hover:to-teal-700"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 text-xs font-bold text-white shadow-sm hover:from-emerald-600 hover:to-teal-700"
           >
-            Track
+            <Navigation aria-hidden="true" className="h-4 w-4" />
+            <span>Track</span>
           </button>
         </form>
       </div>

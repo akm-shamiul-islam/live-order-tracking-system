@@ -119,12 +119,36 @@ export class OrdersService {
     return this.mapToDetails(order, logs);
   }
 
+  private listFilter(status?: string, search = '') {
+    const filter: Record<string, unknown> = status ? { status } : {};
+    if (search) {
+      const literal = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = ['orderNumber', 'customer.name', 'customer.phone'].map((field) => ({
+        [field]: { $regex: literal, $options: 'i' },
+      }));
+    }
+    return filter;
+  }
+
+  countOrders(status?: string, search = '') {
+    return this.orderModel.countDocuments(this.listFilter(status, search));
+  }
+
+  countMyOrders(phone: string) {
+    return this.orderModel.countDocuments({ 'customer.phone': phone });
+  }
+
   async getAllOrders(
     status?: string,
     limit = getRuntimeSettings().ORDER_LIST_DEFAULT_LIMIT,
+    page = 1,
+    search = '',
   ): Promise<OrderDetails[]> {
-    const filter = status ? { status } : {};
-    const orders = await this.orderModel.find(filter).sort({ createdAt: -1 }).limit(limit);
+    const query = this.orderModel
+      .find(this.listFilter(status, search))
+      .sort({ createdAt: -1, _id: -1 });
+    if (page > 1) query.skip((page - 1) * limit);
+    const orders = await query.limit(limit);
 
     const orderIds = orders.map((o) => o._id.toString());
     const allLogs = await this.statusLogModel
@@ -137,11 +161,16 @@ export class OrdersService {
     });
   }
 
-  async getMyOrders(phone: string): Promise<OrderDetails[]> {
-    const orders = await this.orderModel
+  async getMyOrders(
+    phone: string,
+    limit = getRuntimeSettings().ORDER_HISTORY_LIMIT,
+    page = 1,
+  ): Promise<OrderDetails[]> {
+    const query = this.orderModel
       .find({ 'customer.phone': phone })
-      .sort({ createdAt: -1 })
-      .limit(getRuntimeSettings().ORDER_HISTORY_LIMIT);
+      .sort({ createdAt: -1, _id: -1 });
+    if (page > 1) query.skip((page - 1) * limit);
+    const orders = await query.limit(limit);
 
     const orderIds = orders.map((o) => o._id.toString());
     const allLogs = await this.statusLogModel

@@ -26,6 +26,9 @@ import {
   OrderStatus,
   OrderIdentifierSchema,
   OrderHistorySearchSchema,
+  PageNumberSchema,
+  paginate,
+  type PaginationInfo,
 } from '@kitchentodoor/shared';
 import { z } from 'zod';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
@@ -33,12 +36,19 @@ import { getRuntimeSettings } from '../config/runtime-settings.js';
 const getListOrdersQuerySchema = () =>
   z.object({
     status: z.nativeEnum(OrderStatus).optional(),
+    page: PageNumberSchema.optional(),
+    search: z.string().trim().max(100).default(''),
     limit: z.coerce
       .number()
       .int()
       .min(1)
       .max(getRuntimeSettings().ORDER_LIST_MAX_LIMIT)
       .default(getRuntimeSettings().ORDER_LIST_DEFAULT_LIMIT),
+  });
+const getHistoryQuerySchema = () =>
+  OrderHistorySearchSchema.extend({
+    page: PageNumberSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(getRuntimeSettings().ORDER_LIST_MAX_LIMIT).optional(),
   });
 import type {
   CreateOrderDto,
@@ -72,19 +82,47 @@ export class OrdersController {
     @Query(new ZodValidationPipe(getListOrdersQuerySchema)) query: z.infer<
       ReturnType<typeof getListOrdersQuerySchema>
     >,
-  ): Promise<{ success: boolean; count: number; orders: OrderDetails[] }> {
-    const orders = await this.ordersService.getAllOrders(query.status, query.limit);
-    return { success: true, count: orders.length, orders };
+  ): Promise<{
+    success: boolean;
+    count: number;
+    orders: OrderDetails[];
+    pagination?: PaginationInfo;
+  }> {
+    const pagination =
+      query.page === undefined
+        ? undefined
+        : paginate(
+            await this.ordersService.countOrders(query.status, query.search),
+            query.page,
+            query.limit,
+          );
+    const orders = await this.ordersService.getAllOrders(
+      query.status,
+      query.limit,
+      pagination?.page,
+      query.search,
+    );
+    return { success: true, count: orders.length, orders, ...(pagination ? { pagination } : {}) };
   }
 
   @Get('my-orders')
   async getMyOrders(
-    @Query(new ZodValidationPipe(OrderHistorySearchSchema)) query: z.infer<
-      typeof OrderHistorySearchSchema
+    @Query(new ZodValidationPipe(getHistoryQuerySchema)) query: z.infer<
+      ReturnType<typeof getHistoryQuerySchema>
     >,
-  ): Promise<{ success: boolean; count: number; orders: OrderDetails[] }> {
-    const orders = await this.ordersService.getMyOrders(query.phone);
-    return { success: true, count: orders.length, orders };
+  ): Promise<{
+    success: boolean;
+    count: number;
+    orders: OrderDetails[];
+    pagination?: PaginationInfo;
+  }> {
+    const limit = query.limit ?? getRuntimeSettings().ORDER_HISTORY_LIMIT;
+    const pagination =
+      query.page === undefined
+        ? undefined
+        : paginate(await this.ordersService.countMyOrders(query.phone), query.page, limit);
+    const orders = await this.ordersService.getMyOrders(query.phone, limit, pagination?.page);
+    return { success: true, count: orders.length, orders, ...(pagination ? { pagination } : {}) };
   }
 
   @Get(':orderId')

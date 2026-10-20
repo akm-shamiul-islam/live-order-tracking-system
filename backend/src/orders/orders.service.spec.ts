@@ -15,6 +15,7 @@ describe('OrdersService Unit Tests', () => {
       findOneAndUpdate: vi.fn<any>(),
       exists: vi.fn<any>(),
       find: vi.fn<any>(),
+      countDocuments: vi.fn<any>(),
       create: vi.fn<any>(),
       updateOne: vi.fn<any>(),
     };
@@ -23,6 +24,52 @@ describe('OrdersService Unit Tests', () => {
       find: vi.fn<any>(),
     };
     service = new OrdersService(mockOrderModel, mockStatusLogModel);
+  });
+
+  it('searches the database literally and paginates in a stable order', async () => {
+    const query = {
+      sort: vi.fn<(sort: Record<string, number>) => unknown>().mockReturnThis(),
+      skip: vi.fn<(count: number) => unknown>().mockReturnThis(),
+      limit: vi.fn<(count: number) => Promise<unknown[]>>().mockResolvedValue([]),
+    };
+    mockOrderModel.find.mockReturnValue(query);
+    mockStatusLogModel.find.mockReturnValue({
+      sort: vi.fn<(sort: Record<string, number>) => Promise<unknown[]>>().mockResolvedValue([]),
+    });
+    await service.getAllOrders('PLACED', 10, 3, 'A.*(B)');
+    expect(mockOrderModel.find).toHaveBeenCalledWith({
+      status: 'PLACED',
+      $or: ['orderNumber', 'customer.name', 'customer.phone'].map((field) => ({
+        [field]: { $regex: 'A\\.\\*\\(B\\)', $options: 'i' },
+      })),
+    });
+    expect(query.sort).toHaveBeenCalledWith({ createdAt: -1, _id: -1 });
+    expect(query.skip).toHaveBeenCalledWith(20);
+    expect(query.limit).toHaveBeenCalledWith(10);
+  });
+
+  it('uses the same filtered search for result counts', async () => {
+    mockOrderModel.countDocuments.mockResolvedValue(51);
+    expect(await service.countOrders('DELIVERED', 'KTD-12')).toBe(51);
+    expect(mockOrderModel.countDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'DELIVERED', $or: expect.any(Array) }),
+    );
+  });
+
+  it('paginates history for the requested phone', async () => {
+    const query = {
+      sort: vi.fn<(sort: Record<string, number>) => unknown>().mockReturnThis(),
+      skip: vi.fn<(count: number) => unknown>().mockReturnThis(),
+      limit: vi.fn<(count: number) => Promise<unknown[]>>().mockResolvedValue([]),
+    };
+    mockOrderModel.find.mockReturnValue(query);
+    mockStatusLogModel.find.mockReturnValue({
+      sort: vi.fn<(sort: Record<string, number>) => Promise<unknown[]>>().mockResolvedValue([]),
+    });
+    await service.getMyOrders('555-1234', 25, 2);
+    expect(mockOrderModel.find).toHaveBeenCalledWith({ 'customer.phone': '555-1234' });
+    expect(query.skip).toHaveBeenCalledWith(25);
+    expect(query.limit).toHaveBeenCalledWith(25);
   });
 
   it('generates an order number starting with KTD-', () => {

@@ -44,14 +44,16 @@ Throttler configuration loads asynchronously, and per-route decorators resolve s
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `ORDER_LIST_DEFAULT_LIMIT` | `50` | Default dispatch response size. |
+| `ORDER_LIST_DEFAULT_LIMIT` | `50` | Default dispatch response size when `limit` is omitted. |
 | `ORDER_LIST_MAX_LIMIT` | `100` | Maximum accepted dispatch response size. |
-| `ORDER_HISTORY_LIMIT` | `20` | Maximum history orders returned for a phone lookup. |
+| `ORDER_HISTORY_LIMIT` | `20` | Default history size for requests without an explicit `limit`. |
 | `ORDER_ESTIMATE_MINUTES` | `35` | Initial estimated delivery duration. |
 | `DELIVERY_FEE` | `5` | Nonnegative delivery fee in the application's dollar currency. |
 | `TAX_RATE` | `0.08` | Tax fraction from 0 to 1; `0.08` means 8%. |
 
 Order limits and estimates must be positive integers, and the default list limit cannot exceed its maximum. `GET /api/config` exposes only `{ pricing: { deliveryFee, taxRate } }`. Cart, checkout, and server pricing use these values with the shared calculation in cents. New orders use the current server settings; stored orders retain their original pricing. Changing a fee does not change past orders.
+
+The paginated UI defaults to 10 items and offers 25, 50, and 100. Dispatch/history send an explicit `limit`, bounded by `ORDER_LIST_MAX_LIMIT`, and `page`. To offer all four sizes, retain a maximum of at least 100. The history default no longer truncates a paginated lookup to the first 20 orders; matching totals and page metadata describe the complete result set.
 
 ## Database and DNS
 

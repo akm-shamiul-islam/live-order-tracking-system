@@ -48,6 +48,94 @@ body {
   font-family: var(--font-sans);
 }
 
+.app-content {
+  transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.navigation-sidebar {
+  position: fixed;
+  z-index: 30;
+  inset: 4rem auto 0 0;
+  width: 18rem;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 260ms;
+}
+.navigation-sidebar.is-open {
+  transform: translateX(0);
+  visibility: visible;
+}
+.dark .navigation-sidebar,
+.dark .navigation-dialog {
+  background: #0f172a;
+  border-color: #1e293b;
+  color: #e2e8f0;
+}
+.navigation-dialog {
+  position: fixed;
+  inset: 0 auto 0 0;
+  margin: 0;
+  padding: 0;
+  width: min(20rem, calc(100vw - 3rem));
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  border: 0;
+  border-right: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  transform: translateX(-100%);
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    display 260ms allow-discrete,
+    overlay 260ms allow-discrete;
+}
+.navigation-dialog[open] {
+  transform: translateX(0);
+}
+.navigation-dialog::backdrop {
+  background: rgb(2 6 23 / 55%);
+  backdrop-filter: blur(4px);
+}
+@starting-style {
+  .navigation-dialog[open] {
+    transform: translateX(-100%);
+  }
+}
+@media (min-width: 1024px) {
+  .app-content.navigation-is-open {
+    margin-left: 18rem;
+  }
+}
+.select-options {
+  animation: select-reveal 140ms ease-out;
+}
+@keyframes select-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-content,
+  .navigation-sidebar,
+  .navigation-dialog {
+    transition: none;
+  }
+  .select-options {
+    animation: none;
+  }
+}
+
 h1,
 h2,
 h3,

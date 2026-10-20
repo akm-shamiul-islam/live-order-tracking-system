@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { routeTree } from './router';
+import { MenuSearchSchema } from './lib/listSearch';
 
 describe('Application URLs', () => {
   it.each([
@@ -39,6 +40,36 @@ describe('Application URLs', () => {
     await router.load();
     expect(history.location.pathname).toBe('/tracking/KTD-1234');
     expect(router.state.matches.at(-1)?.params).toMatchObject({ orderId: 'KTD-1234' });
+  });
+
+  it('restores dispatch filters and pagination from a shared URL', async () => {
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({
+        initialEntries: ['/dispatch?status=PREPARING&q=Shamiul&page=3&size=25'],
+      }),
+    });
+    await router.load();
+    expect(router.state.matches.at(-1)?.search).toEqual({
+      status: 'PREPARING',
+      q: 'Shamiul',
+      page: 3,
+      size: 25,
+    });
+  });
+
+  it('normalizes invalid list URL settings for canonical navigation', async () => {
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({ initialEntries: ['/?category=unknown&page=-2&size=99'] }),
+    });
+    const normalized = MenuSearchSchema.parse(router.state.location.search);
+    expect(normalized).toEqual({ category: 'all', page: 1, size: 10 });
+    const canonicalUrl = router.buildLocation({ to: '/', search: normalized }).href;
+    expect(canonicalUrl).toBe('/');
+    router.history.replace(canonicalUrl);
+    await router.load();
+    expect(router.state.matches.at(-1)?.search).toEqual({ category: 'all', page: 1, size: 10 });
   });
 
   it('matches only the root not-found boundary for unknown pages', async () => {

@@ -1,11 +1,12 @@
 import { lazy, Suspense, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { UserRole } from '@kitchentodoor/shared';
-import { Navbar } from './components/layout/Navbar';
+import { Navbar, NavigationDrawer } from './components/layout/Navbar';
 import { AppActionsContext } from './components/layout/AppActionsContext';
 import type { MenuItem } from './components/customer/MenuCatalog';
 import type { CartItem } from './components/customer/CartDrawer';
 import { useAuth } from './hooks/useAuth';
+import { useDesktopLayout } from './hooks/useDesktopLayout';
 
 const CartDrawer = lazy(() =>
   import('./components/customer/CartDrawer').then((m) => ({ default: m.CartDrawer })),
@@ -30,6 +31,20 @@ export function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const desktop = useDesktopLayout();
+  function signOut() {
+    logout();
+    void navigate({ to: '/' });
+  }
+  function closeNavigation() {
+    setNavigationOpen(false);
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLButtonElement>('header button[aria-controls="site-navigation"]')
+        ?.focus(),
+    );
+  }
 
   function addToCart(item: MenuItem) {
     setCart((previous) => {
@@ -56,20 +71,33 @@ export function App() {
           onOpenCart={() => setCartOpen(true)}
           onOpenAdminLogin={() => setAdminLoginOpen(true)}
           isAuthenticatedAdmin={isAdmin || isCourier}
-          onLogoutAdmin={() => {
-            logout();
-            void navigate({ to: '/' });
-          }}
+          onLogoutAdmin={signOut}
+          navigationOpen={navigationOpen}
+          onToggleNavigation={() => setNavigationOpen((previous) => !previous)}
         />
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        <NavigationDrawer
+          open={navigationOpen}
+          desktop={desktop}
+          onClose={closeNavigation}
+          isStaff={isAdmin || isCourier}
+          onStaffAction={isAdmin || isCourier ? signOut : () => setAdminLoginOpen(true)}
+        />
+        <div
+          className={`app-content flex min-w-0 flex-1 flex-col ${navigationOpen ? 'navigation-is-open' : ''}`}
         >
-          <Suspense fallback={loadingPanel}>
-            <Outlet />
-          </Suspense>
-        </main>
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 min-w-0 w-full px-4 sm:px-6 lg:px-8 py-8"
+          >
+            <Suspense fallback={loadingPanel}>
+              <Outlet />
+            </Suspense>
+          </main>
+          <footer className="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-400">
+            <p>KitchenToDoor © 2026. Real-Time Order Lifecycle & Telemetry Platform.</p>
+          </footer>
+        </div>
         <Suspense fallback={loadingPanel}>
           {cartOpen && (
             <CartDrawer
@@ -120,9 +148,6 @@ export function App() {
             />
           )}
         </Suspense>
-        <footer className="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-400">
-          <p>KitchenToDoor © 2026. Real-Time Order Lifecycle & Telemetry Platform.</p>
-        </footer>
       </div>
     </AppActionsContext>
   );

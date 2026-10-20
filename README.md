@@ -38,7 +38,8 @@
   - `pre-commit`: Instant linting and formatting on staged files with `oxlint` and `oxfmt`.
   - `pre-push`: Automated typechecking (`pnpm typecheck`) and Vitest test runner (`pnpm test`) to check configured static and test gates before a push.
 - 🌓 **Adaptive Dark & Light Mode:** Responsive navbar with a toggle switch and persistent theme preference.
-- 📱 **Responsive UI:** Fluid drawers, responsive cards, thumb-friendly tracking steppers, and accessible components.
+- 📱 **Responsive UI:** A collapsible left navigation drawer, responsive cards, themed dropdowns, and accessible form controls. Desktop navigation reserves content space; mobile navigation opens as a modal drawer.
+- 📄 **Paginated Lists:** Menu, dispatch, and history support 10/25/50/100 items per page. Dispatch and history paginate database results with total counts.
 - 📦 **One-Command Monorepo:** Orchestrated with `pnpm` workspaces—run both frontend and backend dev servers simultaneously with `pnpm dev`.
 
 ---
@@ -240,6 +241,16 @@ See the [session architecture](documentation/docs/ARCHITECTURE.md#frontend-state
 Navigation, dispatch Track actions, and order-history tracking actions use actual links. Copy the address bar URL to reopen a page in another tab or after a refresh. Checkout opens the new order's tracking URL. Staff pages retain the requested URL while showing a sign-in gate; signing in continues on that page.
 
 Vite development and preview serve direct page URLs. Production hosting must rewrite frontend routes to `index.html` while forwarding `/api` and `/socket.io` to the backend.
+
+## Navigation and list controls
+
+Use the header's hamburger button to open navigation. On desktop, the drawer slides in from the left and reserves 288px; closing it restores the content width. On mobile it opens over the page, contains keyboard focus, and closes with its close button, Escape, a backdrop click, or a page link. Motion follows the reduced-motion preference.
+
+Dispatch has a themed status dropdown and **Filter** button on the left, plus an icon-aligned search field and **Search** button on the right. Selecting a status or editing a search leaves the current results unchanged until its action button is pressed. Search matches order numbers, customer names, and phones across database results.
+
+Menu, dispatch, and history provide item-size selection, result ranges, page controls, and disabled boundary buttons. Filters and page-size changes reset the page. Examples of shareable list state are `/?category=burgers&size=25` and `/dispatch?status=PLACED&q=KTD&page=2&size=25`. History keeps phone numbers out of the URL. Browser history restores list settings; invalid URL values normalize to defaults.
+
+Paged order requests use `page` and `limit`; dispatch also accepts `search` and `status`. Responses include `pagination: { page, pageSize, total, totalPages }`, and out-of-range pages clamp to the last available page. The configured `ORDER_LIST_MAX_LIMIT` applies. Requests without `page` retain their existing defaults for compatibility.
 
 ## Form errors and dispatch behavior
 

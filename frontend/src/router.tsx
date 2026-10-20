@@ -5,9 +5,15 @@ import {
   lazyRouteComponent,
   Link,
   Outlet,
+  stripSearchParams,
 } from '@tanstack/react-router';
 import { App } from './App';
 import { StaffOnly } from './components/auth/StaffOnly';
+import {
+  validateMenuSearch,
+  validateDispatchSearch,
+  validateHistorySearch,
+} from './lib/listSearch';
 
 function NotFoundPage() {
   return (
@@ -28,6 +34,8 @@ const rootRoute = createRootRoute({ component: App, notFoundComponent: NotFoundP
 const menuRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  validateSearch: validateMenuSearch,
+  search: { middlewares: [stripSearchParams({ category: 'all', page: 1, size: 10 })] },
   component: lazyRouteComponent(() => import('./pages/MenuPage'), 'MenuPage'),
 });
 const trackingRoute = createRoute({
@@ -48,6 +56,8 @@ const trackingOrderRoute = createRoute({
 const historyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'orders',
+  validateSearch: validateHistorySearch,
+  search: { middlewares: [stripSearchParams({ page: 1, size: 10 })] },
   component: lazyRouteComponent(() => import('./components/customer/OrderHistory'), 'OrderHistory'),
 });
 const staffRoute = createRoute({
@@ -58,6 +68,8 @@ const staffRoute = createRoute({
 const dispatchRoute = createRoute({
   getParentRoute: () => staffRoute,
   path: 'dispatch',
+  validateSearch: validateDispatchSearch,
+  search: { middlewares: [stripSearchParams({ status: 'ALL', q: '', page: 1, size: 10 })] },
   component: lazyRouteComponent(
     () => import('./components/admin/AdminOrdersTable'),
     'AdminOrdersTable',

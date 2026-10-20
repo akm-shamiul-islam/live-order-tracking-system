@@ -180,6 +180,36 @@ export const api = {
       return data.order;
     },
 
+    async getPage({
+      status,
+      search,
+      page,
+      pageSize,
+    }: {
+      status?: string;
+      search?: string;
+      page: number;
+      pageSize: number;
+    }): Promise<import('@kitchentodoor/shared').OrderPage> {
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      if (status) params.set('status', status);
+      if (search) params.set('search', search);
+      const res = await request(`${API_BASE}/orders?${params}`, { headers: getHeaders() });
+      return handleResponse<import('@kitchentodoor/shared').OrderPage>(res);
+    },
+
+    async getHistoryPage(
+      phone: string,
+      page: number,
+      pageSize: number,
+    ): Promise<import('@kitchentodoor/shared').OrderPage> {
+      const params = new URLSearchParams({ phone, page: String(page), limit: String(pageSize) });
+      const res = await request(`${API_BASE}/orders/my-orders?${params}`, {
+        headers: getHeaders(),
+      });
+      return handleResponse<import('@kitchentodoor/shared').OrderPage>(res);
+    },
+
     async getAll(status?: string): Promise<OrderDetails[]> {
       const url = status
         ? `${API_BASE}/orders?status=${encodeURIComponent(status)}`

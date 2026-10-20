@@ -53,6 +53,9 @@ const userModel = {
       provide: OrdersService,
       useValue: {
         getAllOrders: async () => [],
+        countOrders: async () => 26,
+        countMyOrders: async () => 26,
+        getMyOrders: async () => [],
         getOrderById: async (orderNumber: string) => ({ orderNumber }),
       },
     },
@@ -295,6 +298,37 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
       else process.env.ORDER_LIST_DEFAULT_LIMIT = previousDefault;
     }
   });
+
+  it('returns dispatch pagination and clamps pages beyond the filtered total', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/orders?page=99&limit=25&search=Shamiul',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().pagination).toEqual({ page: 2, pageSize: 25, total: 26, totalPages: 2 });
+  });
+
+  it('paginates phone history without the old implicit history cutoff', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/orders/my-orders?phone=555-1234&page=2&limit=10',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().pagination).toEqual({ page: 2, pageSize: 10, total: 26, totalPages: 3 });
+  });
+
+  it.each(['page=0', 'page=-1', 'page=1.5', 'page=nope', `search=${'x'.repeat(101)}`])(
+    'rejects invalid list controls: %s',
+    async (query) => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/orders?${query}`,
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      expect(response.statusCode).toBe(400);
+    },
+  );
 
   it('rate limits repeated login attempts', async () => {
     let status = 0;

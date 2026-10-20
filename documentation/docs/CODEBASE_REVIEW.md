@@ -37,7 +37,7 @@ The UI also kept independent authentication state in each `useAuth` call. A shar
 
 ## Verification
 
-Last code verification: `pnpm typecheck` passed; `pnpm test` passed **135 source tests across 14 suites**; `pnpm build` passed for all packages. Lint completed with **0 errors**, including the deprecated API rule; the warning backlog remains. Earlier totals included compiled copies of backend tests and are superseded by the source-only test configuration. Optional pages and tracking components load separately. Production assets were checked to exclude the development password hint.
+Last code verification: `pnpm typecheck` passed; `pnpm test` passed **158 source tests across 15 suites**; `pnpm build` passed for all packages. Lint completed with **0 errors**, including the deprecated API rule; the warning backlog remains. Earlier totals included compiled copies of backend tests and are superseded by the source-only test configuration. Optional pages and tracking components load separately. Production assets were checked to exclude the development password hint.
 
 - Workspace typechecking, regression tests, and production builds are run from the root using `pnpm typecheck`, `pnpm test`, and `pnpm build`.
 - HTTP tests cover normalized login, incorrect credentials, validation failures, authenticated profiles, staff dispatch access, customer denial, registration role escalation, invalid query limits, cancellation restrictions, and login rate limits.
@@ -90,3 +90,13 @@ The installed Mongoose 9.11.2 migration guide confirms that `new` and `returnOri
 The new deprecation lint rule fails on annotated deprecated APIs. Environment schemas centralize HTTP limits/windows, order limits/estimates, pricing, password work factor, database retries, DNS, and browser timings. Development seeding requires configured credentials. Cart and checkout load only public pricing from the API, and rate-limit messages use the actual retry interval. See the [configuration guide and primary references](CONFIGURATION.md).
 
 All Kitchen Dispatch Station headers are centered. Order #, Total, Current Status, Created, and Actions cells are centered while Customer and Items retain left alignment. Track and Advance retain matching 32px heights inside a centered flex row.
+
+## Follow-up: navigation, themed filters, and pagination
+
+The cramped horizontal navigation was replaced with a hamburger-controlled left drawer. Desktop content reserves the sidebar width while open; mobile uses a modal dialog with focus containment and scroll locking. Category hover colors explicitly override light-mode text, border, and background in dark mode. History Search Orders and tracking Track buttons include icons.
+
+Dispatch now has a themed status dropdown with all eight statuses and explicit Filter/Search actions. Its search icon has equal 14px spacing inside a 44px region. The dropdown sits above the table, including dark mode. The new select supports keyboard selection, type-ahead, Escape, and outside dismissal.
+
+Pagination covers menu, dispatch, and history with 10/25/50/100 choices, ranges, page buttons, and boundary states. A former implementation limit was also removed: dispatch search previously filtered only the fetched subset, and history stopped at its implicit 20-order limit. Database search/count/skip/limit now make the complete matching order set reachable through paged requests. Search text is escaped literally, and timestamp ties use `_id` for stable sorting. URL schemas restore list state and normalize invalid inputs.
+
+Verification adds pagination boundaries, filtered database queries, stable sorting, history offsets, HTTP validation, and route URL cases. Browser checks use real API reads for filters/history and a temporary response fixture for multi-page controls, without changing existing orders. They cover drawer width restoration, mobile dismissal, dark hover colors, all statuses, icon spacing, keyboard selection, page-size reset, and invalid direct URLs.

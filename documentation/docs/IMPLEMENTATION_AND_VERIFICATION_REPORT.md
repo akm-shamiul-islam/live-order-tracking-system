@@ -249,23 +249,24 @@ Frontend forms use `useZodForm` to display each field's Zod message below the in
 | **Seed and Recovery Tests** | `backend/src/database/seed.service.spec.ts` | ✅ Passed (9 tests) | Parses the actual dotenv template, rejects missing credentials, preserves complete passwords, and checks reset guards and profile preservation. |
 | **Auth Service** | `backend/src/auth/auth.service.ts` | ✅ Passed | Bcrypt verification, JWT signing, token verification. |
 | **Auth Unit Tests** | `backend/src/auth/auth.service.spec.ts` | ✅ Passed (7 tests) | Bcrypt verification, JWT issuance, duplicate prevention, token validation. |
-| **HTTP Regression Tests** | `backend/src/auth/auth.http.spec.ts` | ✅ Passed (25 tests) | Fastify/NestJS pipeline for injection, auth, roles, lookups, configurable rates/limits, and public pricing. |
+| **HTTP Regression Tests** | `backend/src/auth/auth.http.spec.ts` | ✅ Passed (32 tests) | Fastify/NestJS auth/roles, lookups, configurable rates/limits, public pricing, paginated responses, and invalid list controls. |
 | **Auth Guards** | `backend/src/auth/guards/` | ✅ Passed | `JwtAuthGuard`, `RolesGuard`, `WsJwtGuard`. |
 | **Zod Request Pipe** | `backend/src/common/pipes/` | ✅ Passed | `ZodValidationPipe` returning formatted 400 errors. |
 | **Orders Gateway** | `backend/src/orders/orders.gateway.ts`| ✅ Passed | Socket.io gateway with room routing & WsJwtGuard. |
 | **Orders Controller** | `backend/src/orders/orders.controller.ts`| ✅ Passed | REST endpoints protected by ZodValidationPipe and RBAC. |
-| **Orders Unit Tests** | `backend/src/orders/orders.service.spec.ts`| ✅ Passed (14 tests) | Catalog pricing, transitions, stale advance/cancel rejection, history references, missing orders, and terminal telemetry. |
+| **Orders Unit Tests** | `backend/src/orders/orders.service.spec.ts`| ✅ Passed (17 tests) | Pricing, transitions, concurrent changes, history references, terminal telemetry, literal search, stable sorting, and pagination offsets. |
 | **Zustand Auth Store** | `frontend/src/lib/authSession.ts` | ✅ Passed | Shared session with compatible persistence and cross-tab synchronization. |
 | **Auth Hook** | `frontend/src/hooks/useAuth.ts` | ✅ Passed | Selects shared user/token state and derives role flags; actions delegate to the API client. |
 | **Root Session Sync** | `frontend/src/components/auth/AuthSessionSync.tsx` | ✅ Passed | Owns session verification, storage listener, socket identity, and logout cache cleanup. |
 | **Session Store Tests** | `frontend/src/lib/authSession.spec.ts` | ✅ Passed (7 tests) | Stored-session compatibility, malformed data, tab changes, startup races, and blocked storage. |
 | **API Client Tests** | `frontend/src/lib/api.spec.ts` | ✅ Passed (11 tests) | Shared sessions, expiration, stale responses, storage failures, field paths, malformed auth, public pricing, and Retry-After. |
-| **Router Tests** | `frontend/src/router.spec.ts` | ✅ Passed (9 tests) | Direct page URLs, selected order parameters, staff layout matching, unknown pages, and memory history. |
+| **Router Tests** | `frontend/src/router.spec.ts` | ✅ Passed (11 tests) | Page/order URLs, staff layouts, unknown pages, memory history, shared filters/pages, and canonical search defaults. |
+| **Pagination Tests** | `shared/src/pagination.spec.ts` | ✅ Passed (11 tests) | Empty and stale-page boundaries, page-size choices, and invalid page requests. |
 | **Runtime Configuration Tests** | `backend/src/config/runtime-settings.spec.ts` | ✅ Passed (12 tests) | Template/default settings, overrides, validation, and public pricing isolation. |
 | **Browser Configuration Tests** | `frontend/src/lib/client-settings-schema.spec.ts` | ✅ Passed (4 tests) | Public defaults, overrides, invalid values, and exclusion of server secrets. |
 | **Pricing Tests** | `shared/src/pricing.spec.ts` | ✅ Passed (3 tests) | Custom fees/tax, zero-cost settings, empty orders, and cent rounding. |
 | **Frontend Entry** | `frontend/src/main.tsx` | ✅ Passed | React 19 + QueryClientProvider with one root AuthSessionSync and RouterProvider. |
-| **Navbar** | `frontend/src/components/layout/Navbar.tsx`| ✅ Passed | Responsive header with Dark/Light mode toggle, ConnectionBadge, mobile drawer. |
+| **Navbar** | `frontend/src/components/layout/Navbar.tsx`| ✅ Passed | Compact header, collapsible desktop sidebar, and animated mobile dialog with keyboard dismissal. |
 | **Connection Badge** | `frontend/src/components/tracking/ConnectionBadge.tsx`| ✅ Passed | Live socket status pill with roundtrip ping latency in milliseconds. |
 | **Order Stepper** | `frontend/src/components/tracking/OrderTimeline.tsx`| ✅ Passed | 6-stage animated progress stepper with `motion/react` pulsing rings. |
 | **Telemetry Radar** | `frontend/src/components/tracking/LiveMapTracker.tsx`| ✅ Passed | Circular radar sweep with animated courier beacon traveling to doorstep. |
@@ -313,7 +314,7 @@ For development credential recovery, follow the [README instructions](../../READ
 
 ## 9. Last Code Verification
 
-The last implementation verification passed `pnpm typecheck`, **135 source tests across 14 suites** with `pnpm test`, and `pnpm build` for all packages. Lint reported **0 errors**, including the type-aware deprecated API check; existing warnings remain. [vitest.config.ts](../../vitest.config.ts) selects maintained source tests from the three packages, excluding compiled copies and backups.
+The last implementation verification passed `pnpm typecheck`, **158 source tests across 15 suites** with `pnpm test`, and `pnpm build` for all packages. Lint reported **0 errors**, including the type-aware deprecated API check; existing warnings remain. [vitest.config.ts](../../vitest.config.ts) selects maintained source tests from the three packages, excluding compiled copies and backups.
 
 Authentication coverage includes the HTTP login/validation/authorization flow, Zustand persistence and cross-tab races, expired-session handling, delayed 401 responses, and the actual dotenv template. Separate local browser smoke checks covered desktop and mobile sign-in, full default credentials, immediate UI updates, refresh persistence, logout, guest socket reconnection, and two-tab session changes. These checks are not an automated end-to-end browser suite.
 
@@ -322,5 +323,7 @@ The navigation/form review also checked equal 32px action-button bounds, direct 
 The configuration follow-up verified all seven dispatch headers and the five requested data columns with computed browser styles. Track and Advance retained identical 32px bounds. Cart fee/tax matched `/api/config`, and submitted invalid checkout fields displayed red borders, linked messages, and first-error focus. An isolated compiled production API returned overridden fee/tax settings, rejected an unauthenticated profile request, skipped staff seeding, and emitted no Mongoose startup warnings.
 
 Runtime verification also imported the shared JavaScript in plain Node, resolved source exports through the development condition, and started the compiled API in production mode on an isolated port. Source test discovery and typechecking remain independent of built shared artifacts.
+
+The navigation/list follow-up verifies a 288px desktop content shift and restoration, mobile drawer Escape/link dismissal and scroll unlock, dark category hover styles, all eight dispatch statuses, explicit Filter/Search actions, equal search-icon spacing, and button icons. Temporary browser response fixtures exercise next-page navigation, a 25-item selection resetting to page one, and a partial final page. Real API reads verify filtering/history; no existing orders are advanced for these checks. Invalid direct URLs normalize to defaults, and server-clamped pages correct their URL. A 1024px tablet check covers light mode, contained overflow, and reduced-motion transitions.
 
 See [CODEBASE_REVIEW.md](CODEBASE_REVIEW.md#verification) for the verification scope and remaining implementation gaps.

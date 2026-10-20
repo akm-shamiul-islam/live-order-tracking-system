@@ -85,7 +85,7 @@ In accordance with system requirements, the database utilizes **MongoDB** with s
 | --- | --- | --- |
 | Current user and access token | Zustand 5.0.15 | One shared session for `useAuth`, the API client, and the socket client. |
 | Orders and session verification | TanStack Query | REST results, socket-driven order updates, and cached `/api/auth/me` checks. |
-| Current page and selected order | TanStack Router | Typed URLs, direct links, browser history, and staff route layout. |
+| Page, selected order, list filters and pagination | TanStack Router | Typed URLs, direct links, browser history, and staff route layout. |
 | Cart, dialogs, and form drafts | React component state | The root layout preserves the cart while navigating between pages. |
 
 The session uses a singleton `createStore` from `zustand/vanilla`, with selective `useStore` subscriptions in React. It does not need a Zustand provider. Persistence is implemented explicitly around the existing `ktd_token` and `ktd_user` localStorage keys, preserving saved sessions from before the migration. Zustand's `persist` middleware is not used.
@@ -124,6 +124,16 @@ Public pages are `/`, `/tracking`, `/tracking/$orderId`, and `/orders`. The path
 [Shared lookup schemas](../../shared/src/schemas/lookup.schema.ts) validate phone numbers and normalize order numbers/database IDs. The API validates order-history queries and tracking parameters with the same schemas. Customer names and addresses are trimmed before minimum-length checks. Checkout validates its visible fields before validating the full order payload. Malformed authentication responses produce a readable service error and cannot create a session.
 
 Production hosts must route frontend paths to `index.html` and proxy API/socket paths separately. See the [README URL matrix](../../README.md#pages-and-shareable-links) and [TanStack's routing guide](https://tanstack.com/router/latest/docs/routing/code-based-routing).
+
+### Drawer navigation and list controls
+
+The header contains the brand, navigation trigger, and account/cart/theme actions. `NavigationDrawer` renders a fixed, nonmodal desktop sidebar or a native mobile dialog according to `useDesktopLayout`. The desktop content margin animates with the 288px sidebar; mobile content retains its width. Closed desktop navigation is inert. Mobile focus containment, Escape handling, and scroll locking use `useDialog`. CSS provides opening/closing transitions and reduced-motion overrides.
+
+`ThemedSelect` implements a select-only combobox with an active descendant, listbox options, keyboard navigation, Home/End, type-ahead, Escape, and outside-click dismissal. Dispatch uses separate draft controls for explicit Filter/Search submission. The shared `Pagination` component presents result counts, the requested 10/25/50/100 sizes, and boundary/page controls.
+
+List search schemas validate category/status/query/page/size in URLs; router middleware omits defaults. Phone history queries keep the phone in component state. Menu pagination slices the complete shared catalog locally. Dispatch/history request database pages, count matching orders, clamp stale page numbers, and sort by `createdAt` plus unique `_id` for stable ties. Dispatch search escapes regex characters and applies to the database before pagination. Existing unpaged API requests remain compatible.
+
+Implementation references: [TanStack search parameters](https://tanstack.com/router/latest/docs/guide/search-params), [select-only combobox behavior](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/), [native dialog transitions](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog#animating_dialogs), and [MongoDB sort consistency](https://www.mongodb.com/docs/manual/reference/method/cursor.sort/#sort-consistency).
 
 ## Environment configuration and development accounts
 

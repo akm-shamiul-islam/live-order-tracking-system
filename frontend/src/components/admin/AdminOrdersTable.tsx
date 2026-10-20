@@ -1,27 +1,43 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { api } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
-import { ORDER_STATUS_SEQUENCE, OrderDetails } from '@kitchentodoor/shared';
-import { Search, ArrowRight, Eye, RefreshCw } from 'lucide-react';
+import { ORDER_STATUS_SEQUENCE, OrderDetails, paginate } from '@kitchentodoor/shared';
+import { ArrowRight, Eye, RefreshCw } from 'lucide-react';
+import { Pagination } from '../layout/Pagination';
+import { DispatchFilters } from './DispatchFilters';
 
 export function AdminOrdersTable() {
   const queryClient = useQueryClient();
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const {
+    status: selectedStatus,
+    q: searchQuery,
+    page,
+    size,
+  } = useSearch({ from: '/staff/dispatch' });
+  const navigate = useNavigate({ from: '/dispatch' });
   const [advancingId, setAdvancingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const {
-    data: orders = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['admin-orders', selectedStatus],
-    queryFn: () => api.orders.getAll(selectedStatus === 'ALL' ? undefined : selectedStatus),
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ['admin-orders', selectedStatus, searchQuery, page, size],
+    queryFn: () =>
+      api.orders.getPage({
+        status: selectedStatus === 'ALL' ? undefined : selectedStatus,
+        search: searchQuery,
+        page,
+        pageSize: size,
+      }),
   });
+  const orders = data?.orders ?? [];
+  const pagination = data?.pagination ?? paginate(0, page, size);
+  const resolvedPage = data?.pagination.page;
+  useEffect(() => {
+    if (resolvedPage !== undefined && resolvedPage !== page) {
+      void navigate({ search: (previous) => ({ ...previous, page: resolvedPage }), replace: true });
+    }
+  }, [resolvedPage, navigate, page]);
 
   // Real-time synchronization for Admin Dispatch station
   useEffect(() => {
@@ -70,16 +86,6 @@ export function AdminOrdersTable() {
     }
   };
 
-  const filtered = orders.filter((o) => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      o.orderNumber.toLowerCase().includes(q) ||
-      o.customer.name.toLowerCase().includes(q) ||
-      o.customer.phone.includes(q)
-    );
-  });
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PLACED':
@@ -100,8 +106,6 @@ export function AdminOrdersTable() {
         return 'bg-slate-100 text-slate-700 border-slate-300';
     }
   };
-
-  const statusFilters = ['ALL', ...ORDER_STATUS_SEQUENCE, 'CANCELLED'];
 
   return (
     <div className="space-y-6">
@@ -133,37 +137,21 @@ export function AdminOrdersTable() {
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="glass-panel p-4 rounded-2xl flex flex-col xl:flex-row gap-3 items-center justify-between">
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto w-full xl:w-auto pb-1 xl:pb-0 scrollbar-none">
-          {statusFilters.map((st) => (
-            <button
-              key={st}
-              aria-pressed={selectedStatus === st}
-              onClick={() => setSelectedStatus(st)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-                selectedStatus === st
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm shadow-emerald-500/20'
-                  : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-            >
-              {st.replace(/_/g, ' ')}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative w-full xl:w-72 shrink-0">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
-          <input
-            type="text"
-            aria-label="Search dispatch orders by order number, customer name, or phone"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search order # or phone..."
-            className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
-          />
-        </div>
-      </div>
+      <DispatchFilters
+        key={`${selectedStatus}:${searchQuery}`}
+        status={selectedStatus}
+        search={searchQuery}
+        onFilter={(status) =>
+          void navigate({
+            search: (previous) => ({
+              ...previous,
+              status: status as typeof selectedStatus,
+              page: 1,
+            }),
+          })
+        }
+        onSearch={(q) => void navigate({ search: (previous) => ({ ...previous, q, page: 1 }) })}
+      />
 
       {/* Responsive Orders Table */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -195,7 +183,7 @@ export function AdminOrdersTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
-              {filtered.length === 0 ? (
+              {orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
                     {isLoading
@@ -206,7 +194,7 @@ export function AdminOrdersTable() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((order) => {
+                orders.map((order) => {
                   const currentIdx = ORDER_STATUS_SEQUENCE.indexOf(order.status);
                   const canAdvance =
                     currentIdx >= 0 && currentIdx < ORDER_STATUS_SEQUENCE.length - 1;
@@ -282,6 +270,18 @@ export function AdminOrdersTable() {
           </table>
         </div>
       </div>
+      <Pagination
+        pagination={pagination}
+        disabled={isFetching}
+        onPageChange={(next) =>
+          void navigate({ search: (previous) => ({ ...previous, page: next }) })
+        }
+        onPageSizeChange={(next) =>
+          void navigate({
+            search: (previous) => ({ ...previous, size: next as typeof size, page: 1 }),
+          })
+        }
+      />
     </div>
   );
 }

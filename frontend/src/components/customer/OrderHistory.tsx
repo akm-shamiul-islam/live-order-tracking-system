@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { OrderHistorySearchSchema } from '@kitchentodoor/shared';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { OrderHistorySearchSchema, paginate } from '@kitchentodoor/shared';
 import { api, ApiError } from '../../lib/api';
 import { useZodForm } from '../../hooks/useZodForm';
 import { FieldError } from '../forms/FieldError';
 import { Search, Clock, Eye, ShoppingBag } from 'lucide-react';
+import { Pagination } from '../layout/Pagination';
 
 export function OrderHistory() {
+  const { page, size } = useSearch({ from: '/orders' });
+  const navigate = useNavigate({ from: '/orders' });
   const [initialPhone] = useState(() => {
     try {
       const saved = OrderHistorySearchSchema.safeParse({
@@ -21,19 +24,19 @@ export function OrderHistory() {
   const form = useZodForm(OrderHistorySearchSchema, { phone: initialPhone }, 'history');
   const [searchPhone, setSearchPhone] = useState(initialPhone);
 
-  const {
-    data: orders = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['my-orders', searchPhone],
-    queryFn: () => {
-      if (!searchPhone) return [];
-      return api.orders.getMyOrders(searchPhone);
-    },
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ['my-orders', searchPhone, page, size],
+    queryFn: () => api.orders.getHistoryPage(searchPhone, page, size),
     enabled: !!searchPhone,
   });
+  const orders = data?.orders ?? [];
+  const pagination = data?.pagination ?? paginate(0, page, size);
+  const resolvedPage = data?.pagination.page;
+  useEffect(() => {
+    if (resolvedPage !== undefined && resolvedPage !== page) {
+      void navigate({ search: (previous) => ({ ...previous, page: resolvedPage }), replace: true });
+    }
+  }, [resolvedPage, navigate, page]);
 
   const handleSearch = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,8 +47,11 @@ export function OrderHistory() {
     } catch {
       /* Storage may be blocked. */
     }
-    if (values.phone === searchPhone) void refetch();
-    else setSearchPhone(values.phone);
+    if (values.phone === searchPhone && page === 1) void refetch();
+    else {
+      setSearchPhone(values.phone);
+      void navigate({ search: (previous) => ({ ...previous, page: 1 }) });
+    }
   };
 
   const phoneError =
@@ -76,7 +82,12 @@ export function OrderHistory() {
             Phone number used to place your order
           </label>
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 flex w-11 items-center justify-center text-slate-400"
+            >
+              <Search className="h-4 w-4" />
+            </span>
             <input
               type="tel"
               {...form.field('phone')}
@@ -85,24 +96,27 @@ export function OrderHistory() {
               aria-describedby={phoneError ? 'history-phone-error' : undefined}
               autoComplete="tel"
               required
-              placeholder="Enter your phone number (e.g. 555-1234)..."
-              className="h-10 w-full pl-10 pr-4 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
+              placeholder="Phone number (e.g. 555-1234)…"
+              className="h-11 w-full pl-11 pr-4 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
           </div>
           <FieldError id="history-phone-error" message={phoneError} />
         </div>
         <button
           type="submit"
-          className="h-10 shrink-0 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition-colors shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
         >
-          Search Orders
+          <Search aria-hidden="true" className="h-4 w-4" />
+          <span>Search Orders</span>
         </button>
       </form>
 
       {/* Orders List */}
       <div className="space-y-4">
         {isLoading ? (
-          <div className="text-center py-12 text-slate-400">Loading your orders...</div>
+          <div role="status" className="text-center py-12 text-slate-400">
+            Loading your orders…
+          </div>
         ) : error ? (
           <div
             role="alert"
@@ -172,6 +186,20 @@ export function OrderHistory() {
           ))
         )}
       </div>
+      {searchPhone && !error && (
+        <Pagination
+          pagination={pagination}
+          disabled={isFetching}
+          onPageChange={(next) =>
+            void navigate({ search: (previous) => ({ ...previous, page: next }) })
+          }
+          onPageSizeChange={(next) =>
+            void navigate({
+              search: (previous) => ({ ...previous, size: next as typeof size, page: 1 }),
+            })
+          }
+        />
+      )}
     </div>
   );
 }

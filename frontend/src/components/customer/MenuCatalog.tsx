@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Plus, Flame, Star } from 'lucide-react';
 
-import { MENU_ITEMS, type MenuItem } from '@kitchentodoor/shared';
+import { MENU_ITEMS, paginate, type MenuItem } from '@kitchentodoor/shared';
+import { Pagination } from '../layout/Pagination';
 export type { MenuItem } from '@kitchentodoor/shared';
 
 interface MenuCatalogProps {
@@ -9,7 +10,8 @@ interface MenuCatalogProps {
 }
 
 export function MenuCatalog({ onAddToCart }: MenuCatalogProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const { category: selectedCategory, page, size } = useSearch({ from: '/' });
+  const navigate = useNavigate({ from: '/' });
 
   const categories = [
     { id: 'all', label: 'All Dishes' },
@@ -17,12 +19,14 @@ export function MenuCatalog({ onAddToCart }: MenuCatalogProps) {
     { id: 'pizzas', label: 'Pizzas' },
     { id: 'sides', label: 'Sides' },
     { id: 'drinks', label: 'Drinks' },
-  ];
+  ] as const;
 
   const filtered =
     selectedCategory === 'all'
       ? MENU_ITEMS
       : MENU_ITEMS.filter((item) => item.category === selectedCategory);
+  const pagination = paginate(filtered.length, page, size);
+  const visibleItems = filtered.slice((pagination.page - 1) * size, pagination.page * size);
 
   return (
     <div className="space-y-8">
@@ -66,11 +70,14 @@ export function MenuCatalog({ onAddToCart }: MenuCatalogProps) {
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+            onClick={() =>
+              void navigate({ search: (previous) => ({ ...previous, category: cat.id, page: 1 }) })
+            }
+            aria-pressed={selectedCategory === cat.id}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-colors cursor-pointer ${
               selectedCategory === cat.id
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 scale-105 border border-emerald-500/30'
-                : 'bg-white text-slate-700 hover:text-slate-950 hover:bg-slate-50 border border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800 shadow-xs'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/20 border border-emerald-500/30 hover:from-emerald-500 hover:to-teal-500 dark:from-emerald-500/20 dark:to-teal-500/15 dark:text-teal-200 dark:border-teal-400/40 dark:hover:from-emerald-500/30 dark:hover:to-teal-500/25'
+                : 'bg-white text-slate-700 hover:text-teal-800 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-teal-500/10 dark:hover:text-teal-200 dark:hover:border-teal-400/40 shadow-xs'
             }`}
           >
             {cat.label}
@@ -80,7 +87,7 @@ export function MenuCatalog({ onAddToCart }: MenuCatalogProps) {
 
       {/* Food Items Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((item) => (
+        {visibleItems.map((item) => (
           <div
             key={item.id}
             className="glass-panel rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/50 transition-all hover:shadow-xl hover:-translate-y-1 group"
@@ -100,7 +107,7 @@ export function MenuCatalog({ onAddToCart }: MenuCatalogProps) {
               </div>
 
               {/* Title & Desc */}
-              <h3 className="font-display font-extrabold text-lg text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
+              <h3 className="font-display font-extrabold text-lg text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
                 {item.name}
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 line-clamp-2 leading-relaxed">
@@ -132,6 +139,17 @@ export function MenuCatalog({ onAddToCart }: MenuCatalogProps) {
           </div>
         ))}
       </div>
+      <Pagination
+        pagination={pagination}
+        onPageChange={(next) =>
+          void navigate({ search: (previous) => ({ ...previous, page: next }) })
+        }
+        onPageSizeChange={(next) =>
+          void navigate({
+            search: (previous) => ({ ...previous, size: next as typeof size, page: 1 }),
+          })
+        }
+      />
     </div>
   );
 }
