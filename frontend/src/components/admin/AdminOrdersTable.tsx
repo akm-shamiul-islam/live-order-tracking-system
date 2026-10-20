@@ -8,6 +8,34 @@ import { ArrowRight, Eye, RefreshCw } from 'lucide-react';
 import { Pagination } from '../layout/Pagination';
 import { DispatchFilters } from './DispatchFilters';
 
+const createdAtFormatter = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+function OrderCreatedAt({ value }: { value: string }) {
+  const parts = Object.fromEntries(
+    createdAtFormatter.formatToParts(new Date(value)).map(({ type, value: part }) => [type, part]),
+  );
+  const date = `${parts.year}/${parts.month}/${parts.day}`;
+  const time = `${parts.hour}:${parts.minute}:${parts.second}`;
+  return (
+    <time
+      dateTime={value}
+      aria-label={`${date}, ${time}`}
+      className="inline-block whitespace-nowrap tabular-nums"
+    >
+      <span className="block font-medium text-slate-600 dark:text-slate-300">{date}</span>
+      <span className="mt-1 block">{time}</span>
+    </time>
+  );
+}
+
 export function AdminOrdersTable() {
   const queryClient = useQueryClient();
   const {
@@ -232,10 +260,7 @@ export function AdminOrdersTable() {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-slate-400 font-mono text-[11px] text-center">
-                        {new Date(order.createdAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        <OrderCreatedAt value={order.createdAt} />
                       </td>
                       <td className="py-4 px-4 align-middle text-center">
                         <div className="flex items-center justify-center gap-2 whitespace-nowrap">

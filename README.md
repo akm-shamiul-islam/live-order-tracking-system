@@ -256,7 +256,7 @@ Paged order requests use `page` and `limit`; dispatch also accepts `search` and 
 
 Sign-in, checkout, history, and tracking forms use shared Zod schemas through `useZodForm`. Validation runs on blur and submission, and invalid fields are rechecked while edited. Each invalid input has `aria-invalid`, a red border, and a linked red error message beneath it. Submission focuses the first invalid field. General network or service failures remain form-level messages; server validation retains field paths so errors can appear beside the relevant input.
 
-All dispatch table headers are centered. Order #, Total, Current Status, Created, and Actions cells are centered; customer and item details remain left aligned. Track and Advance share a centered flex action row and an equal 32px height. Status updates and cancellations use a conditional database write, so a competing dispatcher receives a conflict message instead of overwriting a newer status. Delivered and cancelled orders reject further courier telemetry, and their simulator stops.
+All dispatch table headers are centered. Order #, Total, Current Status, Created, and Actions cells are centered; customer and item details remain left aligned. Created shows `YYYY/MM/DD` above the 24-hour time `HH:MM:SS`, using the browser's local time zone. Track and Advance share a centered flex action row and an equal 32px height. Status updates and cancellations use a conditional database write, so a competing dispatcher receives a conflict message instead of overwriting a newer status. Delivered and cancelled orders reject further courier telemetry, and their simulator stops.
 
 ## Git hook behavior
 
