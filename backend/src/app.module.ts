@@ -1,0 +1,47 @@
+import { Module } from '@nestjs/common';
+import { fileURLToPath } from 'node:url';
+import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { httpRateLimiterProvider } from './common/rate-limit.js';
+import { DatabaseModule } from './database/database.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { OrdersModule } from './orders/orders.module.js';
+import { getRuntimeSettings, validateEnvironment } from './config/runtime-settings.js';
+import { PublicConfigController } from './config/public-config.controller.js';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnvironment,
+      // The root configuration takes precedence regardless of the command's cwd.
+      envFilePath: [
+        fileURLToPath(new URL('../../.env', import.meta.url)),
+        fileURLToPath(new URL('../.env', import.meta.url)),
+      ],
+    }),
+    MongooseModule.forRootAsync({
+      useFactory: () => {
+        const settings = getRuntimeSettings();
+        return {
+          uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/kitchentodoor_db',
+          serverSelectionTimeoutMS: settings.MONGODB_SERVER_SELECTION_TIMEOUT_MS,
+          retryAttempts: settings.MONGODB_RETRY_ATTEMPTS,
+          retryDelay: settings.MONGODB_RETRY_DELAY_MS,
+        };
+      },
+    }),
+    ThrottlerModule.forRootAsync({
+      useFactory: () => [
+        { ttl: getRuntimeSettings().RATE_LIMIT_TTL_MS, limit: getRuntimeSettings().RATE_LIMIT_MAX },
+      ],
+    }),
+    DatabaseModule,
+    AuthModule,
+    OrdersModule,
+  ],
+  providers: [httpRateLimiterProvider],
+  controllers: [PublicConfigController],
+})
+export class AppModule {}

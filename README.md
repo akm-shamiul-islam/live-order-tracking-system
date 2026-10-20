@@ -1,54 +1,78 @@
 # 🍳 KitchenToDoor: Real-Time Order & Telemetry Platform
 
 > **Fresh from the Kitchen, Tracked to Your Door.**  
-> A high-performance full-stack monorepo built with NestJS (Fastify), MongoDB Mongoose, Socket.io, React 19, TanStack Router & Query, Tailwind CSS v4, Motion, and automated Git hooks via Husky + lint-staged.
+> Full-stack development application built with NestJS (Fastify), MongoDB Mongoose, Socket.io, React 19, Zustand 5, TanStack Router, Vite 8, Tailwind CSS v4, Motion, and automated Git verification gates.
+
+<p align="left">
+  <img src="https://img.shields.io/badge/Node.js-v24.18.1-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/pnpm-v12.14.0-F69220?style=for-the-badge&logo=pnpm&logoColor=white" alt="pnpm" />
+  <img src="https://img.shields.io/badge/TypeScript-v7.0.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/NestJS-v12.0.0-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
+  <img src="https://img.shields.io/badge/Fastify-v5.2.0-000000?style=for-the-badge&logo=fastify&logoColor=white" alt="Fastify" />
+  <img src="https://img.shields.io/badge/MongoDB-Mongoose_v9.11.2-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
+  <img src="https://img.shields.io/badge/Socket.io-v4.8.4-010101?style=for-the-badge&logo=socketdotio&logoColor=white" alt="Socket.io" />
+  <img src="https://img.shields.io/badge/React-v19.0.0-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/Zustand-v5.0.15-443E38?style=for-the-badge" alt="Zustand" />
+  <img src="https://img.shields.io/badge/Vite-v8.3.4_(Rolldown)-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4.0.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Motion-v12.4.7-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Motion" />
+  <img src="https://img.shields.io/badge/Vitest-v5.0.5-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
+  <img src="https://img.shields.io/badge/Zod-v3.24.2-3E67B1?style=for-the-badge&logo=zod&logoColor=white" alt="Zod" />
+  <img src="https://img.shields.io/badge/Oxlint-v1.88.0-DEA584?style=for-the-badge&logo=rust&logoColor=white" alt="Oxlint" />
+  <img src="https://img.shields.io/badge/Husky-v9.1.7-F05032?style=for-the-badge&logo=git&logoColor=white" alt="Husky" />
+</p>
 
 ---
 
 ## 🌟 Overview & Key Features
 
-**KitchenToDoor** is an enterprise-grade real-time food order tracking and telemetry platform engineered for high-throughput kitchen operations, live courier dispatch management, and modern customer tracking experiences.
+**KitchenToDoor** supports guest food orders, live order updates, staff dispatch, and simulated courier movement. See [the current codebase review](documentation/docs/CODEBASE_REVIEW.md) for fixes, verification, and remaining production gaps.
 
-* ⚡ **High-Throughput Fastify Engine:** Powered by NestJS + Fastify (`@nestjs/platform-fastify`), delivering 2x to 3x higher throughput than legacy Express setups.
-* 🛰️ **Live Telemetry & Radar Simulation:** Dynamic radar showing simulated courier movement with real-time GPS coordinate broadcasting.
-* 🔒 **Hardened Security & RBAC:** Cryptographic password hashing (`bcryptjs` salt rounds: 12), stateless JWT authentication, and **`WsJwtGuard`** for authenticated WebSocket handshakes.
-* 🛡️ **Automated Quality Gates (Husky + lint-staged):**
-  * `pre-commit`: Instant linting and formatting on staged files with `oxlint` and `oxfmt`.
-  * `pre-push`: Automated typechecking (`pnpm typecheck`) and Vitest test runner (`pnpm test`) to guarantee zero broken builds reach the remote repository.
-* 🌓 **Adaptive Dark & Light Mode:** Responsive navbar with a toggle switch and persistent theme preference.
-* 📱 **100% Mobile Responsive:** Fluid drawers, responsive cards, thumb-friendly tracking steppers, and accessible components.
-* 📦 **One-Command Monorepo:** Orchestrated with `pnpm` workspaces—run both frontend and backend dev servers simultaneously with `pnpm dev`.
+- ⚡ **High-Throughput Fastify Engine:** Powered by NestJS + Fastify (`@nestjs/platform-fastify`), serving HTTP and Socket.io requests. Comparative throughput has not been benchmarked.
+- 🛰️ **Live Telemetry & Radar Simulation:** Dynamic radar showing simulated courier movement with real-time GPS coordinate broadcasting.
+- 🔒 **Authentication & RBAC:** Password hashing (`bcryptjs`, configurable work factor, default 12), JWT validation during WebSocket handshakes, and **`WsJwtGuard`** plus role checks for protected socket events.
+- 🔑 **Shared Login State:** Zustand keeps navigation, dialogs, and staff views in sync, restores saved sessions after refresh, and synchronizes sign-in and sign-out across tabs on the same origin.
+- 🔗 **Shareable Pages:** TanStack Router gives every navigation page its own URL, including individual tracking and courier views, with refresh and browser Back/Forward support.
+- ✅ **Inline Form Validation:** Zod validates sign-in, checkout, phone lookups, and tracking searches. Invalid fields show red borders and messages beneath the input, with focus moved to the first error on submission.
+- 🛡️ **Automated Quality Gates (Husky + lint-staged):**
+  - `pre-commit`: Instant linting and formatting on staged files with `oxlint` and `oxfmt`.
+  - `pre-push`: Automated typechecking (`pnpm typecheck`) and Vitest test runner (`pnpm test`) to check configured static and test gates before a push.
+- 🌓 **Adaptive Dark & Light Mode:** Responsive navbar with a toggle switch and persistent theme preference.
+- 📱 **Responsive UI:** Fluid drawers, responsive cards, thumb-friendly tracking steppers, and accessible components.
+- 📦 **One-Command Monorepo:** Orchestrated with `pnpm` workspaces—run both frontend and backend dev servers simultaneously with `pnpm dev`.
 
 ---
 
 ## 🛠️ Technology Stack & Role Matrix
 
-| Category | Technology | Target Version | Role & Justification / Project Usage Notes |
-| :--- | :--- | :--- | :--- |
-| **Runtime** | `Node.js` | `v24.x` | Modern JavaScript runtime offering top V8 performance, native fetch, and ES module support. |
-| **Package Manager** | `pnpm` | `10.x` | Workspace-native package manager providing ultra-fast installation and strict dependency isolation. |
-| **Language** | `typescript` | `^7.0.2` | Workspace-wide strict static type safety (`strict: true`, `noUncheckedIndexedAccess: true`). |
-| **Monorepo Tooling** | `vite-plus` (`vp`) | `^1.3.x` | VoidZero's unified toolchain unifying bundling, dev server, Vitest testing, and Oxc tooling. |
-| **Git Hooks** | `husky` | `^9.1.7` | Git hooks orchestrator managing `pre-commit` and `pre-push` automated gates. |
-| **Staged Linting** | `lint-staged` | `^17.6.0` | Runs linters and formatters strictly against git staged files on commit. |
-| **Linter** | `oxlint` | `^1.88.0` | Rust-based linter executing ~50x faster than traditional ESLint, enforcing React and TypeScript correctness. |
-| **Formatter** | `oxfmt` | `^0.73.0` | Rust-powered formatter ensuring Prettier compatibility, automatic Tailwind class sorting, and import sorting. |
-| **Shared Bundler** | `tsdown` | `^0.23.1` | Instant TypeScript bundler powered by Rolldown for fast builds of `packages/shared`. |
-| **Backend Framework** | `NestJS` (`@nestjs/core`) | `^12.0.0` | Enterprise architecture featuring modular dependency injection, decorators, and clean domain separation. |
-| **HTTP Engine** | `@nestjs/platform-fastify` | `^12.1.3` | High-performance Fastify adapter selected over Express for superior throughput and lower latency. |
-| **Real-Time Engine** | `socket.io` / `@nestjs/platform-socket.io` | `^4.8.4` / `^12.0.0` | WebSocket engine managing room subscriptions (`order_<id>`, `admins`), bi-directional telemetry, and acknowledgments. |
-| **Database & ODM** | `mongodb` / `mongoose` / `@nestjs/mongoose` | `^9.11.2` / `^12.0.0` | Production MongoDB document database with typed Mongoose schemas, indices, and audit logging. |
-| **Authentication** | `bcryptjs` + `@nestjs/jwt` + `passport-jwt` | `^3.0.3` / `^12.0.3` | Replaces insecure plaintext auth with salted bcrypt password hashing and cryptographically signed JWTs. |
-| **WebSocket Guard** | Custom `WsJwtGuard` | Internal | Validates JWT tokens during the Socket.io handshake so unauthenticated users cannot join admin channels. |
-| **API Security** | `@fastify/helmet` + `@fastify/cors` | `^13.1.1` / `^11.3.1` | Native Fastify security plugins enforcing HTTP response headers and strict CORS origin whitelisting. |
-| **Rate Limiter** | `@nestjs/throttler` | `^6.0.0` | Protects HTTP endpoints and WebSocket events from brute force, event flooding, and DDoS attacks. |
-| **Frontend Framework** | `React` / `React DOM` | `^19.0.0` | Modern React UI with optimized rendering, Actions, and seamless transition management. |
-| **Routing** | `@tanstack/react-router` | `^1.170.45` | 100% type-safe file-based router with built-in search param validation for orders and filters. |
-| **Server State** | `@tanstack/react-query` | `^5.104.4` | Server state cache updated directly by incoming Socket.io events (`setQueryData`), eliminating refetch round-trips. |
-| **Styling** | `tailwindcss` + `@tailwindcss/vite` | `^4.3.3` | Utility-first CSS framework using native CSS cascade layers and customized dark/light mode tokens. |
-| **Animations** | `motion` (`motion/react`) | `^12.x` | Rebranded Framer Motion library powering smooth route transitions, glowing order steppers, and telemetry radar. |
-| **Icons & UI** | `lucide-react` + `clsx` + `tailwind-merge` | `^1.x` | Accessible Feather-style SVG icons and clean conditional class merging. |
-| **Testing** | `vitest` | `^3.x` (via Vite+) | Instant Vite-native testing runner for unit, integration, and E2E specs. |
+| Category               | Technology                                  | Target Version        | Role & Justification / Project Usage Notes                                                                              |
+| :--------------------- | :------------------------------------------ | :-------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| **Runtime**            | `Node.js`                                   | `v24.x`               | Modern JavaScript runtime offering top V8 performance, native fetch, and ES module support.                             |
+| **Package Manager**    | `pnpm`                                      | `12.x` (`v12.14.0`)   | Workspace-native package manager providing ultra-fast installation and strict dependency isolation.                     |
+| **Language**           | `typescript`                                | `^7.0.2`              | Workspace-wide strict static type safety (`strict: true`, `noUncheckedIndexedAccess: true`).                            |
+| **Monorepo Tooling**   | `vite-plus` (`vp`)                          | `^1.3.x`              | Installed; current scripts invoke Vite, Vitest, TypeScript, Oxlint, and Oxfmt directly.                                 |
+| **Git Hooks**          | `husky`                                     | `^9.1.7`              | Git hooks orchestrator managing `pre-commit` and `pre-push` automated gates.                                            |
+| **Staged Linting**     | `lint-staged`                               | `^17.6.0`             | Runs linters and formatters strictly against git staged files on commit.                                                |
+| **Linter**             | `oxlint`                                    | `^1.88.0`             | Rust-based linter executing ~50x faster than traditional ESLint, enforcing React and TypeScript correctness.            |
+| **Formatter**          | `oxfmt`                                     | `^0.73.0`             | Rust-powered formatter ensuring Prettier compatibility, automatic Tailwind class sorting, and import sorting.           |
+| **Shared Package**     | TypeScript                                  | `^7.0.2`              | Shared Zod contracts, catalog, and pricing; builds ESM JavaScript and declarations into `shared/dist`.                  |
+| **Backend Framework**  | `NestJS` (`@nestjs/core`)                   | `^12.0.0`             | Enterprise architecture featuring modular dependency injection, decorators, and clean domain separation.                |
+| **HTTP Engine**        | `@nestjs/platform-fastify`                  | `^12.1.3`             | High-performance Fastify adapter selected over Express for superior throughput and lower latency.                       |
+| **Real-Time Engine**   | `socket.io` / `@nestjs/platform-socket.io`  | `^4.8.4` / `^12.0.0`  | WebSocket engine managing room subscriptions (`order_<id>`, `admins`), bi-directional telemetry, and acknowledgments.   |
+| **Database & ODM**     | `mongodb` / `mongoose` / `@nestjs/mongoose` | `^9.11.2` / `^12.0.0` | Production MongoDB document database with typed Mongoose schemas, indices, and audit logging.                           |
+| **Authentication**     | `bcryptjs` + `@nestjs/jwt` + `passport-jwt` | `^3.0.3` / `^12.0.3`  | Replaces insecure plaintext auth with salted bcrypt password hashing and cryptographically signed JWTs.                 |
+| **WebSocket Guard**    | Custom `WsJwtGuard`                         | Internal              | Revalidates JWTs for protected socket events; the gateway verifies handshake tokens and joins staff rooms by role.      |
+| **API Security**       | `@fastify/helmet` + `@fastify/cors`         | `^13.1.1` / `^11.3.1` | Native Fastify security plugins enforcing HTTP response headers and strict CORS origin whitelisting.                    |
+| **Rate Limiter**       | `@nestjs/throttler`                         | `^6.4.0`              | Limits HTTP traffic, with stricter login and registration limits. Socket flood protection is a remaining gap.           |
+| **Frontend Toolchain** | `vite`                                      | `^8.3.4`              | Development server and production bundler; build times depend on the project and machine.                               |
+| **Frontend Framework** | `React` / `React DOM`                       | `^19.0.0`             | Modern React UI with optimized rendering, Actions, and seamless transition management.                                  |
+| **Client Auth State**  | `zustand`                                   | `5.0.15` (pinned)     | Shared user/token store, selective `useAuth` subscriptions, refresh persistence, and cross-tab session synchronization. |
+| **Routing**            | `@tanstack/react-router`                    | `^1.111.0`            | Typed page routes, real navigation links, individual order URLs, browser history, and a staff access layout.            |
+| **Server State**       | `@tanstack/react-query`                     | `^5.66.0`             | Server state cache updated directly by incoming Socket.io events (`setQueryData`), eliminating refetch round-trips.     |
+| **Styling**            | `tailwindcss` + `@tailwindcss/vite`         | `^4.0.0`              | Utility-first CSS framework using native CSS cascade layers and customized dark/light mode tokens.                      |
+| **Animations**         | `motion` (`motion/react`)                   | `^12.4.7`             | Rebranded Framer Motion library powering smooth route transitions, glowing order steppers, and telemetry radar.         |
+| **Icons & UI**         | `lucide-react` + `clsx` + `tailwind-merge`  | `^1.16.0`             | Accessible Feather-style SVG icons and clean conditional class merging.                                                 |
+| **Testing**            | `vitest`                                    | `^5.0.5`              | Instant Vite 8 native test runner with 100% passing test suites across workspace packages.                              |
 
 ---
 
@@ -56,42 +80,48 @@
 
 ```
 kitchen-to-door/
-├── .github/
-│   └── workflows/
-│       └── ci.yml                          # Oxlint, Oxfmt check, Typecheck, Vitest
 ├── .husky/
 │   ├── pre-commit                          # Runs pnpm exec lint-staged (oxlint + oxfmt)
 │   └── pre-push                            # Runs pnpm typecheck && pnpm test
-├── apps/
-│   ├── api/                                # @kitchentodoor/api (NestJS Fastify + Mongoose + Socket.io)
-│   │   ├── src/
-│   │   │   ├── auth/                       # JWT Auth, Bcrypt, Guards, Strategies
-│   │   │   ├── database/                   # Mongoose Schemas (User, Order, OrderStatusLog)
-│   │   │   ├── orders/                     # Orders Controller, Service, & WebSocket Gateway
-│   │   │   ├── app.module.ts
-│   │   │   └── main.ts                     # Fastify bootstrap with Helmet & CORS
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   └── web/                                # @kitchentodoor/web (React 19 + TanStack + Tailwind CSS v4 + Motion)
-│       ├── src/
-│       │   ├── components/                 # Navbar, Stepper, Radar, Cart, Admin tables
-│       │   ├── hooks/                      # useOrderSocket, useTheme, useAuth
-│       │   ├── routes/                     # TanStack Router type-safe file routes
-│       │   ├── index.css                   # Tailwind v4 theme tokens
-│       │   └── main.tsx
-│       ├── package.json
-│       └── vite.config.ts
-├── packages/
-│   └── shared/                             # @kitchentodoor/shared (Shared Zod Schemas & Contracts)
-│       ├── src/
-│       │   ├── schemas/                    # Zod validation schemas
-│       │   └── socket-events.ts            # Typed Socket.io event interfaces
-│       └── package.json
+├── backend/                                # @kitchentodoor/backend (NestJS Fastify + Mongoose + Socket.io)
+│   ├── src/
+│   │   ├── auth/                           # JWT Auth, Bcrypt, Guards, Strategies
+│   │   ├── common/pipes/                   # ZodValidationPipe for strict request validation
+│   │   ├── database/                       # Mongoose schemas, staff seeding, development admin recovery
+│   │   ├── orders/                         # Orders Controller, Service, & WebSocket Gateway
+│   │   ├── app.module.ts
+│   │   └── main.ts                         # Fastify bootstrap with Helmet & CORS
+│   ├── package.json
+│   └── tsconfig.json
+├── frontend/                               # @kitchentodoor/frontend (React 19 + Zustand + Tailwind CSS v4 + Motion)
+│   ├── src/
+│   │   ├── components/                     # Navbar, Stepper, Radar, Cart, Admin tables
+│   │   │   ├── auth/AuthSessionSync.tsx     # Root session verification, tab sync, and socket identity
+│   │   │   └── forms/FieldError.tsx         # Accessible inline validation messages
+│   │   ├── hooks/                          # useOrderSocket, useTheme, useAuth, useZodForm
+│   │   ├── lib/                            # api.ts, socket.ts, queryClient.ts
+│   │   │   └── authSession.ts              # Zustand store and compatible localStorage persistence
+│   │   ├── pages/                          # Menu and tracking/courier route content
+│   │   ├── router.tsx                      # Typed route tree, lazy page loading, error boundaries
+│   │   ├── App.tsx                         # Shared route layout, cart, checkout, and staff dialog
+│   │   ├── index.css                       # Tailwind v4 theme tokens
+│   │   └── main.tsx                        # QueryClientProvider, AuthSessionSync, and RouterProvider
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── shared/                                 # @kitchentodoor/shared (Shared Zod Schemas & Contracts)
+│   ├── src/
+│   │   ├── schemas/                        # Zod validation schemas (Auth, Order, Telemetry)
+│   │   ├── enums.ts                        # OrderStatus sequence & transition state machine
+│   │   └── socket-events.ts                # Typed Socket.io event interfaces
+│   ├── package.json
+│   └── tsconfig.json
 ├── documentation/
-│   ├── audit/                              # Original audit specifications
 │   ├── docs/                               # Technical architecture & deployment guides
-│   └── plan/                               # Master implementation blueprints
-├── .env.example                            # Generated cryptographic secrets and variables
+│   ├── audit/                              # Ignored audit files
+│   └── plan/                               # Ignored master execution plans
+├── .env.example                            # Environment template; generate your own JWT secret
 ├── .oxlintrc.json                          # Workspace Oxlint configuration
 ├── .oxfmtrc.json                           # Workspace Oxfmt configuration
 ├── pnpm-workspace.yaml                     # Monorepo workspace configuration
@@ -103,34 +133,123 @@ kitchen-to-door/
 ## ⚡ Quick Start & Development
 
 ### 1. Prerequisites
-* **Node.js**: `v24.x`
-* **PNPM**: `pnpm` (`v10.x`)
-* **MongoDB**: A running local MongoDB instance or a free MongoDB Atlas cluster connection string.
+
+- **Node.js**: `v24.x`
+- **PNPM**: `pnpm` (`v12.14.0`, pinned in `package.json`)
+- **MongoDB**: A running local MongoDB instance or a free MongoDB Atlas cluster connection string.
 
 ### 2. Environment Configuration
+
 Copy `.env.example` to `.env` in the root directory:
+
 ```bash
 cp .env.example .env
 ```
-*(Pre-generated 256-bit cryptographic secrets for `JWT_SECRET` and `JWT_REFRESH_SECRET` are already provided inside `.env.example`)*
+
+Generate a unique secret and set `JWT_SECRET` in `.env` before starting the API:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+Set `MONGODB_URI` to a reachable database. `FRONTEND_URL` accepts a comma-separated list of allowed origins. Development and preview proxies use `PORT`, or `API_PROXY_TARGET` when supplied.
+
+The API loads the root `.env` before the `backend/.env` fallback, regardless of the command's working directory. Existing process environment variables take precedence over both files. Keep passwords quoted so dotenv preserves `#` characters; see [Login and local development](#login-and-local-development).
+
+Rate limits, order limits, delivery fees, tax, password hashing, database retries, DNS, and browser timeouts are configurable in `.env`. Zod rejects invalid settings at startup. See the [configuration guide](documentation/docs/CONFIGURATION.md) for every setting and its default. Restart `pnpm dev` after environment changes; rebuild production frontend assets when changing `VITE_*` values. Cart and checkout load public pricing from `/api/config`.
 
 ### 3. Install Dependencies & Initialize Git Hooks
+
 ```bash
 pnpm install
 ```
-*(This automatically runs `husky` to activate the `pre-commit` and `pre-push` hooks)*
+
+_(This automatically runs `husky` to activate the `pre-commit` and `pre-push` hooks)_
 
 ### 4. Run Both Backend & Frontend with One Command
+
 ```bash
-# Concurrently starts both apps/api (port 5000) and apps/web (port 5173):
+# Starts backend/ (port 5000) and frontend/ (port 5173):
 pnpm dev
 ```
 
 ---
 
-## 🛡️ Git Hooks & Automated Quality Gates
+## Login and local development
 
-* **On `git commit` (`pre-commit` via `lint-staged`):**  
-  Only files staged for commit are inspected. Runs `oxlint --fix` and `oxfmt` in milliseconds, ensuring no malformed or unformatted code is committed.
-* **On `git push` (`pre-push`):**  
+Open `http://localhost:5173` and choose **Staff Sign In** for dispatch or courier tools. Use the account configured in your environment. The defaults in [.env.example](.env.example) are:
+
+```dotenv
+ADMIN_DEFAULT_EMAIL=admin@kitchentodoor.io
+ADMIN_DEFAULT_PASSWORD="KitchenAdmin#2026!Secure"
+COURIER_DEFAULT_EMAIL=courier@kitchentodoor.io
+COURIER_DEFAULT_PASSWORD="Courier#2026!Speed"
+```
+
+The quotes belong in the environment file; enter the password without surrounding quotes when signing in. An unquoted `#` starts a dotenv comment and truncates the password.
+
+Development startup creates missing staff accounts. Changing environment values does not reset an existing password. Production startup does not seed staff accounts, and the sign-in dialog does not display hardcoded credentials.
+
+### Recover an existing development administrator
+
+If the administrator was created with an earlier unquoted password, correcting `.env` alone leaves the old password hash in MongoDB. Set `NODE_ENV=development`, confirm the full quoted `ADMIN_DEFAULT_PASSWORD` and intended `MONGODB_URI`, then run from the workspace root with MongoDB available:
+
+```bash
+pnpm auth:reset-dev-admin
+```
+
+The command resets the configured administrator's password and preserves its profile and role. It refuses non-development environments and accounts with a non-admin role. Normal startup never resets an existing password. Restart the API after changing environment values, then sign in with the full configured password.
+
+### Login troubleshooting
+
+- **Invalid email or password:** use the credentials belonging to the existing database account. Email whitespace and capitalization are normalized; passwords remain case sensitive. For an older development admin, follow the recovery steps above.
+- **Service unavailable:** start both servers with `pnpm dev` and check the API terminal for database connection errors.
+- **Missing `JWT_SECRET`:** generate a secret as described above, add it to the root `.env`, and restart the API.
+- **Too many attempts:** wait for the interval shown in the message, based on the API's `Retry-After` header. Defaults are 10 login requests and 5 registration requests per minute per IP; each limit and window is configurable.
+- **Session expired:** sign in again. A 401 for the current authenticated session clears it and reconnects the socket as a guest. Refresh tokens are not implemented.
+
+Backend constructors use explicit NestJS injection tokens because the `tsx` development runner does not emit `design:paramtypes`. Keep those annotations when adding controllers, services, and guards.
+
+## Shared login state with Zustand
+
+[Zustand 5.0.15](frontend/package.json) owns the frontend's shared `user` and `token`. Components read that state through [useAuth](frontend/src/hooks/useAuth.ts); login, registration, and logout update the same store, so navigation and staff views update immediately.
+
+- **Persistence:** [authSession.ts](frontend/src/lib/authSession.ts) uses the existing `ktd_token` and `ktd_user` localStorage keys, preserving compatibility with saved sessions. Malformed user data or an incomplete stored pair starts a guest session. If storage is blocked, login still works in memory; refresh persistence and tab synchronization require working storage.
+- **Session synchronization:** One [AuthSessionSync](frontend/src/components/auth/AuthSessionSync.tsx) mounted inside `QueryClientProvider` listens for other tabs' storage changes, requests `/api/auth/me` when a token is available, and updates socket authentication. Logout also removes staff and session-verification query data.
+- **State responsibilities:** TanStack Query owns order data and the session-verification cache. TanStack Router owns the current page and selected order URL. Cart contents, dialogs, and form drafts remain local React state in the shared layout or page.
+- **Authorization:** Backend JWT and role guards enforce access. Client role flags control the UI. Sign-out clears this browser's saved session and synchronizes open tabs on the same origin; server-side token revocation and automatic token refresh are not implemented.
+
+See the [session architecture](documentation/docs/ARCHITECTURE.md#frontend-state-and-session-lifecycle) for source responsibilities, the [implementation report](documentation/docs/IMPLEMENTATION_AND_VERIFICATION_REPORT.md) for verification, and the [codebase review](documentation/docs/CODEBASE_REVIEW.md) for remaining gaps.
+
+## Shared package builds
+
+`pnpm build` emits the shared package before building its consumers. Production imports use compiled ESM from `shared/dist`; development uses source exports through the `development` condition. Root source tests use an explicit alias and do not depend on a previous build. To run the compiled API after building, use `pnpm --filter @kitchentodoor/backend start`.
+
+## Pages and shareable links
+
+| Page                           | URL                                               | Access                |
+| ------------------------------ | ------------------------------------------------- | --------------------- |
+| Order Food                     | `/`                                               | Public                |
+| Live Tracking search           | `/tracking`                                       | Public                |
+| Track an order                 | `/tracking/KTD-1234` or `/tracking/<database-id>` | Public guest tracking |
+| My Orders                      | `/orders`                                         | Public phone lookup   |
+| Dispatch Station               | `/dispatch`                                       | Admin or courier      |
+| Courier Telemetry search       | `/courier`                                        | Admin or courier      |
+| Courier telemetry for an order | `/courier/<order-number-or-database-id>`          | Admin or courier      |
+
+Navigation, dispatch Track actions, and order-history tracking actions use actual links. Copy the address bar URL to reopen a page in another tab or after a refresh. Checkout opens the new order's tracking URL. Staff pages retain the requested URL while showing a sign-in gate; signing in continues on that page.
+
+Vite development and preview serve direct page URLs. Production hosting must rewrite frontend routes to `index.html` while forwarding `/api` and `/socket.io` to the backend.
+
+## Form errors and dispatch behavior
+
+Sign-in, checkout, history, and tracking forms use shared Zod schemas through `useZodForm`. Validation runs on blur and submission, and invalid fields are rechecked while edited. Each invalid input has `aria-invalid`, a red border, and a linked red error message beneath it. Submission focuses the first invalid field. General network or service failures remain form-level messages; server validation retains field paths so errors can appear beside the relevant input.
+
+All dispatch table headers are centered. Order #, Total, Current Status, Created, and Actions cells are centered; customer and item details remain left aligned. Track and Advance share a centered flex action row and an equal 32px height. Status updates and cancellations use a conditional database write, so a competing dispatcher receives a conflict message instead of overwriting a newer status. Delivered and cancelled orders reject further courier telemetry, and their simulator stops.
+
+## Git hook behavior
+
+- **On `git commit` (`pre-commit` via `lint-staged`):**  
+  Files staged for commit run through `oxlint --fix` and `oxfmt`. The type-aware `typescript/no-deprecated` rule rejects APIs marked deprecated by the installed dependency types.
+- **On `git push` (`pre-push`):**  
   Executes `pnpm typecheck` (strict TypeScript 7.x) and `pnpm test` (Vitest across all packages). If any test or type check fails, the push is immediately halted, preventing broken code on GitHub.

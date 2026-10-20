@@ -1,0 +1,39 @@
+{
+  "name": "kitchen-to-door",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-Time Food Order Tracking & Telemetry Platform: From Restaurant Kitchen to Customer Doorstep",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "dev:backend": "pnpm --filter @kitchentodoor/backend dev",
+    "dev:frontend": "pnpm --filter @kitchentodoor/frontend dev",
+    "auth:reset-dev-admin": "pnpm --filter @kitchentodoor/backend auth:reset-dev-admin",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "typecheck": "pnpm -r typecheck",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "oxfmt": "^0.73.0",
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
+    "typescript": "^7.0.2",
+    "vite-plus": "^1.3.0",
+    "vitest": "^5.0.5"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "oxlint --fix",
+      "oxfmt"
+    ]
+  },
+  "packageManager": "pnpm@12.14.0"
+}

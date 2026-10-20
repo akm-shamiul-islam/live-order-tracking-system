@@ -1,0 +1,7 @@
+packages:
+  - 'backend'
+  - 'frontend'
+  - 'shared'
+allowBuilds:
+  esbuild: true
+minimumReleaseAge: 0
