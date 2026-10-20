@@ -70,7 +70,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
     // Client-side Zod Validation
     const validation = CreateOrderSchema.safeParse(payload);
     if (!validation.success) {
-      setError(validation.error.errors[0]?.message || 'Please check your input fields');
+      setError(validation.error.issues[0]?.message || 'Please check your input fields');
       return;
     }
 

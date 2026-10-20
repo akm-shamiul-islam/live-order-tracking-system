@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const PricingSettingsSchema = z.object({
-  deliveryFee: z.number().finite().nonnegative(),
-  taxRate: z.number().finite().min(0).max(1),
+  deliveryFee: z.number().nonnegative(),
+  taxRate: z.number().min(0).max(1),
 });
 
 export type PricingSettings = z.infer<typeof PricingSettingsSchema>;

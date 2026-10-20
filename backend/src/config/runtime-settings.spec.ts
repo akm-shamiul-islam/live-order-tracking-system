@@ -46,11 +46,17 @@ describe('Validated runtime settings', () => {
     { PASSWORD_HASH_ROUNDS: '3' },
     { TAX_RATE: '2' },
     { DELIVERY_FEE: '-1' },
+    { DELIVERY_FEE: 'Infinity' },
+    { DELIVERY_FEE: 'NaN' },
     { PORT: '70000' },
     { ORDER_LIST_DEFAULT_LIMIT: '50', ORDER_LIST_MAX_LIMIT: '10' },
     { DNS_SERVERS: 'not-an-ip' },
   ])('rejects invalid settings %j before startup', (settings) => {
     expect(() => parseRuntimeSettings(settings)).toThrow('Invalid environment configuration:');
+  });
+
+  it('uses system DNS when the optional override is omitted', () => {
+    expect(parseRuntimeSettings({}).DNS_SERVERS).toEqual([]);
   });
 
   it('exposes only configured public pricing without environment secrets', () => {

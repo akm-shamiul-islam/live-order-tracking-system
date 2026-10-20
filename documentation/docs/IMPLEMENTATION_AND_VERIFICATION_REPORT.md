@@ -35,6 +35,10 @@ Zod validates environment configuration for HTTP limits/windows, order limits/es
 
 The Mongoose update paths use `returnDocument: 'after'`; React submit handlers use `SubmitEvent`, and session verification uses `queryClient.query`. The type-aware deprecated API lint rule is an error. These replacements were checked against current primary documentation and installed package declarations, with references in the configuration guide.
 
+### 1.4 Dependency release audit
+
+All 49 maintained external packages across the four manifests match npm's latest stable release as checked on 2026-10-20. Seven installed packages were upgraded, including Zod 4.6.7 and Motion 14.4.0. React 19.3.1 and Tailwind CSS 4.3.3 were already installed; outdated declared minimums and badges were corrected. The deprecated bcrypt types stub was removed, and the standalone root Vitest runner has an explicit Vite peer. See [DEPENDENCIES.md](DEPENDENCIES.md) for every version, migrations, and the upstream Vite+ alias peer warning. Run `pnpm deps:check` to repeat the registry comparison.
+
 ---
 
 ## 2. Monorepo Directory Architecture
@@ -123,27 +127,27 @@ kitchen-to-door/
 | **Runtime** | `Node.js` | `v24.x` | Modern ECMAScript features, top V8 execution speeds, native fetch, ESM support. |
 | **Package Manager** | `pnpm` | `12.14.0` (pinned) | Workspace dependency installation and root commands. |
 | **Language** | `typescript` | `^7.0.2` | Workspace-wide strict static type safety (`strict: true`, `noUncheckedIndexedAccess: true`). |
-| **Monorepo Tooling** | `vite-plus` (`vp`) | `^1.3.x` | Installed; current scripts invoke Vite, Vitest, TypeScript, Oxlint, and Oxfmt directly. |
+| **Monorepo Tooling** | `vite-plus` (`vp`) | `^1.3.0` | Installed; current scripts invoke Vite, Vitest, TypeScript, Oxlint, and Oxfmt directly. |
 | **Git Hooks** | `husky` | `^9.1.7` | Git hooks orchestrator managing `pre-commit` and `pre-push` automated gates. |
 | **Staged Linting** | `lint-staged` | `^17.6.0` | Runs linters and formatters strictly against git staged files on commit. |
-| **Linter** | `oxlint` | `^1.88.0` | Rust-based linter executing ~50x faster than traditional ESLint, enforcing React and TypeScript correctness. |
-| **Formatter** | `oxfmt` | `^0.73.0` | Rust-powered formatter ensuring Prettier compatibility, automatic Tailwind class sorting, and import sorting. |
-| **Backend Framework** | `NestJS` (`@nestjs/core`) | `^12.0.0` | Enterprise architecture featuring modular dependency injection, decorators, and clean domain separation. |
-| **HTTP Engine** | `@nestjs/platform-fastify` | `^12.1.3` | NestJS HTTP adapter; comparative throughput has not been benchmarked. |
-| **Real-Time Engine** | `socket.io` / `@nestjs/platform-socket.io` | `^4.8.4` / `^12.0.0` | WebSocket engine managing room subscriptions (`order_<id>`, `admins`), bi-directional telemetry, and acknowledgments. |
-| **Database & ODM** | `mongodb` / `mongoose` / `@nestjs/mongoose` | `^9.11.2` / `^12.0.0` | Production MongoDB document database with typed Mongoose schemas, indices, and audit logging. |
-| **Authentication** | `bcryptjs` + `@nestjs/jwt` + `passport-jwt` | `^3.0.3` / `^12.0.3` | Replaces insecure plaintext auth with salted bcrypt password hashing and cryptographically signed JWTs. |
+| **Linter** | `oxlint` | `^1.89.0` | Rust-based linter executing ~50x faster than traditional ESLint, enforcing React and TypeScript correctness. |
+| **Formatter** | `oxfmt` | `^0.74.0` | Rust-powered formatter ensuring Prettier compatibility, automatic Tailwind class sorting, and import sorting. |
+| **Backend Framework** | `NestJS` (`@nestjs/core`) | `^12.2.0` | Enterprise architecture featuring modular dependency injection, decorators, and clean domain separation. |
+| **HTTP Engine** | `@nestjs/platform-fastify` | `^12.2.0` | NestJS HTTP adapter; comparative throughput has not been benchmarked. |
+| **Real-Time Engine** | `socket.io` / `@nestjs/platform-socket.io` | `^4.8.4` / `^12.2.0` | WebSocket engine managing room subscriptions (`order_<id>`, `admins`), bi-directional telemetry, and acknowledgments. |
+| **Database & ODM** | `mongoose` / `@nestjs/mongoose` | `^9.11.2` / `^12.0.0` | Production MongoDB document database with typed Mongoose schemas, indices, and audit logging. |
+| **Authentication** | `bcryptjs` + `@nestjs/jwt` + `passport-jwt` | `^3.0.3` / `^12.0.3` / `^4.0.1` | Replaces insecure plaintext auth with salted bcrypt password hashing and cryptographically signed JWTs. |
 | **WebSocket Guard** | Custom `WsJwtGuard` | Internal | Revalidates JWTs for protected socket events, followed by role checks. The gateway verifies supplied handshake tokens. |
-| **API Security** | `@fastify/helmet` + `@fastify/cors` | `^13.1.1` / `^11.3.1` | Native Fastify security plugins enforcing HTTP response headers and strict CORS origin whitelisting. |
-| **Rate Limiter** | `@nestjs/throttler` | `^6.4.0` | HTTP limits, including 10 login attempts and 5 registrations per minute per IP. Socket event limits are not implemented. |
+| **API Security** | `@fastify/helmet` + `@fastify/cors` | `^13.2.0` / `^11.3.1` | Native Fastify security plugins enforcing HTTP response headers and strict CORS origin whitelisting. |
+| **Rate Limiter** | `@nestjs/throttler` | `^6.7.1` | HTTP limits, including 10 login attempts and 5 registrations per minute per IP. Socket event limits are not implemented. |
 | **Frontend Toolchain** | `vite` | `^8.3.4` | Ultra-fast next-gen build tool with native Rolldown engine, building the frontend for production. |
-| **Frontend Framework** | `React` / `React DOM` | `^19.0.0` | Modern React UI with optimized rendering, Actions, and seamless transition management. |
+| **Frontend Framework** | `React` / `React DOM` | `^19.3.1` | Modern React UI with optimized rendering, Actions, and seamless transition management. |
 | **Client Auth State** | `zustand` | `5.0.15` (pinned) | Shared user/token store, selective `useAuth` subscriptions, explicit localStorage persistence, and cross-tab synchronization. |
-| **Server State** | `@tanstack/react-query` | `^5.66.0` | Orders, cached session verification, and socket-driven cache updates. |
-| **Routing** | `@tanstack/react-router` | `^1.111.0` | Typed page routes, shared layouts, staff access gate, order URLs, and browser history. |
-| **Styling** | `tailwindcss` + `@tailwindcss/vite` | `^4.0.0` | Utility-first CSS framework using native CSS cascade layers and customized dark/light mode tokens. |
-| **Animations** | `motion` (`motion/react`) | `^12.4.7` | Rebranded Framer Motion library powering smooth route transitions, glowing order steppers, and telemetry radar. |
-| **Icons & UI** | `lucide-react` + `clsx` + `tailwind-merge` | `^1.16.0` | Accessible Feather-style SVG icons and clean conditional class merging. |
+| **Server State** | `@tanstack/react-query` | `^5.104.5` | Orders, cached session verification, and socket-driven cache updates. |
+| **Routing** | `@tanstack/react-router` | `^1.170.45` | Typed page routes, shared layouts, staff access gate, order URLs, and browser history. |
+| **Styling** | `tailwindcss` + `@tailwindcss/vite` | `^4.3.3` | Utility-first CSS framework using native CSS cascade layers and customized dark/light mode tokens. |
+| **Animations** | `motion` (`motion/react`) | `^14.4.0` | Rebranded Framer Motion library powering smooth route transitions, glowing order steppers, and telemetry radar. |
+| **Icons & UI** | `lucide-react` + `clsx` + `tailwind-merge` | `^1.60.0` / `^2.1.1` / `^3.7.0` | Accessible Feather-style SVG icons and clean conditional class merging. |
 | **Testing** | `vitest` | `^5.0.5` | Maintained source unit and HTTP tests. Browser smoke checks are separate from the automated suite. |
 
 ---
@@ -262,7 +266,7 @@ Frontend forms use `useZodForm` to display each field's Zod message below the in
 | **API Client Tests** | `frontend/src/lib/api.spec.ts` | ✅ Passed (11 tests) | Shared sessions, expiration, stale responses, storage failures, field paths, malformed auth, public pricing, and Retry-After. |
 | **Router Tests** | `frontend/src/router.spec.ts` | ✅ Passed (11 tests) | Page/order URLs, staff layouts, unknown pages, memory history, shared filters/pages, and canonical search defaults. |
 | **Pagination Tests** | `shared/src/pagination.spec.ts` | ✅ Passed (11 tests) | Empty and stale-page boundaries, page-size choices, and invalid page requests. |
-| **Runtime Configuration Tests** | `backend/src/config/runtime-settings.spec.ts` | ✅ Passed (12 tests) | Template/default settings, overrides, validation, and public pricing isolation. |
+| **Runtime Configuration Tests** | `backend/src/config/runtime-settings.spec.ts` | ✅ Passed (15 tests) | Template/default settings, overrides, non-finite values, transformed DNS defaults, and public pricing isolation. |
 | **Browser Configuration Tests** | `frontend/src/lib/client-settings-schema.spec.ts` | ✅ Passed (4 tests) | Public defaults, overrides, invalid values, and exclusion of server secrets. |
 | **Pricing Tests** | `shared/src/pricing.spec.ts` | ✅ Passed (3 tests) | Custom fees/tax, zero-cost settings, empty orders, and cent rounding. |
 | **Frontend Entry** | `frontend/src/main.tsx` | ✅ Passed | React 19 + QueryClientProvider with one root AuthSessionSync and RouterProvider. |
@@ -314,7 +318,9 @@ For development credential recovery, follow the [README instructions](../../READ
 
 ## 9. Last Code Verification
 
-The last implementation verification passed `pnpm typecheck`, **158 source tests across 15 suites** with `pnpm test`, and `pnpm build` for all packages. Lint reported **0 errors**, including the type-aware deprecated API check; existing warnings remain. [vitest.config.ts](../../vitest.config.ts) selects maintained source tests from the three packages, excluding compiled copies and backups.
+The last implementation verification passed `pnpm typecheck`, **161 source tests across 15 suites** with `pnpm test`, and `pnpm build` for all packages. Lint reported **0 errors**, including the type-aware deprecated API check; existing warnings remain. [vitest.config.ts](../../vitest.config.ts) selects maintained source tests from the three packages, excluding compiled copies and backups.
+
+After the dependency upgrades, a fresh compiled production API and frontend preview passed browser checks for normalized staff login, inline Zod errors and focus, Motion tracking rendering, live Socket.io connectivity, and cart pricing from overridden delivery/tax settings. No order was created or advanced. `pnpm deps:check` found no outdated direct package; `pnpm audit --json` reported zero vulnerabilities. The known Vite+ core-alias peer warning is documented in the dependency audit.
 
 Authentication coverage includes the HTTP login/validation/authorization flow, Zustand persistence and cross-tab races, expired-session handling, delayed 401 responses, and the actual dotenv template. Separate local browser smoke checks covered desktop and mobile sign-in, full default credentials, immediate UI updates, refresh persistence, logout, guest socket reconnection, and two-tab session changes. These checks are not an automated end-to-end browser suite.
 

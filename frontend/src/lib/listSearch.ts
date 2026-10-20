@@ -9,7 +9,7 @@ export const MenuSearchSchema = z.object({
 });
 export const DispatchSearchSchema = z.object({
   ...paging,
-  status: z.union([z.literal('ALL'), z.nativeEnum(OrderStatus)]).catch('ALL'),
+  status: z.union([z.literal('ALL'), z.enum(OrderStatus)]).catch('ALL'),
   q: z.string().trim().max(100).catch(''),
 });
 export const HistorySearchSchema = z.object(paging);

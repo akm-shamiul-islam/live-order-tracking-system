@@ -25,8 +25,8 @@ export const CustomerInfoSchema = z.object({
 export type CustomerInfo = z.infer<typeof CustomerInfoSchema>;
 
 export const CoordinatesSchema = z.object({
-  lat: z.number().finite().min(-90).max(90),
-  lng: z.number().finite().min(-180).max(180),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
 });
 
 export type Coordinates = z.infer<typeof CoordinatesSchema>;

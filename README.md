@@ -7,18 +7,18 @@
   <img src="https://img.shields.io/badge/Node.js-v24.18.1-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/pnpm-v12.14.0-F69220?style=for-the-badge&logo=pnpm&logoColor=white" alt="pnpm" />
   <img src="https://img.shields.io/badge/TypeScript-v7.0.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/NestJS-v12.0.0-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
-  <img src="https://img.shields.io/badge/Fastify-v5.2.0-000000?style=for-the-badge&logo=fastify&logoColor=white" alt="Fastify" />
+  <img src="https://img.shields.io/badge/NestJS-v12.2.0-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
+  <img src="https://img.shields.io/badge/Fastify-v5.12.7-000000?style=for-the-badge&logo=fastify&logoColor=white" alt="Fastify" />
   <img src="https://img.shields.io/badge/MongoDB-Mongoose_v9.11.2-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
   <img src="https://img.shields.io/badge/Socket.io-v4.8.4-010101?style=for-the-badge&logo=socketdotio&logoColor=white" alt="Socket.io" />
-  <img src="https://img.shields.io/badge/React-v19.0.0-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/React-v19.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/Zustand-v5.0.15-443E38?style=for-the-badge" alt="Zustand" />
   <img src="https://img.shields.io/badge/Vite-v8.3.4_(Rolldown)-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-v4.0.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/Motion-v12.4.7-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Motion" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4.3.3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Motion-v14.4.0-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Motion" />
   <img src="https://img.shields.io/badge/Vitest-v5.0.5-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
-  <img src="https://img.shields.io/badge/Zod-v3.24.2-3E67B1?style=for-the-badge&logo=zod&logoColor=white" alt="Zod" />
-  <img src="https://img.shields.io/badge/Oxlint-v1.88.0-DEA584?style=for-the-badge&logo=rust&logoColor=white" alt="Oxlint" />
+  <img src="https://img.shields.io/badge/Zod-v4.6.7-3E67B1?style=for-the-badge&logo=zod&logoColor=white" alt="Zod" />
+  <img src="https://img.shields.io/badge/Oxlint-v1.89.0-DEA584?style=for-the-badge&logo=rust&logoColor=white" alt="Oxlint" />
   <img src="https://img.shields.io/badge/Husky-v9.1.7-F05032?style=for-the-badge&logo=git&logoColor=white" alt="Husky" />
 </p>
 
@@ -46,34 +46,36 @@
 
 ## 🛠️ Technology Stack & Role Matrix
 
-| Category               | Technology                                  | Target Version        | Role & Justification / Project Usage Notes                                                                              |
-| :--------------------- | :------------------------------------------ | :-------------------- | :---------------------------------------------------------------------------------------------------------------------- |
-| **Runtime**            | `Node.js`                                   | `v24.x`               | Modern JavaScript runtime offering top V8 performance, native fetch, and ES module support.                             |
-| **Package Manager**    | `pnpm`                                      | `12.x` (`v12.14.0`)   | Workspace-native package manager providing ultra-fast installation and strict dependency isolation.                     |
-| **Language**           | `typescript`                                | `^7.0.2`              | Workspace-wide strict static type safety (`strict: true`, `noUncheckedIndexedAccess: true`).                            |
-| **Monorepo Tooling**   | `vite-plus` (`vp`)                          | `^1.3.x`              | Installed; current scripts invoke Vite, Vitest, TypeScript, Oxlint, and Oxfmt directly.                                 |
-| **Git Hooks**          | `husky`                                     | `^9.1.7`              | Git hooks orchestrator managing `pre-commit` and `pre-push` automated gates.                                            |
-| **Staged Linting**     | `lint-staged`                               | `^17.6.0`             | Runs linters and formatters strictly against git staged files on commit.                                                |
-| **Linter**             | `oxlint`                                    | `^1.88.0`             | Rust-based linter executing ~50x faster than traditional ESLint, enforcing React and TypeScript correctness.            |
-| **Formatter**          | `oxfmt`                                     | `^0.73.0`             | Rust-powered formatter ensuring Prettier compatibility, automatic Tailwind class sorting, and import sorting.           |
-| **Shared Package**     | TypeScript                                  | `^7.0.2`              | Shared Zod contracts, catalog, and pricing; builds ESM JavaScript and declarations into `shared/dist`.                  |
-| **Backend Framework**  | `NestJS` (`@nestjs/core`)                   | `^12.0.0`             | Enterprise architecture featuring modular dependency injection, decorators, and clean domain separation.                |
-| **HTTP Engine**        | `@nestjs/platform-fastify`                  | `^12.1.3`             | High-performance Fastify adapter selected over Express for superior throughput and lower latency.                       |
-| **Real-Time Engine**   | `socket.io` / `@nestjs/platform-socket.io`  | `^4.8.4` / `^12.0.0`  | WebSocket engine managing room subscriptions (`order_<id>`, `admins`), bi-directional telemetry, and acknowledgments.   |
-| **Database & ODM**     | `mongodb` / `mongoose` / `@nestjs/mongoose` | `^9.11.2` / `^12.0.0` | Production MongoDB document database with typed Mongoose schemas, indices, and audit logging.                           |
-| **Authentication**     | `bcryptjs` + `@nestjs/jwt` + `passport-jwt` | `^3.0.3` / `^12.0.3`  | Replaces insecure plaintext auth with salted bcrypt password hashing and cryptographically signed JWTs.                 |
-| **WebSocket Guard**    | Custom `WsJwtGuard`                         | Internal              | Revalidates JWTs for protected socket events; the gateway verifies handshake tokens and joins staff rooms by role.      |
-| **API Security**       | `@fastify/helmet` + `@fastify/cors`         | `^13.1.1` / `^11.3.1` | Native Fastify security plugins enforcing HTTP response headers and strict CORS origin whitelisting.                    |
-| **Rate Limiter**       | `@nestjs/throttler`                         | `^6.4.0`              | Limits HTTP traffic, with stricter login and registration limits. Socket flood protection is a remaining gap.           |
-| **Frontend Toolchain** | `vite`                                      | `^8.3.4`              | Development server and production bundler; build times depend on the project and machine.                               |
-| **Frontend Framework** | `React` / `React DOM`                       | `^19.0.0`             | Modern React UI with optimized rendering, Actions, and seamless transition management.                                  |
-| **Client Auth State**  | `zustand`                                   | `5.0.15` (pinned)     | Shared user/token store, selective `useAuth` subscriptions, refresh persistence, and cross-tab session synchronization. |
-| **Routing**            | `@tanstack/react-router`                    | `^1.111.0`            | Typed page routes, real navigation links, individual order URLs, browser history, and a staff access layout.            |
-| **Server State**       | `@tanstack/react-query`                     | `^5.66.0`             | Server state cache updated directly by incoming Socket.io events (`setQueryData`), eliminating refetch round-trips.     |
-| **Styling**            | `tailwindcss` + `@tailwindcss/vite`         | `^4.0.0`              | Utility-first CSS framework using native CSS cascade layers and customized dark/light mode tokens.                      |
-| **Animations**         | `motion` (`motion/react`)                   | `^12.4.7`             | Rebranded Framer Motion library powering smooth route transitions, glowing order steppers, and telemetry radar.         |
-| **Icons & UI**         | `lucide-react` + `clsx` + `tailwind-merge`  | `^1.16.0`             | Accessible Feather-style SVG icons and clean conditional class merging.                                                 |
-| **Testing**            | `vitest`                                    | `^5.0.5`              | Instant Vite 8 native test runner with 100% passing test suites across workspace packages.                              |
+Declared dependency minimums and badges were checked against npm on 2026-10-20. See the [complete dependency audit](documentation/docs/DEPENDENCIES.md) for every installed version and migration notes. Run `pnpm deps:check` to repeat the online comparison. The `^` prefix allows compatible newer releases; the lockfile records the exact installation.
+
+| Category               | Technology                                  | Target Version                  | Role & Justification / Project Usage Notes                                                                              |
+| :--------------------- | :------------------------------------------ | :------------------------------ | :---------------------------------------------------------------------------------------------------------------------- |
+| **Runtime**            | `Node.js`                                   | `v24.x`                         | Modern JavaScript runtime offering top V8 performance, native fetch, and ES module support.                             |
+| **Package Manager**    | `pnpm`                                      | `12.x` (`v12.14.0`)             | Workspace-native package manager providing ultra-fast installation and strict dependency isolation.                     |
+| **Language**           | `typescript`                                | `^7.0.2`                        | Workspace-wide strict static type safety (`strict: true`, `noUncheckedIndexedAccess: true`).                            |
+| **Monorepo Tooling**   | `vite-plus` (`vp`)                          | `^1.3.0`                        | Installed; current scripts invoke Vite, Vitest, TypeScript, Oxlint, and Oxfmt directly.                                 |
+| **Git Hooks**          | `husky`                                     | `^9.1.7`                        | Git hooks orchestrator managing `pre-commit` and `pre-push` automated gates.                                            |
+| **Staged Linting**     | `lint-staged`                               | `^17.6.0`                       | Runs linters and formatters strictly against git staged files on commit.                                                |
+| **Linter**             | `oxlint`                                    | `^1.89.0`                       | Rust-based linter executing ~50x faster than traditional ESLint, enforcing React and TypeScript correctness.            |
+| **Formatter**          | `oxfmt`                                     | `^0.74.0`                       | Rust-powered formatter ensuring Prettier compatibility, automatic Tailwind class sorting, and import sorting.           |
+| **Shared Package**     | TypeScript                                  | `^7.0.2`                        | Shared Zod contracts, catalog, and pricing; builds ESM JavaScript and declarations into `shared/dist`.                  |
+| **Backend Framework**  | `NestJS` (`@nestjs/core`)                   | `^12.2.0`                       | Enterprise architecture featuring modular dependency injection, decorators, and clean domain separation.                |
+| **HTTP Engine**        | `@nestjs/platform-fastify`                  | `^12.2.0`                       | High-performance Fastify adapter selected over Express for superior throughput and lower latency.                       |
+| **Real-Time Engine**   | `socket.io` / `@nestjs/platform-socket.io`  | `^4.8.4` / `^12.2.0`            | WebSocket engine managing room subscriptions (`order_<id>`, `admins`), bi-directional telemetry, and acknowledgments.   |
+| **Database & ODM**     | `mongoose` / `@nestjs/mongoose`             | `^9.11.2` / `^12.0.0`           | Production MongoDB document database with typed Mongoose schemas, indices, and audit logging.                           |
+| **Authentication**     | `bcryptjs` + `@nestjs/jwt` + `passport-jwt` | `^3.0.3` / `^12.0.3` / `^4.0.1` | Replaces insecure plaintext auth with salted bcrypt password hashing and cryptographically signed JWTs.                 |
+| **WebSocket Guard**    | Custom `WsJwtGuard`                         | Internal                        | Revalidates JWTs for protected socket events; the gateway verifies handshake tokens and joins staff rooms by role.      |
+| **API Security**       | `@fastify/helmet` + `@fastify/cors`         | `^13.2.0` / `^11.3.1`           | Native Fastify security plugins enforcing HTTP response headers and strict CORS origin whitelisting.                    |
+| **Rate Limiter**       | `@nestjs/throttler`                         | `^6.7.1`                        | Limits HTTP traffic, with stricter login and registration limits. Socket flood protection is a remaining gap.           |
+| **Frontend Toolchain** | `vite`                                      | `^8.3.4`                        | Development server and production bundler; build times depend on the project and machine.                               |
+| **Frontend Framework** | `React` / `React DOM`                       | `^19.3.1`                       | Modern React UI with optimized rendering, Actions, and seamless transition management.                                  |
+| **Client Auth State**  | `zustand`                                   | `5.0.15` (pinned)               | Shared user/token store, selective `useAuth` subscriptions, refresh persistence, and cross-tab session synchronization. |
+| **Routing**            | `@tanstack/react-router`                    | `^1.170.45`                     | Typed page routes, real navigation links, individual order URLs, browser history, and a staff access layout.            |
+| **Server State**       | `@tanstack/react-query`                     | `^5.104.5`                      | Server state cache updated directly by incoming Socket.io events (`setQueryData`), eliminating refetch round-trips.     |
+| **Styling**            | `tailwindcss` + `@tailwindcss/vite`         | `^4.3.3`                        | Utility-first CSS framework using native CSS cascade layers and customized dark/light mode tokens.                      |
+| **Animations**         | `motion` (`motion/react`)                   | `^14.4.0`                       | Rebranded Framer Motion library powering smooth route transitions, glowing order steppers, and telemetry radar.         |
+| **Icons & UI**         | `lucide-react` + `clsx` + `tailwind-merge`  | `^1.60.0` / `^2.1.1` / `^3.7.0` | Accessible Feather-style SVG icons and clean conditional class merging.                                                 |
+| **Testing**            | `vitest`                                    | `^5.0.5`                        | Instant Vite 8 native test runner with 100% passing test suites across workspace packages.                              |
 
 ---
 

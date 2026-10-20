@@ -32,7 +32,7 @@ kitchen-to-door/
 
 ## HTTP & Real-Time Engine: NestJS + Fastify + Socket.io
 
-* **HTTP Adapter:** Fastify (`@nestjs/platform-fastify` v12.1.3), serving HTTP requests; comparative throughput has not been benchmarked.
+* **HTTP Adapter:** Fastify (`@nestjs/platform-fastify` v12.2.0), serving HTTP requests; comparative throughput has not been benchmarked.
 * **Security Middleware:** `@fastify/helmet` and `@fastify/cors`.
 * **Socket.io Gateway:** Connected to Fastify's underlying Node HTTP server for WebSocket connection management, rooms (`order_<id>`, `admins`), and live telemetry broadcasting.
 
@@ -157,3 +157,9 @@ The explicit `pnpm auth:reset-dev-admin` command requires `NODE_ENV=development`
 - Vite+ is installed, while the current scripts invoke Vite, Vitest, TypeScript, Oxlint, and Oxfmt directly. A completed Vite+ migration is not claimed.
 
 Read [CODEBASE_REVIEW.md](CODEBASE_REVIEW.md) before using this development application with real customer data. It records guest privacy, audit persistence, deployment, and courier assignment gaps.
+
+## Dependency maintenance
+
+Shared request contracts, environment settings, and client forms use Zod 4. Email normalization precedes format validation, and the HTTP pipe translates Zod `issues` into the existing `{ field, message }` error list. This preserves inline error handling across the API boundary. Motion 14 renders the existing native React motion elements.
+
+The [dependency audit](DEPENDENCIES.md) lists the registry-verified versions and migration notes. `pnpm deps:check` compares all four manifests and installed package versions against npm. The lockfile records exact installations, including indirect dependencies within their owning packages' supported ranges. Vite+ remains installed alongside standalone root tools; its core-alias peer warning is documented in the audit.

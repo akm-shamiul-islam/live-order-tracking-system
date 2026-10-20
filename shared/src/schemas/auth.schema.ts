@@ -2,8 +2,14 @@ import { z } from 'zod';
 import { UserRole } from '../enums.js';
 import { PhoneSchema } from './lookup.schema.js';
 
+const EmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email({ error: 'Please provide a valid email address' }));
+
 export const LoginSchema = z.object({
-  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+  email: EmailSchema,
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
@@ -11,7 +17,7 @@ export type LoginDto = z.infer<typeof LoginSchema>;
 
 export const RegisterSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters'),
-  email: z.string().trim().toLowerCase().email('Please provide a valid email address'),
+  email: EmailSchema,
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -28,7 +34,7 @@ export type RegisterDto = z.infer<typeof RegisterSchema>;
 export const UserSummarySchema = z.object({
   id: z.string(),
   name: z.string(),
-  email: z.string().email(),
+  email: z.email(),
   role: z.enum([UserRole.CUSTOMER, UserRole.COURIER, UserRole.ADMIN]),
   phone: z.string().optional(),
 });

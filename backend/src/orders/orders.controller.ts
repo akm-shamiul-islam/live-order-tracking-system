@@ -35,7 +35,7 @@ import { getRuntimeSettings } from '../config/runtime-settings.js';
 
 const getListOrdersQuerySchema = () =>
   z.object({
-    status: z.nativeEnum(OrderStatus).optional(),
+    status: z.enum(OrderStatus).optional(),
     page: PageNumberSchema.optional(),
     search: z.string().trim().max(100).default(''),
     limit: z.coerce
