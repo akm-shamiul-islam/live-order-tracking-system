@@ -32,10 +32,13 @@
     "vitest": "^5.0.5"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
+    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
       "oxlint --fix",
       "oxfmt"
     ]
+  },
+  "engines": {
+    "node": "24.x"
   },
   "packageManager": "pnpm@12.14.0"
 }

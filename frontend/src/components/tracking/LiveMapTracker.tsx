@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { OrderDetails } from '@kitchentodoor/shared';
 import { Bike, Home, Store, Compass, Navigation } from 'lucide-react';
 
@@ -7,6 +7,7 @@ interface LiveMapTrackerProps {
 }
 
 export function LiveMapTracker({ order }: LiveMapTrackerProps) {
+  const shouldReduceMotion = useReducedMotion();
   const deliveryLat = order.deliveryCoordinates?.lat ?? 40.7128;
   const deliveryLng = order.deliveryCoordinates?.lng ?? -74.006;
 
@@ -119,7 +120,9 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
         <motion.div
           className="absolute z-30 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
           animate={{ left: `${courierX}%`, top: `${courierY}%` }}
-          transition={{ type: 'spring', damping: 20, stiffness: 60 }}
+          transition={
+            shouldReduceMotion ? { duration: 0 } : { type: 'spring', damping: 20, stiffness: 60 }
+          }
         >
           <div className="relative">
             {/* Pulsing Beacon Rings */}

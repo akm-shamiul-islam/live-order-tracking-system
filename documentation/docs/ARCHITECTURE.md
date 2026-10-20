@@ -24,7 +24,7 @@ kitchen-to-door/
 
 1. **`pre-commit` (via `lint-staged`):**
    * Type-aware linting (`oxlint --fix`), including deprecated API errors.
-   * Instant Rust-based formatting (`oxfmt`) with automatic Tailwind CSS class sorting.
+   * Rust-based formatting (`oxfmt`) using the shared workspace settings.
 2. **`pre-push` (via Husky):**
    * Full TypeScript 7.x workspace typecheck (`pnpm typecheck`).
    * Vitest test suite execution (`pnpm test`).
@@ -163,3 +163,7 @@ Read [CODEBASE_REVIEW.md](CODEBASE_REVIEW.md) before using this development appl
 Shared request contracts, environment settings, and client forms use Zod 4. Email normalization precedes format validation, and the HTTP pipe translates Zod `issues` into the existing `{ field, message }` error list. This preserves inline error handling across the API boundary. Motion 14 renders the existing native React motion elements.
 
 The [dependency audit](DEPENDENCIES.md) lists the registry-verified versions and migration notes. `pnpm deps:check` compares all four manifests and installed package versions against npm. The lockfile records exact installations, including indirect dependencies within their owning packages' supported ranges. Vite+ remains installed alongside standalone root tools; its core-alias peer warning is documented in the audit.
+
+## Package compatibility follow-up
+
+Motion 14 uses a root `MotionConfig` with `reducedMotion="user"`; courier position updates also use `useReducedMotion` because left/top animations are outside that automatic transform policy. Router search validation consumes native Zod 4 schemas with explicit defaults and fallback values. Node types follow the Node 24 LTS runtime declared in the root `engines.node`. See [the package compatibility review](DEPENDENCIES.md#official-documentation-compatibility-review) for official sources and verification.

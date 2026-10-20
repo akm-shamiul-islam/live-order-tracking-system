@@ -37,7 +37,7 @@ The Mongoose update paths use `returnDocument: 'after'`; React submit handlers u
 
 ### 1.4 Dependency release audit
 
-All 49 maintained external packages across the four manifests match npm's latest stable release as checked on 2026-10-20. Seven installed packages were upgraded, including Zod 4.6.7 and Motion 14.4.0. React 19.3.1 and Tailwind CSS 4.3.3 were already installed; outdated declared minimums and badges were corrected. The deprecated bcrypt types stub was removed, and the standalone root Vitest runner has an explicit Vite peer. See [DEPENDENCIES.md](DEPENDENCIES.md) for every version, migrations, and the upstream Vite+ alias peer warning. Run `pnpm deps:check` to repeat the registry comparison.
+All 49 maintained external packages across the four manifests match their compatible targets as checked on 2026-10-20: 48 use npm latest, and Node types use the Node 24 release line. Six installed-package upgrades remain, including Zod 4.6.7 and Motion 14.4.0. React 19.3.1 and Tailwind CSS 4.3.3 were already installed; outdated declared minimums and badges were corrected. The deprecated bcrypt types stub was removed, and the standalone root Vitest runner has an explicit Vite peer. See [DEPENDENCIES.md](DEPENDENCIES.md) for every version, migrations, and the upstream Vite+ alias peer warning. Run `pnpm deps:check` to repeat the registry comparison.
 
 ---
 
@@ -113,7 +113,7 @@ kitchen-to-door/
 │       └── IMPLEMENTATION_AND_VERIFICATION_REPORT.md
 ├── .env.example                    # Environment template; generate JWT_SECRET locally
 ├── .oxlintrc.json                  # Oxlint configuration
-├── .oxfmtrc.json                   # Oxfmt configuration with Tailwind class sorting
+├── .oxfmtrc.json                   # Shared Oxfmt formatting configuration
 ├── pnpm-workspace.yaml             # PNPM workspace definition
 └── package.json                    # Workspace root commands (pnpm dev, dev:backend, dev:frontend)
 ```
@@ -131,7 +131,7 @@ kitchen-to-door/
 | **Git Hooks** | `husky` | `^9.1.7` | Git hooks orchestrator managing `pre-commit` and `pre-push` automated gates. |
 | **Staged Linting** | `lint-staged` | `^17.6.0` | Runs linters and formatters strictly against git staged files on commit. |
 | **Linter** | `oxlint` | `^1.89.0` | Rust-based linter executing ~50x faster than traditional ESLint, enforcing React and TypeScript correctness. |
-| **Formatter** | `oxfmt` | `^0.74.0` | Rust-powered formatter ensuring Prettier compatibility, automatic Tailwind class sorting, and import sorting. |
+| **Formatter** | `oxfmt` | `^0.74.0` | Formats source files using the shared workspace formatting configuration. |
 | **Backend Framework** | `NestJS` (`@nestjs/core`) | `^12.2.0` | Enterprise architecture featuring modular dependency injection, decorators, and clean domain separation. |
 | **HTTP Engine** | `@nestjs/platform-fastify` | `^12.2.0` | NestJS HTTP adapter; comparative throughput has not been benchmarked. |
 | **Real-Time Engine** | `socket.io` / `@nestjs/platform-socket.io` | `^4.8.4` / `^12.2.0` | WebSocket engine managing room subscriptions (`order_<id>`, `admins`), bi-directional telemetry, and acknowledgments. |
@@ -333,3 +333,7 @@ Runtime verification also imported the shared JavaScript in plain Node, resolved
 The navigation/list follow-up verifies a 288px desktop content shift and restoration, mobile drawer Escape/link dismissal and scroll unlock, dark category hover styles, all eight dispatch statuses, explicit Filter/Search actions, equal search-icon spacing, and button icons. Temporary browser response fixtures exercise next-page navigation, a 25-item selection resetting to page one, and a partial final page. Real API reads verify filtering/history; no existing orders are advanced for these checks. Invalid direct URLs normalize to defaults, and server-clamped pages correct their URL. A 1024px tablet check covers light mode, contained overflow, and reduced-motion transitions.
 
 See [CODEBASE_REVIEW.md](CODEBASE_REVIEW.md#verification) for the verification scope and remaining implementation gaps.
+
+## Official package compatibility follow-up
+
+The documentation review found and corrected missing JavaScript reduced-motion handling, aligned Node declarations with Node 24 LTS, adopted native Zod 4 router validation with explicit defaults, and corrected formatter feature claims. The staged-file hook now includes JavaScript/TypeScript module extensions. Source tests, typechecking, builds, lint, and fresh production browser checks pass. Temporary browser fixtures verify normal and reduced-motion tracking behavior without changing orders. Official documentation links and package-by-package findings are recorded in [DEPENDENCIES.md](DEPENDENCIES.md#official-documentation-compatibility-review).

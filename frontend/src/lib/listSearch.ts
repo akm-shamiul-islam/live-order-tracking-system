@@ -1,25 +1,20 @@
 import { z } from 'zod';
-import type { SearchSchemaInput } from '@tanstack/react-router';
 import { OrderStatus, PageNumberSchema, PageSizeSchema } from '@kitchentodoor/shared';
 
-const paging = { page: PageNumberSchema.catch(1), size: PageSizeSchema.catch(10) };
+const paging = {
+  page: PageNumberSchema.catch(1).default(1),
+  size: PageSizeSchema.catch(10).default(10),
+};
 export const MenuSearchSchema = z.object({
   ...paging,
-  category: z.enum(['all', 'burgers', 'pizzas', 'sides', 'drinks']).catch('all'),
+  category: z.enum(['all', 'burgers', 'pizzas', 'sides', 'drinks']).catch('all').default('all'),
 });
 export const DispatchSearchSchema = z.object({
   ...paging,
-  status: z.union([z.literal('ALL'), z.enum(OrderStatus)]).catch('ALL'),
-  q: z.string().trim().max(100).catch(''),
+  status: z
+    .union([z.literal('ALL'), z.enum(OrderStatus)])
+    .catch('ALL')
+    .default('ALL'),
+  q: z.string().trim().max(100).catch('').default(''),
 });
 export const HistorySearchSchema = z.object(paging);
-
-export const validateMenuSearch = (
-  search: Partial<z.infer<typeof MenuSearchSchema>> & SearchSchemaInput,
-) => MenuSearchSchema.parse(search);
-export const validateDispatchSearch = (
-  search: Partial<z.infer<typeof DispatchSearchSchema>> & SearchSchemaInput,
-) => DispatchSearchSchema.parse(search);
-export const validateHistorySearch = (
-  search: Partial<z.infer<typeof HistorySearchSchema>> & SearchSchemaInput,
-) => HistorySearchSchema.parse(search);
