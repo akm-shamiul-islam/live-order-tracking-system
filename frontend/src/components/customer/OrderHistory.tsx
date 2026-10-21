@@ -1,3 +1,5 @@
+import { useCopy } from '../../lib/i18n';
+import { IconActionLink } from '../ui/IconAction';
 import { formatDateTime } from '../../lib/dateTime';
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -22,6 +24,8 @@ export function OrderHistory() {
 }
 
 function OrderHistoryContent() {
+  const c = useCopy();
+
   const { user, isCourier } = useAuth();
   const { page, size, q } = useSearch({ from: '/orders' });
   const navigate = useNavigate({ from: '/orders' });
@@ -59,12 +63,14 @@ function OrderHistoryContent() {
     <div className="w-full min-w-0 space-y-6 mx-auto">
       <div>
         <h1 className="font-display font-extrabold text-2xl text-slate-900 dark:text-slate-100">
-          {isCourier ? 'My Deliveries' : 'My Order History'}
+          {isCourier ? c('My Deliveries') : c('My Order History')}
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           {isCourier
-            ? 'Only deliveries approved and assigned to your account appear here.'
-            : 'All orders placed with your account. Other customers cannot access these details.'}
+            ? c('Only deliveries approved and assigned to your account appear here.')
+            : c(
+                'All orders placed with your account. Other customers cannot access these details.',
+              )}
         </p>
       </div>
 
@@ -76,7 +82,7 @@ function OrderHistoryContent() {
       >
         <div className="w-full min-w-0 flex-1">
           <label htmlFor="history-q" className="sr-only">
-            Search your order number
+            {c('Search your order number')}{' '}
           </label>
           <div className="relative">
             <span
@@ -91,7 +97,7 @@ function OrderHistoryContent() {
               aria-invalid={searchError ? true : undefined}
               aria-describedby={searchError ? 'history-q-error' : undefined}
               autoComplete="off"
-              placeholder="Search your order number…"
+              placeholder={c('Search your order number…')}
               className="h-11 w-full pl-11 pr-4 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
           </div>
@@ -102,44 +108,44 @@ function OrderHistoryContent() {
           className="inline-flex h-11 shrink-0 items-center justify-center gap-2 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition-colors shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
         >
           {isFetching ? <Spinner /> : <Search aria-hidden="true" className="h-4 w-4" />}
-          <span>Search Orders</span>
+          <span>{c('Search Orders')}</span>
         </button>
       </form>
 
       {/* Orders List */}
       <div className="space-y-4">
         {isLoading ? (
-          <PageSkeleton label="Loading your orders…" />
+          <PageSkeleton label={c('Loading your orders…')} />
         ) : error ? (
           <div
             role="alert"
             className="glass-panel rounded-2xl p-6 text-center text-sm text-rose-700 dark:text-rose-300"
           >
-            <p>{error.message}</p>
+            <p>{c(error.message)}</p>
             <button
               onClick={() => void refetch()}
               className="mt-3 inline-flex items-center gap-2 font-bold underline"
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
-              Try Again
+              {c('Try Again')}{' '}
             </button>
           </div>
         ) : orders.length === 0 ? (
           <div className="glass-panel text-center py-12 rounded-2xl">
             <ShoppingBag className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
             <h2 className="font-display font-bold text-base text-slate-700 dark:text-slate-300">
-              No orders found
+              {c('No orders found')}{' '}
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
               {isCourier
-                ? 'Request an available delivery and wait for administrator approval.'
-                : 'Place your first order or try a different order number.'}
+                ? c('Request an available delivery and wait for administrator approval.')
+                : c('Place your first order or try a different order number.')}
             </p>
             <Link
               to={isCourier ? '/courier' : '/'}
               className="mt-4 inline-block font-bold text-teal-800 underline dark:text-teal-200"
             >
-              {isCourier ? 'Find Available Deliveries' : 'Explore Food Menu'}
+              {isCourier ? c('Find Available Deliveries') : c('Explore Food Menu')}
             </Link>
           </div>
         ) : (
@@ -154,20 +160,22 @@ function OrderHistoryContent() {
                     {order.orderNumber}
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                    {order.status.replace(/_/g, ' ')}
+                    {c(order.status.replace(/_/g, ' '))}
                   </span>
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1">
-                  {order.items.map((i) => `${i.name} (${i.quantity}x)`).join(', ')}
+                  {order.items.map((i) => `${c(i.name)} (${i.quantity}x)`).join(', ')}
                 </div>
                 <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 flex flex-wrap items-center gap-2">
                   <Clock className="w-3 h-3" />
                   <span>
-                    {formatDateTime(order.createdAt, 'date')} at{' '}
+                    {formatDateTime(order.createdAt, 'date')} {c('at')}{' '}
                     {formatDateTime(order.createdAt, 'time')}
                   </span>
                   <span>•</span>
-                  <span>Deliver to: {order.customer.address}</span>
+                  <span>
+                    {c('Deliver to:')} {order.customer.address}
+                  </span>
                 </div>
               </div>
 
@@ -175,14 +183,12 @@ function OrderHistoryContent() {
                 <span className="font-display font-extrabold text-lg text-slate-900 dark:text-slate-100 font-mono">
                   ${order.pricing.total.toFixed(2)}
                 </span>
-                <Link
+                <IconActionLink
                   to={isCourier ? '/courier/$orderId' : '/tracking/$orderId'}
-                  params={{ orderId: order.trackingId || order.id }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition active:scale-95 shadow-xs shadow-emerald-500/20 cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>{isCourier ? 'Manage Delivery' : 'Live Tracking'}</span>
-                </Link>
+                  orderId={order.id}
+                  icon={Eye}
+                  label={isCourier ? c('Manage Delivery') : c('Live Tracking')}
+                />
               </div>
             </div>
           ))

@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import {
   PAGE_SIZES,
@@ -21,6 +22,8 @@ type PaginationProps = {
 );
 
 export function Pagination(props: PaginationProps) {
+  const c = useCopy();
+
   const { pagination, onPageChange, disabled = false } = props;
   const sizes = (props.pageSizes ?? PAGE_SIZES).map((size) => ({
     value: String(size),
@@ -38,15 +41,17 @@ export function Pagination(props: PaginationProps) {
     'inline-flex h-10 min-w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-35 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-500/50 dark:hover:bg-teal-500/10 dark:hover:text-teal-200 dark:disabled:hover:border-slate-700 dark:disabled:hover:bg-slate-900';
   return (
     <nav
-      aria-label="Pagination"
+      aria-label={c('Pagination')}
       className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900/60"
     >
       <div className="flex items-center justify-between gap-4 sm:justify-start">
         <div className="flex items-center gap-2.5">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Items</span>
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {c('Items')}
+          </span>
           <div className="w-20">
             <ThemedSelect
-              label="Items per page"
+              label={c('Items per page')}
               value={String(pageSize)}
               options={sizes}
               onChange={changeSize}
@@ -56,20 +61,21 @@ export function Pagination(props: PaginationProps) {
           </div>
         </div>
         <p role="status" className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
-          <span className="font-semibold text-slate-700 dark:text-slate-200">
-            {total ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, total)}
-          </span>{' '}
-          of {total} items
+          {c('{{from}}–{{to}} of {{total}} items', {
+            from: total ? (page - 1) * pageSize + 1 : 0,
+            to: Math.min(page * pageSize, total),
+            total,
+          })}
         </p>
       </div>
       <div className="flex items-center justify-between gap-3 sm:justify-end">
         <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400 sm:hidden">
-          Page {page} of {totalPages}
+          {c('Page {{page}} of {{total}}', { page, total: totalPages })}
         </span>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            aria-label="First page"
+            aria-label={c('First page')}
             disabled={disabled || page <= 1}
             onClick={() => onPageChange(1)}
             className={`${controlClass} hidden sm:inline-flex`}
@@ -78,7 +84,7 @@ export function Pagination(props: PaginationProps) {
           </button>
           <button
             type="button"
-            aria-label="Previous page"
+            aria-label={c('Previous page')}
             disabled={disabled || page <= 1}
             onClick={() => onPageChange(page - 1)}
             className={controlClass}
@@ -92,7 +98,7 @@ export function Pagination(props: PaginationProps) {
               )}
               <button
                 type="button"
-                aria-label={`Page ${number}`}
+                aria-label={c('Page {{number}}', { number })}
                 aria-current={page === number ? 'page' : undefined}
                 disabled={disabled}
                 onClick={() => onPageChange(number)}
@@ -108,7 +114,7 @@ export function Pagination(props: PaginationProps) {
           ))}
           <button
             type="button"
-            aria-label="Next page"
+            aria-label={c('Next page')}
             disabled={disabled || page >= totalPages}
             onClick={() => onPageChange(page + 1)}
             className={controlClass}
@@ -117,7 +123,7 @@ export function Pagination(props: PaginationProps) {
           </button>
           <button
             type="button"
-            aria-label="Last page"
+            aria-label={c('Last page')}
             disabled={disabled || page >= totalPages}
             onClick={() => onPageChange(totalPages)}
             className={`${controlClass} hidden sm:inline-flex`}

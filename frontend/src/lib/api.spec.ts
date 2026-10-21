@@ -57,6 +57,7 @@ describe('API requests and shared authentication', () => {
     const registrationBody = fetchMock.mock.calls[0]?.[1]?.body;
     if (typeof registrationBody !== 'string') throw new Error('Expected a JSON registration body');
     expect(JSON.parse(registrationBody)).toEqual({
+      language: 'en',
       name: 'New Customer',
       email: 'customer@example.test',
       password: 'Password123!',

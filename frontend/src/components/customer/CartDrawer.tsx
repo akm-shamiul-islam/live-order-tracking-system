@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { MenuItem } from './MenuCatalog';
 import { X, Plus, Minus, Trash2, ArrowRight, ShoppingBag, RefreshCw } from 'lucide-react';
 import { useDialog } from '../../hooks/useDialog';
@@ -27,6 +28,8 @@ export function CartDrawer({
   onRemoveItem,
   onProceedToCheckout,
 }: CartDrawerProps) {
+  const c = useCopy();
+
   const dialogRef = useDialog(isOpen);
   const settings = usePublicSettings();
   if (!isOpen) return null;
@@ -57,12 +60,14 @@ export function CartDrawer({
               id="cart-title"
               className="font-display font-bold text-lg text-slate-900 dark:text-slate-100"
             >
-              Your Order Bag ({items.reduce((s, i) => s + i.quantity, 0)})
+              {c('Your Order Bag ({{count}})', {
+                count: items.reduce((s, i) => s + i.quantity, 0),
+              })}
             </h2>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close cart"
+            aria-label={c('Close cart')}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -75,10 +80,10 @@ export function CartDrawer({
             <div className="text-center py-16">
               <div className="text-5xl mb-3">🛒</div>
               <h3 className="font-display font-bold text-base text-slate-900 dark:text-slate-100 mb-1">
-                Your bag is empty
+                {c('Your bag is empty')}{' '}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Explore our kitchen menu and add dishes to start live order tracking.
+                {c('Explore our kitchen menu and add dishes to start live order tracking.')}{' '}
               </p>
             </div>
           ) : (
@@ -89,13 +94,13 @@ export function CartDrawer({
               >
                 <FoodImage
                   photo={item.photo}
-                  name={item.name}
+                  name={c(item.name)}
                   sizes="56px"
                   className="h-14 w-14 shrink-0 rounded-lg"
                 />
                 <div className="flex-1 min-w-0">
                   <h4 className="font-display font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
-                    {item.name}
+                    {c(item.name)}
                   </h4>
                   <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 font-mono">
                     ${(item.price * item.quantity).toFixed(2)}
@@ -106,7 +111,7 @@ export function CartDrawer({
                 <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
                   <button
                     onClick={() => onUpdateQuantity(item.id, -1)}
-                    aria-label={`Decrease quantity of ${item.name}`}
+                    aria-label={c('Decrease quantity of {{name}}', { name: c(item.name) })}
                     className="p-1 rounded text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     <Minus className="w-3.5 h-3.5" />
@@ -114,7 +119,7 @@ export function CartDrawer({
                   <span className="text-xs font-bold w-5 text-center">{item.quantity}</span>
                   <button
                     onClick={() => onUpdateQuantity(item.id, 1)}
-                    aria-label={`Increase quantity of ${item.name}`}
+                    aria-label={c('Increase quantity of {{name}}', { name: c(item.name) })}
                     disabled={item.quantity >= 99}
                     className="p-1 rounded text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
@@ -124,7 +129,7 @@ export function CartDrawer({
 
                 <button
                   onClick={() => onRemoveItem(item.id)}
-                  aria-label={`Remove ${item.name} from cart`}
+                  aria-label={c('Remove {{name}} from cart', { name: c(item.name) })}
                   className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -143,14 +148,14 @@ export function CartDrawer({
             {settings.error ? (
               settings.error.message
             ) : (
-              <LoadingState label="Loading delivery pricing…" />
+              <LoadingState label={c('Loading delivery pricing…')} />
             )}
             {settings.error && (
               <button
                 onClick={() => void settings.refetch()}
                 className="ml-2 inline-flex items-center gap-2 font-bold text-teal-700 underline"
               >
-                <RefreshCw aria-hidden="true" className="h-4 w-4" /> Try Again
+                <RefreshCw aria-hidden="true" className="h-4 w-4" /> {c('Try Again')}{' '}
               </button>
             )}
           </div>
@@ -159,21 +164,22 @@ export function CartDrawer({
           <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-3">
             <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span>{c('Subtotal')}</span>
                 <span className="font-mono">${subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Delivery Fee</span>
+                <span>{c('Delivery Fee')}</span>
                 <span className="font-mono">${deliveryFee.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>
-                  Estimated Tax ({Number((settings.data.pricing.taxRate * 100).toFixed(2))}%)
+                  {c('Estimated Tax (')}
+                  {Number((settings.data.pricing.taxRate * 100).toFixed(2))}%)
                 </span>
                 <span className="font-mono">${tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-base font-extrabold text-slate-900 dark:text-slate-100 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <span>Total Amount</span>
+                <span>{c('Total Amount')}</span>
                 <span className="font-mono text-emerald-600 dark:text-emerald-400 text-lg">
                   ${total.toFixed(2)}
                 </span>
@@ -184,7 +190,7 @@ export function CartDrawer({
               onClick={onProceedToCheckout}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition shadow-lg shadow-emerald-500/25 active:scale-[0.99] cursor-pointer"
             >
-              <span>Proceed to Checkout</span>
+              <span>{c('Proceed to Checkout')}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

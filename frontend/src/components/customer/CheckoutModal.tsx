@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { useRef, useState } from 'react';
 import { CartItem } from './CartDrawer';
 import { CreateOrderSchema, calculatePricing, type Coordinates } from '@kitchentodoor/shared';
@@ -21,6 +22,8 @@ interface CheckoutModalProps {
 }
 
 export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: CheckoutModalProps) {
+  const c = useCopy();
+
   const { user } = useAuth();
   const form = useZodForm(
     CheckoutFormSchema,
@@ -136,16 +139,16 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               id="checkout-title"
               className="font-display font-extrabold text-xl text-slate-900 dark:text-slate-100"
             >
-              Kitchen Delivery Details
+              {c('Kitchen Delivery Details')}{' '}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Your saved details are filled in. Edit them for this delivery.
+              {c('Your saved details are filled in. Edit them for this delivery.')}{' '}
             </p>
           </div>
           <button
             onClick={onClose}
             disabled={loading}
-            aria-label="Close checkout"
+            aria-label={c('Close checkout')}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <X className="w-5 h-5" />
@@ -158,7 +161,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             className="mb-5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300"
           >
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+            <span>{c(error)}</span>
           </div>
         )}
 
@@ -169,7 +172,8 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               onClick={() => void settings.refetch()}
               className="ml-2 inline-flex items-center gap-2 font-bold underline"
             >
-              <RefreshCw aria-hidden="true" className="h-4 w-4" /> Try Loading Pricing Again
+              <RefreshCw aria-hidden="true" className="h-4 w-4" />{' '}
+              {c('Try Loading Pricing Again')}{' '}
             </button>
           </p>
         )}
@@ -180,7 +184,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               htmlFor="checkout-name"
               className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
             >
-              Full Name
+              {c('Full Name')}{' '}
             </label>
             <input
               type="text"
@@ -188,7 +192,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               autoComplete="name"
               disabled={loading}
               required
-              placeholder="e.g. Alex Mercer"
+              placeholder={c('e.g. Alex Mercer')}
               className="w-full px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
             <FieldError id="checkout-name-error" message={form.errors.name} />
@@ -199,7 +203,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               htmlFor="checkout-phone"
               className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
             >
-              Mobile Phone
+              {c('Mobile Phone')}{' '}
             </label>
             <input
               type="tel"
@@ -208,7 +212,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               autoComplete="tel"
               disabled={loading}
               required
-              placeholder="e.g. +1 (555) 019-2834"
+              placeholder={c('e.g. +1 (555) 019-2834')}
               className="w-full px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
             <FieldError id="checkout-phone-error" message={form.errors.phone} />
@@ -219,7 +223,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               htmlFor="checkout-address"
               className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
             >
-              Delivery Address (Doorstep)
+              {c('Delivery Address (Doorstep)')}{' '}
             </label>
             <textarea
               {...form.field('address')}
@@ -232,13 +236,14 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               maxLength={500}
               disabled={loading}
               required
-              placeholder="e.g. 742 Evergreen Terrace, Apt 4B"
+              placeholder={c('e.g. 742 Evergreen Terrace, Apt 4B')}
               className="w-full resize-y px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
             <FieldError id="checkout-address-error" message={form.errors.address} />
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">
-              If you are at the delivery address, you can attach this device’s current location as
-              an optional map pin. Your written address is still required.
+              {c(
+                'If you are at the delivery address, you can attach this device’s current location as an optional map pin. Your written address is still required.',
+              )}{' '}
             </p>
             <button
               type="button"
@@ -282,21 +287,21 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             >
               {locating ? <Spinner /> : <LocateFixed aria-hidden="true" className="h-4 w-4" />}
               {locating
-                ? 'Getting Location…'
+                ? c('Getting Location…')
                 : coordinates
-                  ? 'Update Current Location'
-                  : 'Use My Current Location'}
+                  ? c('Update Current Location')
+                  : c('Use My Current Location')}
             </button>
             {coordinates && (
               <p role="status" className="mt-2 text-xs text-teal-800 dark:text-teal-200">
-                Map pin attached.{' '}
+                {c('Map pin attached.')}{' '}
                 <button
                   type="button"
                   disabled={loading}
                   onClick={clearLocation}
                   className="inline-flex items-center gap-1 font-bold underline"
                 >
-                  <MapPinX aria-hidden="true" className="h-3.5 w-3.5" /> Remove Pin
+                  <MapPinX aria-hidden="true" className="h-3.5 w-3.5" /> {c('Remove Pin')}{' '}
                 </button>
               </p>
             )}
@@ -312,13 +317,13 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               htmlFor="checkout-note"
               className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
             >
-              Kitchen or Delivery Note (Optional)
+              {c('Kitchen or Delivery Note (Optional)')}{' '}
             </label>
             <input
               type="text"
               {...form.field('note')}
               disabled={loading}
-              placeholder="e.g. Extra napkins, leave by door buzzer 402"
+              placeholder={c('e.g. Extra napkins, leave by door buzzer 402')}
               className="w-full px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
           </div>
@@ -326,10 +331,10 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div>
               <span className="text-xs text-slate-500 dark:text-slate-400 block font-medium">
-                Total Due
+                {c('Total Due')}{' '}
               </span>
               <span className="font-display font-extrabold text-2xl text-emerald-600 dark:text-emerald-400">
-                {total === undefined ? 'Loading…' : `$${total.toFixed(2)}`}
+                {total === undefined ? c('Loading…') : `$${total.toFixed(2)}`}
               </span>
             </div>
 
@@ -340,7 +345,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             >
               <CheckCircle2 className="w-4 h-4" />
               {loading && <Spinner />}
-              <span>{loading ? 'Placing Order…' : 'Deliver'}</span>
+              <span>{loading ? c('Placing Order…') : c('Deliver')}</span>
             </button>
           </div>
         </form>

@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Get,
   Body,
   UseGuards,
@@ -22,6 +23,8 @@ import {
   RegisterSchema,
   ForgotPasswordSchema,
   ResetPasswordSchema,
+  LanguagePreferenceSchema,
+  type Language,
 } from '@kitchentodoor/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe.js';
 import type { LoginDto, RegisterDto } from '@kitchentodoor/shared';
@@ -92,6 +95,16 @@ export class AuthController {
     if (!fresh)
       throw new UnauthorizedException('Your account is no longer available. Please sign in again.');
     return fresh;
+  }
+
+  @Patch('preferences')
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(JwtAuthGuard)
+  async preferences(
+    @CurrentUser() user: UserSummary,
+    @Body(new ZodValidationPipe(LanguagePreferenceSchema)) body: { language: Language },
+  ): Promise<{ language: Language; languageVersion: number }> {
+    return this.authService.updateLanguage(user.id, body.language);
   }
 
   @Post('logout')

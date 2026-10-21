@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { UserRole } from '@kitchentodoor/shared';
+import { UserRole, type Language } from '@kitchentodoor/shared';
 
 export type UserDocument = User & Document;
 
@@ -54,6 +54,12 @@ export class User {
 
   @Prop({ type: String, required: false, trim: true, maxLength: 500 })
   address?: string;
+
+  @Prop({ type: String, enum: ['en', 'ja'], default: 'en' })
+  language: Language;
+
+  @Prop({ type: Number, default: 0 })
+  languageVersion: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

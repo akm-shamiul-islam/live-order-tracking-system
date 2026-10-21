@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -28,6 +29,8 @@ function CancellationModal({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const c = useCopy();
+
   const dialog = useDialog(true);
   const form = useZodForm(reasonSchema, { reason: '' }, 'cancel-order');
   const [pending, setPending] = useState(false);
@@ -77,12 +80,12 @@ function CancellationModal({
               className="mb-3 h-7 w-7 text-rose-700 dark:text-rose-300"
             />
             <h2 id="cancellation-title" className="font-display text-xl font-bold">
-              Cancel {order.orderNumber}?
+              {c('Cancel')} {order.orderNumber}?
             </h2>
           </div>
           <button
             type="button"
-            aria-label="Close cancellation dialog"
+            aria-label={c('Close cancellation dialog')}
             disabled={pending}
             onClick={onClose}
             className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -91,17 +94,19 @@ function CancellationModal({
           </button>
         </div>
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          The customer will see this reason in their order history. Cancellation is final.
+          {c(
+            'The customer will see this reason in their order history. Cancellation is final.',
+          )}{' '}
         </p>
         {error && (
           <p role="alert" className="text-sm text-rose-800 dark:text-rose-200">
-            {error}
+            {c(error)}
           </p>
         )}
         <div className="space-y-2">
           <label htmlFor="cancel-order-reason" className="block text-sm font-bold">
-            Reason for cancellation{' '}
-            <span className="text-rose-700 dark:text-rose-300">(required)</span>
+            {c('Reason for cancellation')}{' '}
+            <span className="text-rose-700 dark:text-rose-300">{c('(required)')}</span>
           </label>
           <textarea
             {...form.field('reason')}
@@ -109,7 +114,7 @@ function CancellationModal({
             maxLength={500}
             disabled={pending}
             className="w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-950"
-            placeholder="Explain why this order needs to be cancelled…"
+            placeholder={c('Explain why this order needs to be cancelled…')}
           />
           <FieldError id="cancel-order-reason-error" message={form.errors.reason} />
         </div>
@@ -121,14 +126,14 @@ function CancellationModal({
             className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold dark:border-slate-600"
           >
             <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-            Keep Order
+            {c('Keep Order')}{' '}
           </button>
           <button
             disabled={pending}
             className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-rose-700 px-4 text-sm font-bold text-white hover:bg-rose-800 disabled:opacity-60"
           >
             {pending ? <Spinner /> : <X aria-hidden="true" className="h-4 w-4" />}
-            {pending ? 'Cancelling…' : 'Cancel Order'}
+            {pending ? c('Cancelling…') : c('Cancel Order')}
           </button>
         </div>
       </form>
@@ -137,6 +142,8 @@ function CancellationModal({
 }
 
 export function OrderStatusControl({ order }: { order: OrderDetails }) {
+  const c = useCopy();
+
   const { user, isAdmin, isCourier } = useAuth();
   const queryClient = useQueryClient();
   const [selection, setSelection] = useState<{ value: OrderStatus; original: OrderStatus }>();
@@ -158,20 +165,20 @@ export function OrderStatusControl({ order }: { order: OrderDetails }) {
   return (
     <section
       className="space-y-3 border-t border-slate-200 pt-4 dark:border-slate-700"
-      aria-label="Update order status"
+      aria-label={c('Update order status')}
     >
-      <h3 className="text-sm font-bold">Update Status</h3>
+      <h3 className="text-sm font-bold">{c('Update Status')}</h3>
       <p className="text-xs text-slate-600 dark:text-slate-300">
-        Move through each stage in order. Cancellation requires an explanation.
+        {c('Move through each stage in order. Cancellation requires an explanation.')}{' '}
       </p>
       {error && (
         <p role="alert" className="text-sm text-rose-800 dark:text-rose-200">
-          {error}
+          {c(error)}
         </p>
       )}
       <div className="flex flex-wrap items-center gap-3">
         <ThemedSelect
-          label="Order status"
+          label={c('Order status')}
           value={selected}
           options={[order.status, ...allowed].map((status) => ({
             value: status,
@@ -208,12 +215,12 @@ export function OrderStatusControl({ order }: { order: OrderDetails }) {
           className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-60"
         >
           {pending ? <Spinner /> : <CheckCircle2 aria-hidden="true" className="h-4 w-4" />}
-          {pending ? 'Updating…' : 'Update Status'}
+          {pending ? c('Updating…') : c('Update Status')}
         </button>
       </div>
       {selected === OrderStatus.OUT_FOR_DELIVERY && !order.courierId && (
         <p className="text-sm text-amber-900 dark:text-amber-200">
-          Assign a courier before starting delivery.
+          {c('Assign a courier before starting delivery.')}{' '}
         </p>
       )}
       {cancelOpen && (

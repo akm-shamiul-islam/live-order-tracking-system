@@ -42,6 +42,21 @@ export function subscribeSession(listener: () => void) {
 
 function updateSession(next: AuthSession) {
   const current = getSession();
+  if (
+    current.user &&
+    next.user &&
+    current.user.id === next.user.id &&
+    (current.user.languageVersion ?? 0) > (next.user.languageVersion ?? 0)
+  ) {
+    next = {
+      ...next,
+      user: {
+        ...next.user,
+        language: current.user.language,
+        languageVersion: current.user.languageVersion,
+      },
+    };
+  }
   const sameUser =
     current.user === next.user ||
     Boolean(
@@ -52,6 +67,8 @@ function updateSession(next: AuthSession) {
       current.user.email === next.user.email &&
       current.user.phone === next.user.phone &&
       current.user.address === next.user.address &&
+      current.user.language === next.user.language &&
+      current.user.languageVersion === next.user.languageVersion &&
       current.user.role === next.user.role,
     );
   if (sameUser && current.token === next.token) return;
@@ -60,9 +77,10 @@ function updateSession(next: AuthSession) {
 
 export function saveSession(response: AuthResponse) {
   updateSession({ user: response.user, token: response.accessToken });
+  const stored = getSession();
   try {
-    localStorage.setItem('ktd_token', response.accessToken);
-    localStorage.setItem('ktd_user', JSON.stringify(response.user));
+    if (stored.token) localStorage.setItem('ktd_token', stored.token);
+    localStorage.setItem('ktd_user', JSON.stringify(stored.user));
   } catch {
     // The active session still works when browser storage is unavailable.
   }

@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { formatDateTime } from '../../lib/dateTime';
 import { OrderStatus, getStatusStepIndex, OrderDetails } from '@kitchentodoor/shared';
 import { CheckCircle2, Clock, ChefHat, PackageCheck, Bike, Home, XCircle } from 'lucide-react';
@@ -46,6 +47,8 @@ const STEP_CONFIG = [
 ];
 
 export function OrderTimeline({ order }: OrderTimelineProps) {
+  const c = useCopy();
+
   const currentStatus = order.status;
   const isCancelled = currentStatus === OrderStatus.CANCELLED;
   const currentStepIndex = getStatusStepIndex(currentStatus);
@@ -56,10 +59,10 @@ export function OrderTimeline({ order }: OrderTimelineProps) {
         <section className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">
           <XCircle aria-hidden="true" className="h-8 w-8 shrink-0" />
           <div>
-            <h2 className="font-display text-lg font-bold">Order Cancelled</h2>
+            <h2 className="font-display text-lg font-bold">{c('Order Cancelled')}</h2>
             <p className="mt-2 text-sm">
               {order.statusHistory.find((log) => log.status === OrderStatus.CANCELLED)?.note ||
-                'This order has been cancelled.'}
+                c('This order has been cancelled.')}
             </p>
           </div>
         </section>
@@ -104,7 +107,7 @@ export function OrderTimeline({ order }: OrderTimelineProps) {
 
                   {/* Step Info */}
                   <div className="text-xs uppercase font-extrabold tracking-wider mb-0.5 text-slate-600 dark:text-slate-300">
-                    Step {idx + 1}
+                    {c('Step')} {idx + 1}
                   </div>
                   <div
                     className={`font-display font-bold text-sm ${
@@ -115,10 +118,10 @@ export function OrderTimeline({ order }: OrderTimelineProps) {
                           : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    {step.label}
+                    {c(step.label)}
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                    {step.desc}
+                    {c(step.desc)}
                   </div>
                 </div>
               );
@@ -133,11 +136,11 @@ export function OrderTimeline({ order }: OrderTimelineProps) {
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-teal-700 dark:text-teal-400" />
             <h2 className="font-display font-bold text-base text-slate-900 dark:text-slate-100">
-              Live Activity & Audit Trail
+              {c('Live Activity & Audit Trail')}{' '}
             </h2>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-            {order.statusHistory?.length || 0} Events Logged
+            {order.statusHistory?.length || 0} {c('Events Logged')}{' '}
           </span>
         </div>
 
@@ -152,7 +155,7 @@ export function OrderTimeline({ order }: OrderTimelineProps) {
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-slate-900 dark:text-slate-100">
-                      {log.status.replace(/_/g, ' ')}
+                      {c(log.status.replace(/_/g, ' '))}
                     </span>
                     <span className="text-slate-600 dark:text-slate-300 font-mono text-[11px]">
                       {formatDateTime(log.timestamp, 'timeSeconds')}
@@ -162,15 +165,15 @@ export function OrderTimeline({ order }: OrderTimelineProps) {
                     <p className="text-slate-600 dark:text-slate-300 mt-0.5">{log.note}</p>
                   )}
                   <div className="text-[10px] text-slate-600 dark:text-slate-300 mt-1">
-                    Updated by {log.changedBy?.name || 'Kitchen Staff'} (
-                    {log.changedBy?.role || 'SYSTEM'})
+                    {c('Updated by')} {log.changedBy?.name || c('Kitchen Staff')} (
+                    {c(log.changedBy?.role || 'SYSTEM')})
                   </div>
                 </div>
               </div>
             ))
           ) : (
             <div className="text-center py-6 text-slate-400 text-sm">
-              No status logs recorded yet.
+              {c('No status logs recorded yet.')}{' '}
             </div>
           )}
         </div>

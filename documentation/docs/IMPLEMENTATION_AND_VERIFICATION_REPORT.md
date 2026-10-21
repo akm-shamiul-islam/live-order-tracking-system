@@ -22,6 +22,12 @@ The menu uses 8/16/32/60 items per page, default 8. Other lists retain 10/25/50/
 
 The shared catalog includes 27 dishes in seven categories with realistic USD demo prices and local licensed food photos. Responsive WebP, self-hosted fonts, fixed image dimensions, deferred live/animation loading and reduced-motion handling improve rendering. Contrast issues identified in the measured history, dispatch and tracking pages have been corrected. Identical profile checks no longer trigger full authenticated rerenders. Locale date formatters are reused across rows/live updates, offscreen menu cards use rendering containment, and staff controls are split from customer tracking.
 
+## Interface and EN/JA follow-up
+
+The header places a custom EN/JA dropdown before the cart. Matching JSON bundles cover interface/validation messages and all 27 food names/descriptions. Japanese loads on demand; switching language preserves inputs, cart and URL. Theme and manual language changes crossfade the full interface with reduced-motion/direct-render fallbacks. Themed tooltips support pointer hover, keyboard focus, Escape and native dialogs. Row/delivery actions are icon buttons with accessible labels and smooth hover/press feedback. Users uses centered headers and Phone/Role/Account/Actions cells, and Account Status uses the same custom dropdown as Role. The Available Deliveries introduction spans the complete header width and wraps on mobile.
+
+Registration stores the selected language; strictly validated `PATCH /api/auth/preferences` updates only the current account and increments a revision. LocalStorage, queued/coalesced writes, an account-scoped pending marker, cross-tab Web Locks, retry feedback and identity checks preserve the choice across reloads/sign-ins and interrupted requests. Older profile responses cannot downgrade the saved language revision or restore another session. Backend rate limits and account guards continue to apply.
+
 ## Backend consistency, resilience and security
 
 Order creation, statuses, requests and assignment store their audit entries in the same document write. Conditional filters reject concurrent changes. Legacy logs remain readable. Random order numbers have bounded collision retries; opaque tracking IDs are hashed and still require authorization. Majority journaled writes survive the tested MongoDB restart.
@@ -46,13 +52,13 @@ All nine remaining handwritten JavaScript files were converted to TypeScript: br
 
 | Check | Result |
 | --- | --- |
-| Workspace/tooling typecheck | Passed, including orders.integration.ts socket types and the TypeScript source gate |
+| Workspace/tooling typecheck | Passed, including orders.integration.ts socket types, the TypeScript source gate and EN/JA copy checks |
 | Production build | Passed; compressed frontend assets and runnable backend/shared exports |
-| Source tests | 210 passed across 21 files |
-| MongoDB/HTTP/socket integration | 25 passed against isolated MongoDB |
-| Browser workflows | 14 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
-| Lighthouse | [Eight-case summary](../quality/lighthouse-2026-10-21.json), [registration/courier follow-up](../quality/lighthouse-registration-courier-2026-10-21.json) and [TypeScript/theme follow-up](../quality/lighthouse-typescript-2026-10-21.json); see QUALITY.md |
-| Registry/security/lint gates | 59 direct packages / 70 declarations current; 0 known advisories; lint 0 errors, 127 warnings |
+| Source tests | 225 passed across 24 files |
+| MongoDB/HTTP/socket integration | 26 passed against isolated MongoDB |
+| Browser workflows | 17 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
+| Lighthouse (historical; not rerun for this follow-up) | [Eight-case summary](../quality/lighthouse-2026-10-21.json), [registration/courier follow-up](../quality/lighthouse-registration-courier-2026-10-21.json) and [TypeScript/theme follow-up](../quality/lighthouse-typescript-2026-10-21.json); see QUALITY.md |
+| Registry/security/lint gates | 63 direct packages / 74 declarations current; 0 known advisories; lint 0 errors; nonblocking warning backlog remains |
 
 [QUALITY.md](QUALITY.md) explains commands, isolation, measurement settings and limitations. Test databases, synthetic accounts, browser profiles, proxy ports and API processes are separate from existing development services. Run resource-heavy checks sequentially; concurrent runners caused local fixture timeouts and were rerun independently.
 

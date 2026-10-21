@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { useState } from 'react';
 import { ORDER_STATUS_SEQUENCE } from '@kitchentodoor/shared';
 import { ListFilter, Search } from 'lucide-react';
@@ -21,6 +22,8 @@ export function DispatchFilters({
   onFilter: (status: string) => void;
   onSearch: (search: string) => void;
 }) {
+  const c = useCopy();
+
   const [draftStatus, setDraftStatus] = useState(status);
   const [draftSearch, setDraftSearch] = useState(search);
   return (
@@ -33,12 +36,12 @@ export function DispatchFilters({
         className="w-full xl:max-w-sm"
       >
         <p className="mb-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
-          Order status
+          {c('Order status')}{' '}
         </p>
         <div className="flex items-center gap-2.5">
           <div className="min-w-0 flex-1">
             <ThemedSelect
-              label="Order status"
+              label={c('Order status')}
               value={draftStatus}
               options={statuses}
               onChange={setDraftStatus}
@@ -46,7 +49,7 @@ export function DispatchFilters({
           </div>
           <button type="submit" className={actionClass}>
             <ListFilter aria-hidden="true" className="h-4 w-4" />
-            <span>Filter</span>
+            <span>{c('Filter')}</span>
           </button>
         </div>
       </form>
@@ -61,7 +64,7 @@ export function DispatchFilters({
           htmlFor="dispatch-search"
           className="mb-2 block text-[11px] font-bold text-slate-500 dark:text-slate-400"
         >
-          Search orders
+          {c('Search orders')}{' '}
         </label>
         <div className="flex items-center gap-2.5">
           <div className="relative min-w-0 flex-1">
@@ -78,14 +81,14 @@ export function DispatchFilters({
               value={draftSearch}
               maxLength={100}
               onChange={(event) => setDraftSearch(event.target.value)}
-              placeholder="Order #, name or phone…"
+              placeholder={c('Order #, name or phone…')}
               autoComplete="off"
               className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-xs text-slate-800 shadow-xs placeholder:text-slate-400 focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </div>
           <button type="submit" className={actionClass}>
             <Search aria-hidden="true" className="h-4 w-4" />
-            <span>Search</span>
+            <span>{c('Search')}</span>
           </button>
         </div>
       </form>

@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import type { ReactNode } from 'react';
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import { LockKeyhole, UserRound, LogIn, UserRoundPlus } from 'lucide-react';
@@ -5,6 +6,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { canOpenPage } from '../../lib/access';
 
 export function AccountRequired({ children }: { children?: ReactNode }) {
+  const c = useCopy();
+
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
   if (isAuthenticated && canOpenPage(location.pathname, user?.role)) return children ?? <Outlet />;
@@ -18,12 +21,14 @@ export function AccountRequired({ children }: { children?: ReactNode }) {
         className="mx-auto h-10 w-10 text-teal-700 dark:text-teal-300"
       />
       <h1 id="account-required-title" className="font-display text-2xl font-bold">
-        {isAuthenticated ? 'Access Restricted' : 'Sign In to Continue'}
+        {isAuthenticated ? c('Access Restricted') : c('Sign In to Continue')}
       </h1>
       <p className="text-sm text-slate-600 dark:text-slate-300">
         {isAuthenticated
-          ? 'Your account does not have access to this workspace. Contact an administrator if your role needs to change.'
-          : 'Sign in or create a customer account to place orders and view your deliveries.'}
+          ? c(
+              'Your account does not have access to this workspace. Contact an administrator if your role needs to change.',
+            )
+          : c('Sign in or create a customer account to place orders and view your deliveries.')}
       </p>
       {isAuthenticated ? (
         <Link
@@ -31,7 +36,7 @@ export function AccountRequired({ children }: { children?: ReactNode }) {
           className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white hover:bg-teal-800"
         >
           <UserRound aria-hidden="true" className="h-4 w-4" />
-          My Account
+          {c('My Account')}{' '}
         </Link>
       ) : (
         <div className="flex flex-wrap justify-center gap-3">
@@ -41,7 +46,7 @@ export function AccountRequired({ children }: { children?: ReactNode }) {
             className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white hover:bg-teal-800"
           >
             <LogIn aria-hidden="true" className="h-4 w-4" />
-            Sign In
+            {c('Sign In')}{' '}
           </Link>
           <Link
             to="/account/register"
@@ -49,7 +54,7 @@ export function AccountRequired({ children }: { children?: ReactNode }) {
             className="inline-flex items-center gap-2 rounded-xl border border-teal-600 px-5 py-3 text-sm font-bold text-teal-800 dark:text-teal-200"
           >
             <UserRoundPlus aria-hidden="true" className="h-4 w-4" />
-            Create Account
+            {c('Create Account')}{' '}
           </Link>
         </div>
       )}

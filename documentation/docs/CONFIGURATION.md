@@ -22,6 +22,12 @@ Vite reads root `.env`, `.env.local`, `.env.<mode>` and `.env.<mode>.local`; lat
 - Development requires `ADMIN_DEFAULT_*` and `COURIER_DEFAULT_*` to create missing staff. Changes do not reset existing passwords. `pnpm auth:reset-dev-admin` explicitly restores only the configured existing administrator and invalidates its sessions.
 - Production startup does not seed staff. After building, `pnpm auth:bootstrap-admin` creates an initial admin only with NODE_ENV=production, separate `BOOTSTRAP_ADMIN_EMAIL` and a 12+ character `BOOTSTRAP_ADMIN_PASSWORD` (maximum 72 bytes). It refuses an existing active admin or occupied email. Remove the bootstrap password afterward. Normal role/profile editing uses the admin Users page.
 
+## Language and appearance
+
+The interface supports `en` and `ja`; no environment secret or translation service is required. Maintain both JSON bundles under `frontend/src/locales/` and run `pnpm locales:check` after changing copy. The header dropdown writes `ktd_language` in localStorage. Registration includes the chosen language; an authenticated, strictly validated `PATCH /api/auth/preferences` saves only the caller's language to MongoDB and increments `languageVersion`. Existing accounts without these fields use `en`/0. No manual database migration is required.
+
+Signing in restores the saved account language. An unsaved choice is retained locally under `ktd_language_pending`, scoped to its account, with a visible retry and automatic retry on reconnection. Theme remains a device preference in `ktd_theme`. Both appearance switches respect the operating system's reduced-motion setting. Locale changes translate interface/catalog copy and date formatting; they do not convert USD prices or translate customer-entered content.
+
 ## Recovery email
 
 `PASSWORD_RESET_ENABLED=false` by default. Enable only after setting `SMTP_HOST` and `SMTP_FROM`; `SMTP_USER`/`SMTP_PASSWORD` must be paired if authentication is needed. Port 587 with required STARTTLS is the default; use SMTP_SECURE=true with the provider's implicit TLS port when appropriate. Configure connection/socket timeouts and a real HTTPS PUBLIC_APP_URL for production.

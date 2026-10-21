@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { Link, useLocation } from '@tanstack/react-router';
 import { ChevronRight, House } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -5,6 +6,8 @@ import { useAuth } from '../../hooks/useAuth';
 type Crumb = { label: string; to?: '/' | '/account' | '/orders' | '/tracking' | '/courier' };
 
 export function Breadcrumbs() {
+  const c = useCopy();
+
   const pathname = useLocation({
     select: (location) => location.pathname.replace(/\/+$/, '') || '/',
   });
@@ -36,7 +39,7 @@ export function Breadcrumbs() {
   }
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label={c('Breadcrumb')}
       className="mb-6 text-xs font-medium text-slate-600 dark:text-slate-300"
     >
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-2">
@@ -46,7 +49,7 @@ export function Breadcrumbs() {
             aria-current={pathname === '/' ? 'page' : undefined}
             className="inline-flex items-center gap-1.5 rounded-md hover:text-teal-800 dark:hover:text-teal-200"
           >
-            <House aria-hidden="true" className="h-3.5 w-3.5" /> Food Menu
+            <House aria-hidden="true" className="h-3.5 w-3.5" /> {c('Food Menu')}{' '}
           </Link>
         </li>
         {crumbs.map((crumb, index) => (
@@ -57,14 +60,14 @@ export function Breadcrumbs() {
                 to={crumb.to}
                 className="rounded-md hover:text-teal-800 dark:hover:text-teal-200"
               >
-                {crumb.label}
+                {c(crumb.label)}
               </Link>
             ) : (
               <span
                 aria-current={index === crumbs.length - 1 ? 'page' : undefined}
                 className="font-semibold text-slate-800 dark:text-slate-100"
               >
-                {crumb.label}
+                {c(crumb.label)}
               </span>
             )}
           </li>

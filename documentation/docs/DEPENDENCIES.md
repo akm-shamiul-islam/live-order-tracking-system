@@ -1,6 +1,6 @@
 # Dependency version audit
 
-Registry metadata was checked on **2026-10-21 (Asia/Tokyo)** across all four workspace manifests. After removing the deprecated bcrypt types stub, there are **59 maintained packages across 70 declarations**. Of these, 58 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime.
+Registry metadata was checked on **2026-10-21 (Asia/Tokyo)** across all four workspace manifests. After removing the deprecated bcrypt types stub, there are **63 maintained packages across 74 declarations**. Of these, 62 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime.
 
 The `^` prefix permits compatible newer versions; it does not mean the installed version equals the minimum shown in `package.json`. The lockfile and installed package metadata establish the version actually used. React 19.3.1 and Tailwind CSS 4.3.3 were already installed at their current stable versions; their README badges and lower dependency bounds were outdated.
 
@@ -9,11 +9,12 @@ The `^` prefix permits compatible newer versions; it does not mean the installed
 | Package | Previous installed | Verified stable release |
 | --- | --- | --- |
 | `@tanstack/react-query` | 5.104.4 | 5.104.5 |
-| `lucide-react` | 1.59.0 | 1.60.0 |
+| `lucide-react` | 1.59.0 | 1.61.0 |
 | `motion` | 12.43.0 | 14.5.0 |
 | `oxfmt` | 0.73.0 | 0.74.0 |
 | `oxlint` | 1.88.0 | 1.89.0 |
 | `zod` | 3.25.76 | 4.6.7 |
+| `vite` | 8.3.4 | 8.3.5 |
 
 `@types/bcryptjs` 3.0.0 was removed because npm marks it as a deprecated stub and bcryptjs includes its own declarations. A current Vite development dependency was added at the root to provide the standalone Vitest runner with an explicit Vite peer.
 
@@ -26,6 +27,7 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [@fastify/cors](https://www.npmjs.com/package/@fastify/cors/v/11.3.1) | `^11.3.1` | 11.3.1 | backend |
 | [@fastify/helmet](https://www.npmjs.com/package/@fastify/helmet/v/13.2.0) | `^13.2.0` | 13.2.0 | backend |
 | [@fastify/static](https://www.npmjs.com/package/@fastify/static/v/10.1.6) | `^10.1.6` | 10.1.6 | backend |
+| [@floating-ui/react](https://www.npmjs.com/package/@floating-ui/react/v/0.27.20) | `0.27.20` | 0.27.20 | frontend |
 | [@nestjs/common](https://www.npmjs.com/package/@nestjs/common/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
 | [@nestjs/config](https://www.npmjs.com/package/@nestjs/config/v/12.0.1) | `^12.0.1` | 12.0.1 | backend |
 | [@nestjs/core](https://www.npmjs.com/package/@nestjs/core/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
@@ -55,19 +57,22 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [fastify](https://www.npmjs.com/package/fastify/v/5.12.7) | `^5.12.7` | 5.12.7 | backend |
 | [helmet](https://www.npmjs.com/package/helmet/v/8.3.0) | `8.3.0` | 8.3.0 | backend |
 | [husky](https://www.npmjs.com/package/husky/v/9.1.7) | `^9.1.7` | 9.1.7 | root |
+| [i18next](https://www.npmjs.com/package/i18next/v/26.5.4) | `26.5.4` | 26.5.4 | frontend |
 | [lighthouse](https://www.npmjs.com/package/lighthouse/v/13.5.0) | `^13.5.0` | 13.5.0 | root |
 | [lint-staged](https://www.npmjs.com/package/lint-staged/v/17.6.0) | `^17.6.0` | 17.6.0 | root |
-| [lucide-react](https://www.npmjs.com/package/lucide-react/v/1.60.0) | `^1.60.0` | 1.60.0 | frontend |
+| [lucide-react](https://www.npmjs.com/package/lucide-react/v/1.61.0) | `^1.61.0` | 1.61.0 | frontend |
 | [mongodb-memory-server](https://www.npmjs.com/package/mongodb-memory-server/v/11.3.0) | `11.3.0` | 11.3.0 | backend |
 | [mongoose](https://www.npmjs.com/package/mongoose/v/9.11.2) | `^9.11.2` | 9.11.2 | backend |
 | [motion](https://www.npmjs.com/package/motion/v/14.5.0) | `^14.5.0` | 14.5.0 | frontend |
 | [nodemailer](https://www.npmjs.com/package/nodemailer/v/10.1.7) | `^10.1.7` | 10.1.7 | backend |
+| [oxc-parser](https://www.npmjs.com/package/oxc-parser/v/0.155.0) | `0.155.0` | 0.155.0 | root |
 | [oxfmt](https://www.npmjs.com/package/oxfmt/v/0.74.0) | `^0.74.0` | 0.74.0 | root |
 | [oxlint](https://www.npmjs.com/package/oxlint/v/1.89.0) | `^1.89.0` | 1.89.0 | root |
 | [oxlint-tsgolint](https://www.npmjs.com/package/oxlint-tsgolint/v/7.0.2004) | `^7.0.2004` | 7.0.2004 | root |
 | [passport](https://www.npmjs.com/package/passport/v/0.7.0) | `^0.7.0` | 0.7.0 | backend |
 | [passport-jwt](https://www.npmjs.com/package/passport-jwt/v/4.0.1) | `^4.0.1` | 4.0.1 | backend |
 | [react](https://www.npmjs.com/package/react/v/19.3.1) | `^19.3.1` | 19.3.1 | frontend |
+| [react-i18next](https://www.npmjs.com/package/react-i18next/v/17.1.0) | `17.1.0` | 17.1.0 | frontend |
 | [react-dom](https://www.npmjs.com/package/react-dom/v/19.3.1) | `^19.3.1` | 19.3.1 | frontend |
 | [reflect-metadata](https://www.npmjs.com/package/reflect-metadata/v/0.2.2) | `^0.2.2` | 0.2.2 | backend |
 | [rxjs](https://www.npmjs.com/package/rxjs/v/7.8.2) | `^7.8.2` | 7.8.2 | backend |
@@ -77,7 +82,7 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [tailwindcss](https://www.npmjs.com/package/tailwindcss/v/4.3.3) | `^4.3.3` | 4.3.3 | frontend |
 | [tsx](https://www.npmjs.com/package/tsx/v/4.23.15) | `^4.23.15` | 4.23.15 | backend |
 | [typescript](https://www.npmjs.com/package/typescript/v/7.0.2) | `^7.0.2` | 7.0.2 | root, backend, frontend, shared |
-| [vite](https://www.npmjs.com/package/vite/v/8.3.4) | `^8.3.4` | 8.3.4 | root, frontend |
+| [vite](https://www.npmjs.com/package/vite/v/8.3.5) | `^8.3.5` | 8.3.5 | root, frontend |
 | [vite-plus](https://www.npmjs.com/package/vite-plus/v/1.3.0) | `^1.3.0` | 1.3.0 | root |
 | [vitest](https://www.npmjs.com/package/vitest/v/5.0.5) | `^5.0.5` | 5.0.5 | root, backend, frontend, shared |
 | [zod](https://www.npmjs.com/package/zod/v/4.6.7) | `^4.6.7` | 4.6.7 | backend, frontend, shared |
@@ -89,7 +94,20 @@ Each release below was verified through the [npm registry](https://registry.npmj
 - **Motion 14.5.0:** The follow-up npm check found 14.5.0 after the initial 14.4.0 update. Reviewed the [14.5.0 release](https://github.com/motiondivision/motion/releases/tag/v14.5.0), [upgrade guide](https://motion.dev/docs/react-upgrade-guide) and [LazyMotion API](https://motion.dev/docs/react-lazy-motion). Version 14 retains the public React APIs used here. Tracking uses native `m.div`, LazyMotion/domAnimation, reduced-motion handling and the documented motion/react-m entry point; no CSS-in-JS prop filtering integration is used.
 - **Tooling:** Oxlint 1.89.0 and Oxfmt 0.74.0 are explicit root tools. The installed Vite+ release is 1.3.0 and bundles its own tool versions. Source scripts use the standalone tools described in the README.
 - **Node:** The compatibility review corrected the initial Node 26 type upgrade to `@types/node` 24.19.2, the latest Node 24 types. The root `engines.node` declares `24.x`, matching the project runtime. DefinitelyTyped documents that declarations follow the corresponding library version. The dependency checker reports both the compatible target and the global npm latest version. See [DefinitelyTyped versioning](https://github.com/DefinitelyTyped/DefinitelyTyped#versioning).
-- **Known upstream peer warning:** `pnpm peers check` reports the Vite+ core alias version 1.3.0 against the Vite 6/7/8 peer ranges in its bundled Vitest 5.0.5 and `@vitest/mocker`. Vite+ documents the core alias in its [migration rules](https://viteplus.dev/guide/migrate-rules#vite-and-overrides), and the warning is tracked [upstream](https://github.com/voidzero-dev/vite-plus/issues/1101). The application and standalone runner resolve Vite 8.3.4.
+- **Known upstream peer warning:** `pnpm peers check` reports the Vite+ core alias version 1.3.0 against the Vite 6/7/8 peer ranges in its bundled Vitest 5.0.5 and `@vitest/mocker`. Vite+ documents the core alias in its [migration rules](https://viteplus.dev/guide/migrate-rules#vite-and-overrides), and the warning is tracked [upstream](https://github.com/voidzero-dev/vite-plus/issues/1101). The application and standalone runner resolve Vite 8.3.5.
+
+## Localization and interface packages
+
+| Package | Official documentation | Integration checked |
+| --- | --- | --- |
+| `i18next` 26.5.4 | [TypeScript selectors](https://www.i18next.com/overview/typescript), [configuration](https://www.i18next.com/overview/configuration-options) | Typed selector lookup, `ui`/`food` namespaces, matching interpolation, English fallback, JSON key separators disabled and on-demand Japanese resources. React escapes rendered values. |
+| `react-i18next` 17.1.0 | [useTranslation](https://react.i18next.com/latest/usetranslation-hook) | Hook subscriptions update every translated component without remounting forms or resetting router/cart state. Initialization completes before mount. |
+| `@floating-ui/react` 0.27.20 | [Tooltip](https://floating-ui.com/docs/tooltip), [ref merging](https://floating-ui.com/docs/react-utils#usemergerefs) | Hover/focus/Escape, ARIA descriptions, fixed positioning, offset/flip/shift, transition styles, mounted-only position updates and dialog-aware portals. Existing dropdown focus refs are merged through the documented hook. |
+| `oxc-parser` 0.155.0 | [Parser API](https://oxc.rs/docs/guide/usage/parser.html) | `parseSync` parses TSX for the translation coverage gate; maintained tooling remains TypeScript and is checked separately. |
+
+The follow-up registry check found [Vite 8.3.5](https://github.com/vitejs/vite/releases/tag/v8.3.5) and [Lucide 1.61.0](https://github.com/lucide-icons/lucide/releases/tag/1.61.0). Vite's build/HMR fixes preserve the documented `transformWithOxc`, proxy and plugin APIs used here. Lucide adds icons and retains the [named React component API](https://lucide.dev/guide/react). Both root/frontend Vite declarations and the frontend icon declaration were updated before browser verification.
+
+A later check found i18next 26.5.4. Its [versioned maintainer changelog](https://github.com/i18next/i18next/blob/v26.5.4/CHANGELOG.md) fixes interpolation values containing placeholder syntax and non-string raw values; the typed selector/resource API remains supported. This patch was installed before the final type, source and browser checks.
 
 ## Repeat the check
 
@@ -105,7 +123,7 @@ Review migration notes before accepting a future major release. Regenerate the l
 
 ## Upgrade verification
 
-- `pnpm deps:check`: 59 packages across 70 declarations; all installed versions and declared minimums match their targets, with no deprecated direct packages. The Node 24 type target is reported explicitly.
+- `pnpm deps:check`: 63 packages across 74 declarations; all installed versions and declared minimums match their targets, with no deprecated direct packages. The Node 24 type target is reported explicitly.
 - Typechecking, source/HTTP tests and production builds are recorded in the current verification report. The additional real MongoDB/Socket.IO and browser suites are separate commands.
 - `pnpm lint`: zero errors, including the deprecated API rule; the existing warning backlog remains.
 - `pnpm audit --json`: zero reported vulnerabilities across the resolved dependency tree.
@@ -129,7 +147,7 @@ Reviewed the package APIs used by the application against current maintainer doc
 | `motion` 14.5.0 | [Upgrade guide](https://motion.dev/docs/react-upgrade-guide), [MotionConfig](https://motion.dev/docs/react-motion-config), [accessibility](https://motion.dev/docs/react-accessibility) | Tracking now uses LazyMotion/domAnimation with motion/react-m, reduced-motion handling and spring interpolation. The menu does not load tracking animations. No CSS-in-JS prop filtering integration is used. |
 | `zod` 4.6.7 | [Migration guide](https://zod.dev/v4/changelog), [schema API](https://zod.dev/api) | Checked issues, numeric bounds, defaults/transforms, coercion, enums, email normalization, refinements, and generic schema types. Existing field-error HTTP contracts and finite-value checks pass. |
 | `@tanstack/react-query` 5.104.5 | [Patch release](https://github.com/TanStack/query/releases/tag/%40tanstack%2Freact-query%405.104.5), [QueryClient](https://tanstack.com/query/latest/docs/framework/react/reference/classes/QueryClient) | Uses object query options, immutable cache updates, invalidation/removal filters, and current `queryClient.query`. The patch's mutation-selector fix requires no migration in this app. |
-| `lucide-react` 1.60.0 | [React guide](https://lucide.dev/guide/react), [release](https://github.com/lucide-icons/lucide/releases/tag/1.60.0) | Static named icon components and SVG props remain supported; imports compile and UI icons render. |
+| `lucide-react` 1.61.0 | [React guide](https://lucide.dev/guide/react), [release](https://github.com/lucide-icons/lucide/releases/tag/1.61.0) | Static named icon components and SVG props remain supported; imports compile and UI icons render. |
 | `@types/node` 24.19.2 | [DefinitelyTyped versioning](https://github.com/DefinitelyTyped/DefinitelyTyped#versioning), [Node releases](https://nodejs.org/en/about/previous-releases) | Corrected the type/runtime major mismatch. Node 24 LTS remains the supported runtime; the global Node 26 type release is reported separately. |
 | `oxfmt` 0.74.0 | [Release](https://github.com/oxc-project/oxc/releases/tag/oxfmt_v0.74.0), [configuration](https://oxc.rs/docs/guide/usage/formatter/config.html), [sorting](https://oxc.rs/docs/guide/usage/formatter/sorting.html) | Current config keys and formatting commands work. Removed inaccurate claims that optional sorting was enabled. |
 | `oxlint` 1.89.0, `oxlint-tsgolint` 7.0.2004 | [Release](https://github.com/oxc-project/oxc/releases/tag/oxlint_v1.89.0), [type-aware configuration](https://oxc.rs/docs/guide/usage/linter/type-aware.html) | Root `typeAware`/`typeCheck`, plugins, and the deprecated API rule match current configuration. Lint passes with zero errors; existing warnings remain. |
@@ -146,7 +164,7 @@ Reviewed the package APIs used by the application against current maintainer doc
 | `socket.io`, `socket.io-client` | [v4 migration](https://socket.io/docs/v4/migrating-from-3-x-to-4-0/), [listener lifecycle](https://socket.io/docs/v4/listening-to-events/) | Both ends use 4.8.4. Typed events, room broadcast chaining, authentication reconnects, timeouts, acknowledgments, and listener cleanup are supported. |
 | `vite`, `@vitejs/plugin-react`, `vitest` | [Vite 8 migration](https://vite.dev/guide/migration), [React plugin](https://vite.dev/plugins/), [Vitest 5 migration](https://vitest.dev/guide/migration/) | No deprecated esbuild/Rollup options are configured. Standalone Vite 8 supplies Vitest's peer; source aliases, native TypeScript loading, and existing mock usage pass builds/tests. |
 | `typescript`, `tsx` | [TypeScript 7 release](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/), [tsx TypeScript guide](https://tsx.hirok.io/typescript) | Uses the compiler CLI and modern module settings. Separate typechecking remains required; explicit Nest injection covers metadata omitted by the development runner. |
-| `vite-plus` | [Migration rules](https://viteplus.dev/guide/migrate-rules) | Existing standalone scripts remain in use. Its bundled Vite-core alias produces the documented upstream peer warning; the app and root test runner build and run with Vite 8.3.4. |
+| `vite-plus` | [Migration rules](https://viteplus.dev/guide/migrate-rules) | Existing standalone scripts remain in use. Its bundled Vite-core alias produces the documented upstream peer warning; the app and root test runner build and run with Vite 8.3.5. |
 | `husky`, `lint-staged` | [Husky setup](https://typicode.github.io/husky/get-started.html), [glob and task rules](https://github.com/lint-staged/lint-staged) | Prepare script and hooks use current commands. The TypeScript extension glob retains sequential lint/fix/format commands; pre-push includes the source-language and strict tooling gates. |
 | `clsx`, `tailwind-merge` | [clsx usage](https://github.com/lukeed/clsx), [Tailwind compatibility](https://github.com/dcastil/tailwind-merge) | Installed utilities have no direct source imports. Tailwind merge 3.7 supports Tailwind 4.3; no application calls require migration. |
 | `reflect-metadata`, `rxjs` | [Legacy decorator support](https://github.com/microsoft/reflect-metadata), [RxJS maintainer source](https://github.com/ReactiveX/rxjs/tree/7.8.2) | Metadata is imported before backend startup with compiler decorator options enabled. RxJS supplies the Nest peer; the application has no direct operator calls to migrate. |
@@ -169,7 +187,7 @@ The root now declares `@types/node` 24.19.2 for its own scripts, `@types/autocan
 
 ### Transitive dependency security fix
 
-Autocannon 8 declares Hyperid 3, which included vulnerable UUID 8. The selective workspace override `autocannon>hyperid: 4.0.0` uses the latest upstream Hyperid release. Its [v4 release](https://github.com/mcollina/hyperid/releases/tag/v4.0.0) removes UUID while retaining the documented generator/decode API. This removes [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq), instead of forcing an incompatible UUID export format. The override is separate from the 59 direct package inventory. The recorded `pnpm audit --json` check reports zero known advisories.
+Autocannon 8 declares Hyperid 3, which included vulnerable UUID 8. The selective workspace override `autocannon>hyperid: 4.0.0` uses the latest upstream Hyperid release. Its [v4 release](https://github.com/mcollina/hyperid/releases/tag/v4.0.0) removes UUID while retaining the documented generator/decode API. This removes [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq), instead of forcing an incompatible UUID export format. The override is separate from the 63 direct package inventory. The recorded `pnpm audit --json` check reports zero known advisories.
 
 ### CSP and current persistence options
 

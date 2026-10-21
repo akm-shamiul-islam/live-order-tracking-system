@@ -72,6 +72,7 @@ export class AuthService {
         role: UserRole.CUSTOMER,
         phone: registerDto.phone,
         address: registerDto.address || undefined,
+        language: registerDto.language ?? 'en',
       });
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 11000)
@@ -90,6 +91,8 @@ export class AuthService {
       role: user.role,
       phone: user.phone,
       address: user.address,
+      language: user.language ?? 'en',
+      languageVersion: user.languageVersion ?? 0,
     };
   }
 
@@ -172,6 +175,20 @@ export class AuthService {
     const user = await this.userModel.findById(id);
     if (!user || user.disabled) return null;
     return this.summary(user);
+  }
+
+  async updateLanguage(
+    id: string,
+    language: 'en' | 'ja',
+  ): Promise<{ language: 'en' | 'ja'; languageVersion: number }> {
+    const user = await this.userModel.findOneAndUpdate(
+      { _id: id, disabled: { $ne: true } },
+      { $set: { language }, $inc: { languageVersion: 1 } },
+      { returnDocument: 'after', runValidators: true },
+    );
+    if (!user)
+      throw new UnauthorizedException('Your account is no longer available. Please sign in again.');
+    return { language: user.language ?? 'en', languageVersion: user.languageVersion ?? 0 };
   }
 
   async validateSession(payload: {

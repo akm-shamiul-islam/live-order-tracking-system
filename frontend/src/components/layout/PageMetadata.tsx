@@ -1,6 +1,8 @@
 import { useLocation } from '@tanstack/react-router';
+import { useCopy } from '../../lib/i18n';
 
 export function PageMetadata() {
+  const c = useCopy();
   const path = useLocation({ select: (location) => location.pathname });
   const page =
     path === '/'
@@ -20,7 +22,7 @@ export function PageMetadata() {
                   : 'Page Not Found';
   return (
     <>
-      <title>{`${page} | KitchenToDoor`}</title>
+      <title>{`${c(page)} | KitchenToDoor`}</title>
       <meta name="robots" content={path === '/' ? 'index,follow' : 'noindex,nofollow'} />
     </>
   );

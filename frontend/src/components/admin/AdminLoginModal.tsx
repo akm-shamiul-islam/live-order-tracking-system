@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { useState } from 'react';
 import { Spinner } from '../layout/Loading';
 import { useAuth } from '../../hooks/useAuth';
@@ -15,6 +16,8 @@ interface AdminLoginModalProps {
 }
 
 export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginModalProps) {
+  const c = useCopy();
+
   const { login, logout } = useAuth();
   const form = useZodForm(LoginSchema, { email: '', password: '' }, 'staff');
   const [showPassword, setShowPassword] = useState(false);
@@ -86,20 +89,20 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
                 id="staff-login-title"
                 className="font-display font-extrabold text-lg text-slate-900 dark:text-slate-100"
               >
-                Staff Sign In
+                {c('Staff Sign In')}{' '}
               </h2>
               <p
                 id="staff-login-description"
                 className="text-xs text-slate-500 dark:text-slate-400"
               >
-                For kitchen dispatchers and delivery couriers
+                {c('For kitchen dispatchers and delivery couriers')}{' '}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             disabled={loading}
-            aria-label="Close sign-in"
+            aria-label={c('Close sign-in')}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition"
           >
             <X className="w-5 h-5" />
@@ -113,7 +116,7 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
             className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 flex items-center gap-2 text-xs text-rose-700 dark:text-rose-300"
           >
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+            <span>{c(error)}</span>
           </div>
         )}
 
@@ -129,7 +132,7 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
               htmlFor="staff-email"
               className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
             >
-              Email Address
+              {c('Email Address')}{' '}
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -140,7 +143,7 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
                 spellCheck={false}
                 disabled={loading}
                 required
-                placeholder="admin@kitchentodoor.io"
+                placeholder={c('admin@kitchentodoor.io')}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
               />
             </div>
@@ -152,7 +155,7 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
               htmlFor="staff-password"
               className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
             >
-              Password
+              {c('Password')}{' '}
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -162,13 +165,13 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
                 autoComplete="current-password"
                 disabled={loading}
                 required
-                placeholder="Enter password"
+                placeholder={c('Enter password')}
                 className="w-full pl-10 pr-12 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((visible) => !visible)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? c('Hide password') : c('Show password')}
                 aria-pressed={showPassword}
                 className="absolute right-2 top-1.5 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
               >
@@ -184,7 +187,7 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
             className="inline-flex w-full items-center justify-center gap-2 py-3 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white transition shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {loading ? <Spinner /> : <Shield aria-hidden="true" className="h-4 w-4" />}
-            {loading ? 'Signing In…' : 'Sign In'}
+            {loading ? c('Signing In…') : c('Sign In')}
           </button>
         </form>
       </div>

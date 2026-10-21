@@ -1,3 +1,4 @@
+import { useCopy } from '../lib/i18n';
 import { lazy, Suspense } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { OrderIdentifierSchema, OrderLookupSchema, OrderStatus } from '@kitchentodoor/shared';
@@ -38,6 +39,8 @@ export function CourierPage() {
 }
 
 function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking' | 'courier' }) {
+  const c = useCopy();
+
   const { user, isAdmin, isCourier } = useAuth();
   const canDispatch = isAdmin || isCourier;
   const navigate = useNavigate();
@@ -66,12 +69,12 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
       <div className="glass-panel rounded-2xl p-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="font-display text-xl font-extrabold">
-            {view === 'courier' ? 'Courier Delivery Station' : 'Live Order Telemetry'}
+            {view === 'courier' ? c('Courier Delivery Station') : c('Live Order Telemetry')}
           </h1>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {order
-              ? `Currently tracking: ${order.orderNumber}`
-              : 'Enter your order number or tracking ID.'}
+              ? c('Currently tracking: {{number}}', { number: order.orderNumber })
+              : c('Enter your order number or tracking ID.')}
           </p>
           {order && canDispatch && (
             <Link
@@ -79,7 +82,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
               params={{ orderId: order.id }}
               className="mt-2 inline-block text-xs font-bold text-teal-700 underline dark:text-teal-400"
             >
-              {view === 'courier' ? 'Open Live Tracking' : 'Open Courier Controls'}
+              {view === 'courier' ? c('Open Live Tracking') : c('Open Courier Controls')}
             </Link>
           )}
         </div>
@@ -98,7 +101,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
         >
           <div className="min-w-0 flex-1 lg:w-72">
             <label htmlFor="tracking-orderId" className="sr-only">
-              Order number or tracking ID
+              {c('Order number or tracking ID')}{' '}
             </label>
             <div className="relative">
               <Search
@@ -112,7 +115,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
                 spellCheck={false}
                 aria-invalid={fieldMessage ? true : undefined}
                 aria-describedby={fieldMessage ? 'tracking-orderId-error' : undefined}
-                placeholder="Private tracking ID or staff order number…"
+                placeholder={c('Private tracking ID or staff order number…')}
                 className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-xs text-slate-900 shadow-xs placeholder-slate-400 focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-100"
               />
             </div>
@@ -123,39 +126,39 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
             className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 text-xs font-bold text-white shadow-sm hover:from-emerald-800 hover:to-teal-800"
           >
             <Navigation aria-hidden="true" className="h-4 w-4" />
-            <span>Track</span>
+            <span>{c('Track')}</span>
           </button>
         </form>
       </div>
 
       {isLoading ? (
-        <PageSkeleton label="Loading your order…" />
+        <PageSkeleton label={c('Loading your order…')} />
       ) : error ? (
         <div role="alert" className="glass-panel rounded-3xl border-rose-500/30 p-12 text-center">
           <AlertCircle aria-hidden="true" className="mx-auto mb-3 h-12 w-12 text-rose-500" />
           <h2 className="font-display text-lg font-bold">
             {error instanceof ApiError && error.status === 404
-              ? 'Order Not Found'
-              : 'Unable to Load Order'}
+              ? c('Order Not Found')
+              : c('Unable to Load Order')}
           </h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
-            {error.message}
+            {c(error.message)}
           </p>
           <button
             onClick={() => void refetch()}
             className="mt-3 inline-flex items-center gap-2 font-bold text-teal-700 underline dark:text-teal-400"
           >
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
-            Try Again
+            {c('Try Again')}{' '}
           </button>
         </div>
       ) : order ? (
-        <Suspense fallback={<PageSkeleton label="Loading tracking…" />}>
+        <Suspense fallback={<PageSkeleton label={c('Loading tracking…')} />}>
           <div className="space-y-8">
             <OrderSummary order={order} />
             {view === 'tracking' && <OrderTimeline order={order} />}
             {canDispatch && !deliveryFinished && (
-              <Suspense fallback={<LoadingState label="Loading delivery controls…" />}>
+              <Suspense fallback={<LoadingState label={c('Loading delivery controls…')} />}>
                 <DeliveryAssignment order={order} />
               </Suspense>
             )}
@@ -183,7 +186,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
               {isCourier &&
                 order.courierId === user?.id &&
                 order.status === OrderStatus.OUT_FOR_DELIVERY && (
-                  <Suspense fallback={<LoadingState label="Loading location controls…" />}>
+                  <Suspense fallback={<LoadingState label={c('Loading location controls…')} />}>
                     <CourierLocationSharing key={order.id} orderId={order.id} />
                   </Suspense>
                 )}
@@ -192,7 +195,8 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
                   role="status"
                   className="glass-panel rounded-2xl p-6 text-sm text-slate-500 dark:text-slate-400"
                 >
-                  This order is {order.status.toLowerCase()}. Location sharing has stopped.
+                  {c('This order is')} {order.status.toLowerCase()}
+                  {c('. Location sharing has stopped.')}{' '}
                 </p>
               )}
             </div>
@@ -202,17 +206,17 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
         <div className="glass-panel rounded-3xl p-12 text-center">
           <Navigation aria-hidden="true" className="mx-auto mb-3 h-12 w-12 text-teal-500" />
           <h2 className="font-display text-lg font-bold">
-            {orderId ? 'Check Your Order Number' : 'No Order Selected'}
+            {orderId ? c('Check Your Order Number') : c('No Order Selected')}
           </h2>
           <p className="mx-auto mt-1 mb-6 max-w-md text-sm text-slate-500 dark:text-slate-400">
-            Search above or select an order from{' '}
-            {view === 'courier' ? 'the dispatch station' : 'your order history'}.
+            {c('Search above or select an order from')}{' '}
+            {view === 'courier' ? c('the dispatch station') : c('your order history')}.
           </p>
           <Link
             to={view === 'courier' ? '/orders' : '/'}
             className="inline-flex rounded-xl bg-teal-700 px-6 py-2.5 text-sm font-bold text-white hover:bg-teal-800"
           >
-            {view === 'courier' ? 'My Deliveries' : 'Explore Food Menu'}
+            {view === 'courier' ? c('My Deliveries') : c('Explore Food Menu')}
           </Link>
         </div>
       )}

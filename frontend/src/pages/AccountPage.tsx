@@ -1,3 +1,4 @@
+import { useCopy } from '../lib/i18n';
 import { useState, type InputHTMLAttributes } from 'react';
 import { Link, useLocation, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import {
@@ -50,18 +51,22 @@ function AccountField({
   error?: string;
   field: InputHTMLAttributes<HTMLInputElement>;
 }) {
+  const c = useCopy();
+
   return (
     <div className="space-y-2">
       <label htmlFor={field.id} className="block text-sm font-semibold">
-        {label}
+        {c(label)}
       </label>
       <input {...field} {...props} className={inputClass} />
-      <FieldError id={`${field.id}-error`} message={error} />
+      <FieldError id={`${field.id}-error`} message={c(error)} />
     </div>
   );
 }
 
 function Feedback({ error, success }: { error?: string | null; success?: string | null }) {
+  const c = useCopy();
+
   return (
     <>
       {error && (
@@ -69,7 +74,7 @@ function Feedback({ error, success }: { error?: string | null; success?: string 
           role="alert"
           className="rounded-xl bg-rose-50 p-4 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
         >
-          {error}
+          {c(error)}
         </p>
       )}
       {success && (
@@ -78,7 +83,7 @@ function Feedback({ error, success }: { error?: string | null; success?: string 
           className="flex items-start gap-2 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200"
         >
           <CheckCircle2 aria-hidden="true" className="h-5 w-5 shrink-0" />
-          {success}
+          {c(success)}
         </p>
       )}
     </>
@@ -98,6 +103,8 @@ function useAfterSignIn() {
 }
 
 function SignInForm() {
+  const c = useCopy();
+
   const complete = useAfterSignIn();
   const search = useSearch({ from: '/account' });
   const form = useZodForm(LoginSchema, { email: '', password: '' }, 'customer-login');
@@ -132,9 +139,9 @@ function SignInForm() {
         }
       }}
     >
-      <Feedback error={error} />
+      <Feedback error={c(error)} />
       <AccountField
-        label="Email address"
+        label={c('Email address')}
         type="email"
         autoComplete="username"
         spellCheck={false}
@@ -143,7 +150,7 @@ function SignInForm() {
         error={form.errors.email}
       />
       <AccountField
-        label="Password"
+        label={c('Password')}
         type="password"
         autoComplete="current-password"
         disabled={pending}
@@ -154,20 +161,20 @@ function SignInForm() {
         to="/account/forgot"
         className="inline-block text-sm font-semibold text-teal-800 underline dark:text-teal-200"
       >
-        Forgot Password?
+        {c('Forgot Password?')}{' '}
       </Link>
       <button disabled={pending} className={buttonClass}>
         {pending ? <Spinner /> : <ArrowRight aria-hidden="true" className="h-4 w-4" />}
-        {pending ? 'Signing In…' : 'Sign In'}
+        {pending ? c('Signing In…') : c('Sign In')}
       </button>
       <p className="text-center text-sm text-slate-600 dark:text-slate-300">
-        New to KitchenToDoor?{' '}
+        {c('New to KitchenToDoor?')}{' '}
         <Link
           to="/account/register"
           search={search}
           className="font-bold text-teal-800 underline dark:text-teal-200"
         >
-          Create an Account
+          {c('Create an Account')}{' '}
         </Link>
       </p>
     </form>
@@ -175,6 +182,8 @@ function SignInForm() {
 }
 
 function RegisterForm() {
+  const c = useCopy();
+
   const complete = useAfterSignIn();
   const search = useSearch({ from: '/account' });
   const form = useZodForm(
@@ -225,16 +234,16 @@ function RegisterForm() {
         }
       }}
     >
-      <Feedback error={error} />
+      <Feedback error={c(error)} />
       <AccountField
-        label="Full name"
+        label={c('Full name')}
         autoComplete="name"
         disabled={pending}
         field={form.field('name')}
         error={form.errors.name}
       />
       <AccountField
-        label="Email address"
+        label={c('Email address')}
         type="email"
         autoComplete="email"
         spellCheck={false}
@@ -243,7 +252,7 @@ function RegisterForm() {
         error={form.errors.email}
       />
       <AccountField
-        label="Phone number"
+        label={c('Phone number')}
         type="tel"
         autoComplete="tel"
         disabled={pending}
@@ -252,7 +261,7 @@ function RegisterForm() {
       />
       <div className="space-y-2">
         <label htmlFor="register-address" className="block text-sm font-semibold">
-          Delivery address (optional)
+          {c('Delivery address (optional)')}{' '}
         </label>
         <textarea
           {...form.field('address')}
@@ -261,16 +270,16 @@ function RegisterForm() {
           maxLength={500}
           disabled={pending}
           aria-describedby={`register-address-help${form.errors.address ? ' register-address-error' : ''}`}
-          placeholder="Street, apartment, city and postal code"
+          placeholder={c('Street, apartment, city and postal code')}
           className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
         />
         <p id="register-address-help" className="text-xs text-slate-600 dark:text-slate-300">
-          Saved for checkout. You can change it for any delivery.
+          {c('Saved for checkout. You can change it for any delivery.')}{' '}
         </p>
         <FieldError id="register-address-error" message={form.errors.address} />
       </div>
       <AccountField
-        label="Password"
+        label={c('Password')}
         type="password"
         autoComplete="new-password"
         disabled={pending}
@@ -278,7 +287,7 @@ function RegisterForm() {
         error={form.errors.password}
       />
       <AccountField
-        label="Confirm password"
+        label={c('Confirm password')}
         type="password"
         autoComplete="new-password"
         disabled={pending}
@@ -286,11 +295,11 @@ function RegisterForm() {
         error={form.errors.confirmPassword}
       />
       <p className="text-xs text-slate-600 dark:text-slate-300">
-        Use at least 8 characters. A longer, unique password is best.
+        {c('Use at least 8 characters. A longer, unique password is best.')}{' '}
       </p>
       <button disabled={pending} className={buttonClass}>
         {pending ? <Spinner /> : <UserRoundPlus aria-hidden="true" className="h-4 w-4" />}
-        {pending ? 'Creating Account…' : 'Create Account'}
+        {pending ? c('Creating Account…') : c('Create Account')}
       </button>
       <p className="text-center text-sm">
         <Link
@@ -298,7 +307,7 @@ function RegisterForm() {
           search={search}
           className="font-semibold text-teal-800 underline dark:text-teal-200"
         >
-          Already Have an Account? Sign In
+          {c('Already Have an Account? Sign In')}{' '}
         </Link>
       </p>
     </form>
@@ -306,6 +315,8 @@ function RegisterForm() {
 }
 
 function ForgotForm() {
+  const c = useCopy();
+
   const form = useZodForm(ForgotPasswordSchema, { email: '' }, 'forgot');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -337,11 +348,12 @@ function ForgotForm() {
       }}
     >
       <p className="text-sm text-slate-600 dark:text-slate-300">
-        Enter your account email. If it matches an account, you’ll receive a link to choose a new
-        password.
+        {c(
+          'Enter your account email. If it matches an account, you’ll receive a link to choose a new password.',
+        )}{' '}
       </p>
       <Feedback
-        error={error}
+        error={c(error)}
         success={
           success
             ? 'Check your inbox and spam folder. If no email arrives, contact the kitchen for help.'
@@ -349,7 +361,7 @@ function ForgotForm() {
         }
       />
       <AccountField
-        label="Email address"
+        label={c('Email address')}
         type="email"
         autoComplete="email"
         spellCheck={false}
@@ -359,19 +371,21 @@ function ForgotForm() {
       />
       <button disabled={pending} className={buttonClass}>
         {pending ? <Spinner /> : <Mail aria-hidden="true" className="h-4 w-4" />}
-        {pending ? 'Requesting Link…' : 'Send Reset Link'}
+        {pending ? c('Requesting Link…') : c('Send Reset Link')}
       </button>
       <Link
         to="/account"
         className="inline-block text-sm font-bold text-teal-800 underline dark:text-teal-200"
       >
-        Back to Sign In
+        {c('Back to Sign In')}{' '}
       </Link>
     </form>
   );
 }
 
 function ResetForm() {
+  const c = useCopy();
+
   const hash = useLocation({ select: (location) => location.hash });
   const token = new URLSearchParams(hash.replace(/^#/, '')).get('token') || '';
   const form = useZodForm(
@@ -409,7 +423,7 @@ function ResetForm() {
       }}
     >
       <Feedback
-        error={error || form.errors.token}
+        error={c(error || form.errors.token)}
         success={
           success ? 'Your password has been changed. Sign in again with your new password.' : null
         }
@@ -417,7 +431,7 @@ function ResetForm() {
       {!success && (
         <>
           <AccountField
-            label="New password"
+            label={c('New password')}
             type="password"
             autoComplete="new-password"
             disabled={pending}
@@ -425,7 +439,7 @@ function ResetForm() {
             error={form.errors.password}
           />
           <AccountField
-            label="Confirm new password"
+            label={c('Confirm new password')}
             type="password"
             autoComplete="new-password"
             disabled={pending}
@@ -434,19 +448,21 @@ function ResetForm() {
           />
           <button disabled={pending || !token} className={buttonClass}>
             {pending ? <Spinner /> : <KeyRound aria-hidden="true" className="h-4 w-4" />}
-            {pending ? 'Saving Password…' : 'Save New Password'}
+            {pending ? c('Saving Password…') : c('Save New Password')}
           </button>
         </>
       )}
       <div className="flex flex-wrap justify-between gap-3 text-sm font-bold text-teal-800 underline dark:text-teal-200">
-        <Link to="/account">Sign In</Link>
-        <Link to="/account/forgot">Request a New Link</Link>
+        <Link to="/account">{c('Sign In')}</Link>
+        <Link to="/account/forgot">{c('Request a New Link')}</Link>
       </div>
     </form>
   );
 }
 
 export function AccountPage() {
+  const c = useCopy();
+
   const path = useLocation({ select: (location) => location.pathname });
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -458,7 +474,7 @@ export function AccountPage() {
     : forgot
       ? 'Reset Your Password'
       : user
-        ? `Welcome, ${user.name}`
+        ? c('Welcome, {{name}}', { name: user.name })
         : register
           ? 'Create Your Account'
           : 'Welcome Back';
@@ -469,9 +485,9 @@ export function AccountPage() {
           aria-hidden="true"
           className="mx-auto mb-4 h-10 w-10 text-teal-700 dark:text-teal-300"
         />
-        <h1 className="font-display text-3xl font-extrabold">{title}</h1>
+        <h1 className="font-display text-3xl font-extrabold">{c(title)}</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          Your favorites, orders, and delivery updates in one place.
+          {c('Your favorites, orders, and delivery updates in one place.')}{' '}
         </p>
       </div>
       <div className="glass-panel rounded-3xl p-6 sm:p-8">
@@ -482,30 +498,30 @@ export function AccountPage() {
         ) : user ? (
           <div className="space-y-5">
             <p className="break-words text-sm text-slate-600 dark:text-slate-300">
-              Signed in as {user.email}
+              {c('Signed in as')} {user.email}
             </p>
             {user.role !== UserRole.ADMIN && (
               <Link to="/orders" className={buttonClass}>
                 <PackageSearch aria-hidden="true" className="inline h-4 w-4 mr-2" />
-                {user.role === UserRole.COURIER ? 'My Deliveries' : 'View Your Orders'}
+                {user.role === UserRole.COURIER ? c('My Deliveries') : c('View Your Orders')}
               </Link>
             )}
             {user.role === UserRole.ADMIN && (
               <>
                 <Link to="/dispatch" className={buttonClass}>
                   <ClipboardList aria-hidden="true" className="inline h-4 w-4 mr-2" />
-                  Open Dispatch
+                  {c('Open Dispatch')}{' '}
                 </Link>
                 <Link to="/users" className={buttonClass}>
                   <Users aria-hidden="true" className="inline h-4 w-4 mr-2" />
-                  Manage Users
+                  {c('Manage Users')}{' '}
                 </Link>
               </>
             )}
             {user.role === UserRole.COURIER && (
               <Link to="/courier" className={buttonClass}>
                 <Truck aria-hidden="true" className="inline h-4 w-4 mr-2" />
-                Available Deliveries
+                {c('Available Deliveries')}{' '}
               </Link>
             )}
             <button
@@ -515,7 +531,8 @@ export function AccountPage() {
               }}
               className="w-full rounded-xl border border-rose-300 p-3 text-sm font-bold text-rose-800 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950"
             >
-              <LogOut aria-hidden="true" className="inline h-4 w-4 mr-2" /> Sign Out Everywhere
+              <LogOut aria-hidden="true" className="inline h-4 w-4 mr-2" />{' '}
+              {c('Sign Out Everywhere')}{' '}
             </button>
           </div>
         ) : register ? (

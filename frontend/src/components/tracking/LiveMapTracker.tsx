@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { formatDateTime } from '../../lib/dateTime';
 import { lazy, Suspense } from 'react';
 import { OrderDetails } from '@kitchentodoor/shared';
@@ -10,21 +11,34 @@ interface LiveMapTrackerProps {
 }
 
 export function LiveMapTracker({ order }: LiveMapTrackerProps) {
+  const c = useCopy();
+
   const hasLocation = order.courierCoordinates?.lat != null && order.courierCoordinates.lng != null;
   if (!order.deliveryLocationProvided || !hasLocation)
     return (
-      <section className="glass-panel space-y-3 rounded-2xl p-6" aria-label="Delivery location">
+      <section
+        className="glass-panel space-y-3 rounded-2xl p-6"
+        aria-label={c('Delivery location')}
+      >
         <h2 className="font-display flex items-center gap-2 font-bold">
           <Navigation aria-hidden="true" className="h-5 w-5 text-teal-700 dark:text-teal-300" />
-          Delivery Location
+          {c('Delivery Location')}{' '}
         </h2>
         <p className="break-words text-sm text-slate-700 dark:text-slate-200">
           {order.customer.address}
         </p>
         <p className="text-sm text-slate-600 dark:text-slate-300">
           {hasLocation
-            ? `Courier GPS: ${order.courierCoordinates!.lat!.toFixed(5)}, ${order.courierCoordinates!.lng!.toFixed(5)}. The delivery address has no customer-provided map pin.`
-            : 'Waiting for the assigned courier to share their location after starting delivery.'}
+            ? c(
+                'Courier GPS: {{lat}}, {{lng}}. The delivery address has no customer-provided map pin.',
+                {
+                  lat: order.courierCoordinates!.lat!.toFixed(5),
+                  lng: order.courierCoordinates!.lng!.toFixed(5),
+                },
+              )
+            : c(
+                'Waiting for the assigned courier to share their location after starting delivery.',
+              )}
         </p>
       </section>
     );
@@ -61,7 +75,7 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
         <div className="flex items-center gap-2">
           <Navigation className="w-5 h-5 text-teal-500 animate-pulse" />
           <h2 className="font-display font-bold text-base text-slate-900 dark:text-slate-100">
-            Live Delivery Progress
+            {c('Live Delivery Progress')}{' '}
           </h2>
         </div>
 
@@ -69,17 +83,17 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
           <span className="flex items-center gap-1">
             <Compass className="w-3.5 h-3.5 text-teal-500" />
             <span>
-              GPS: {courierLat.toFixed(4)}, {courierLng.toFixed(4)}
+              {c('GPS:')} {courierLat.toFixed(4)}, {courierLng.toFixed(4)}
             </span>
           </span>
           <span className="px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 font-bold border border-teal-500/20">
-            Live Telemetry
+            {c('Live Telemetry')}{' '}
           </span>
         </div>
       </div>
 
       <p className="mb-4 text-xs text-slate-600 dark:text-slate-300">
-        Illustrated progress from GPS updates. Use the delivery address for navigation.
+        {c('Illustrated progress from GPS updates. Use the delivery address for navigation.')}{' '}
       </p>
 
       {/* Radar Map Canvas Container */}
@@ -123,7 +137,7 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
             <Store className="w-5 h-5" />
           </div>
           <div className="mt-1 px-2 py-0.5 rounded-md bg-slate-900/90 text-sky-300 border border-sky-500/30 font-bold text-[10px] whitespace-nowrap shadow-sm">
-            Kitchen (Origin)
+            {c('Kitchen (Origin)')}{' '}
           </div>
         </div>
 
@@ -136,7 +150,7 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
             <Home className="w-5 h-5" />
           </div>
           <div className="mt-1 px-2 py-0.5 rounded-md bg-slate-900/90 text-emerald-400 border border-emerald-500/30 font-bold text-[10px] whitespace-nowrap shadow-sm">
-            Customer Doorstep
+            {c('Customer Doorstep')}{' '}
           </div>
         </div>
 
@@ -155,25 +169,27 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
       {/* Telemetry Status Bar */}
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
         <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/50">
-          <span className="text-slate-400 font-medium block mb-0.5">Delivery Destination</span>
+          <span className="text-slate-400 font-medium block mb-0.5">
+            {c('Delivery Destination')}
+          </span>
           <span className="font-semibold text-slate-900 dark:text-slate-100 truncate block">
             {order.customer.address}
           </span>
         </div>
         <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/50">
-          <span className="text-slate-400 font-medium block mb-0.5">Estimated Arrival</span>
+          <span className="text-slate-400 font-medium block mb-0.5">{c('Estimated Arrival')}</span>
           <span className="font-semibold text-teal-700 dark:text-teal-400 font-mono block">
             {order.status === 'DELIVERED'
-              ? 'Delivered'
+              ? c('Delivered')
               : order.estimatedDeliveryAt
                 ? formatDateTime(order.estimatedDeliveryAt, 'time')
-                : '25-35 mins'}
+                : c('25-35 mins')}
           </span>
         </div>
         <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/50">
-          <span className="text-slate-400 font-medium block mb-0.5">Telemetry Status</span>
+          <span className="text-slate-400 font-medium block mb-0.5">{c('Telemetry Status')}</span>
           <span className="font-semibold text-emerald-600 dark:text-emerald-400 block">
-            {order.status === 'OUT_FOR_DELIVERY' ? 'Active In-Transit' : order.status}
+            {order.status === 'OUT_FOR_DELIVERY' ? c('Active In-Transit') : c(order.status)}
           </span>
         </div>
       </div>

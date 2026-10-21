@@ -1,3 +1,4 @@
+import { useCopy } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -18,6 +19,7 @@ import { ThemedSelect } from '../components/forms/ThemedSelect';
 import { FieldError } from '../components/forms/FieldError';
 import { Pagination } from '../components/layout/Pagination';
 import { Spinner, TableSkeleton } from '../components/layout/Loading';
+import { IconAction } from '../components/ui/IconAction';
 
 const roleOptions = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
 const profileSchema = UpdateUserSchema.pick({ name: true, email: true, phone: true }).required();
@@ -27,6 +29,8 @@ const buttonClass =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-60';
 
 function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => void }) {
+  const c = useCopy();
+
   const { user: actor } = useAuth();
   const dialog = useDialog(true);
   const queryClient = useQueryClient();
@@ -86,13 +90,13 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
       >
         <div className="flex items-center justify-between gap-3">
           <h2 id="edit-user-title" className="font-display text-xl font-bold">
-            Edit User
+            {c('Edit User')}{' '}
           </h2>
           <button
             type="button"
             disabled={pending}
             onClick={onClose}
-            aria-label="Close user editor"
+            aria-label={c('Close user editor')}
             className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <X aria-hidden="true" className="h-5 w-5" />
@@ -103,17 +107,17 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
             role="alert"
             className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
           >
-            {error}
+            {c(error)}
           </p>
         )}
         {(['name', 'email', 'phone'] as const).map((field) => (
           <div key={field} className="space-y-2">
             <label htmlFor={`edit-user-${field}`} className="block text-sm font-semibold">
               {field === 'name'
-                ? 'Full name'
+                ? c('Full name')
                 : field === 'email'
-                  ? 'Email address'
-                  : 'Phone number'}
+                  ? c('Email address')
+                  : c('Phone number')}
             </label>
             <input
               {...form.field(field)}
@@ -126,9 +130,9 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
           </div>
         ))}
         <div className="space-y-2">
-          <p className="text-sm font-semibold">Role</p>
+          <p className="text-sm font-semibold">{c('Role')}</p>
           <ThemedSelect
-            label="User role"
+            label={c('User role')}
             value={role}
             options={roleOptions}
             disabled={pending || self}
@@ -138,34 +142,38 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
             }}
           />
         </div>
-        <label className="flex items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            checked={!disabled}
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">{c('Account Status')}</p>
+          <ThemedSelect
+            label={c('Account Status')}
+            value={disabled ? 'disabled' : 'active'}
             disabled={pending || self}
-            onChange={(event) => setDisabled(!event.target.checked)}
-            className="h-4 w-4 accent-teal-700"
+            options={[
+              { value: 'active', label: 'Active' },
+              { value: 'disabled', label: 'Disabled' },
+            ]}
+            onChange={(value) => setDisabled(value === 'disabled')}
           />
-          Account active
-        </label>
+        </div>
         <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-          {self ? 'Your own administrator access stays active. ' : ''}Changing email, role, or
-          account access signs the affected user out. Reassign active deliveries before removing a
-          courier’s access.
+          {self ? c('Your own administrator access stays active. ') : ''}
+          {c(
+            'Changing email, role, or account access signs the affected user out. Reassign active deliveries before removing a courier’s access.',
+          )}{' '}
         </p>
         <div className="flex justify-end gap-3">
           <button
             type="button"
             disabled={pending}
             onClick={onClose}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold dark:border-slate-600"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
           >
             <X aria-hidden="true" className="h-4 w-4" />
-            Cancel
+            {c('Cancel')}{' '}
           </button>
           <button disabled={pending} className={buttonClass}>
             {pending ? <Spinner /> : <Save aria-hidden="true" className="h-4 w-4" />}
-            {pending ? 'Saving…' : 'Save Changes'}
+            {pending ? c('Saving…') : c('Save Changes')}
           </button>
         </div>
       </form>
@@ -174,6 +182,8 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
 }
 
 function UserFilters({ q, role }: { q: string; role: 'ALL' | UserRole }) {
+  const c = useCopy();
+
   const navigate = useNavigate({ from: '/users' });
   const [search, setSearch] = useState(q);
   const [selected, setSelected] = useState(role);
@@ -188,7 +198,7 @@ function UserFilters({ q, role }: { q: string; role: 'ALL' | UserRole }) {
       }}
     >
       <ThemedSelect
-        label="Filter users by role"
+        label={c('Filter users by role')}
         value={selected}
         options={[{ value: 'ALL', label: 'All Roles' }, ...roleOptions]}
         onChange={(value) => {
@@ -205,26 +215,28 @@ function UserFilters({ q, role }: { q: string; role: 'ALL' | UserRole }) {
           className="pointer-events-none absolute left-0 top-0 h-11 w-11 p-3.5 text-slate-500"
         />
         <label htmlFor="users-search" className="sr-only">
-          Search users by name, email, or phone
+          {c('Search users by name, email, or phone')}{' '}
         </label>
         <input
           id="users-search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           maxLength={100}
-          placeholder="Search name, email, or phone…"
+          placeholder={c('Search name, email, or phone…')}
           className={`${inputClass} pl-11`}
         />
       </div>
       <button className={buttonClass}>
         <Search aria-hidden="true" className="h-4 w-4" />
-        Search Users
+        {c('Search Users')}{' '}
       </button>
     </form>
   );
 }
 
 export function UsersPage() {
+  const c = useCopy();
+
   const { page, size, q, role } = useSearch({ from: '/staff/users' });
   const navigate = useNavigate({ from: '/users' });
   const [editing, setEditing] = useState<ManagedUser>();
@@ -244,10 +256,10 @@ export function UsersPage() {
         <div>
           <h1 className="font-display flex items-center gap-3 text-2xl font-extrabold">
             <Users aria-hidden="true" className="h-7 w-7 text-teal-700 dark:text-teal-300" />
-            Users
+            {c('Users')}{' '}
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            Manage customer accounts, courier access, and administrators.
+            {c('Manage customer accounts, courier access, and administrators.')}{' '}
           </p>
         </div>
         <button
@@ -256,30 +268,30 @@ export function UsersPage() {
           className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold dark:border-slate-600"
         >
           {result.isFetching ? <Spinner /> : <RefreshCw aria-hidden="true" className="h-4 w-4" />}
-          Refresh
+          {c('Refresh')}{' '}
         </button>
       </div>
       <UserFilters key={`${q}:${role}`} q={q} role={role} />
       {result.error ? (
         <div role="alert" className="glass-panel rounded-2xl p-6 text-rose-800 dark:text-rose-200">
-          {result.error.message}
+          {c(result.error.message)}
           <button
             onClick={() => void result.refetch()}
             className="ml-3 inline-flex items-center gap-2 font-bold underline"
           >
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
-            Try Again
+            {c('Try Again')}{' '}
           </button>
         </div>
       ) : (
         <div className="glass-panel overflow-x-auto rounded-2xl">
           <table className="w-full min-w-[800px] text-left text-sm">
-            <caption className="sr-only">Registered users and account access</caption>
+            <caption className="sr-only">{c('Registered users and account access')}</caption>
             <thead className="bg-slate-100 text-xs uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               <tr>
                 {['Name', 'Email', 'Phone', 'Role', 'Account', 'Actions'].map((label) => (
-                  <th key={label} scope="col" className="px-5 py-4">
-                    {label}
+                  <th key={label} scope="col" className="px-5 py-4 text-center">
+                    {c(label)}
                   </th>
                 ))}
               </tr>
@@ -292,29 +304,29 @@ export function UsersPage() {
                   <tr key={user.id} className="hover:bg-teal-50/50 dark:hover:bg-slate-800/40">
                     <td className="px-5 py-4 font-bold">{user.name}</td>
                     <td className="px-5 py-4">{user.email}</td>
-                    <td className="px-5 py-4">{user.phone || '—'}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 text-center">{user.phone || '—'}</td>
+                    <td className="px-5 py-4 text-center">
                       <span className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-bold text-teal-900 dark:bg-teal-500/10 dark:text-teal-200">
-                        {ROLE_LABELS[user.role]}
+                        {c(ROLE_LABELS[user.role])}
                       </span>
                     </td>
-                    <td className="px-5 py-4">{user.disabled ? 'Disabled' : 'Active'}</td>
-                    <td className="px-5 py-4">
-                      <button
+                    <td className="px-5 py-4 text-center">
+                      {user.disabled ? c('Disabled') : c('Active')}
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <IconAction
                         onClick={() => setEditing(user)}
-                        aria-label={`Edit ${user.name}`}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 font-semibold hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
-                      >
-                        <Pencil aria-hidden="true" className="h-4 w-4" />
-                        Edit
-                      </button>
+                        aria-label={c('Edit {{name}}', { name: user.name })}
+                        icon={Pencil}
+                        label={c('Edit User')}
+                      />
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td colSpan={6} className="p-10 text-center text-slate-600 dark:text-slate-300">
-                    No users match these filters.
+                    {c('No users match these filters.')}{' '}
                   </td>
                 </tr>
               )}

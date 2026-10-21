@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { authStore, getSession, saveSession, listenForSessionChanges } from '../../lib/authSession';
 import { api } from '../../lib/api';
 import { clientSettings } from '../../lib/clientSettings';
+import { listenForLanguagePreferences } from '../../lib/languagePreferences';
 
 export function AuthSessionSync() {
   const token = useStore(authStore, (state) => state.token);
@@ -14,6 +15,7 @@ export function AuthSessionSync() {
   const queryClient = useQueryClient();
 
   useEffect(listenForSessionChanges, []);
+  useEffect(listenForLanguagePreferences, []);
 
   useEffect(() => {
     if (previousIdentity.current === identity) return;

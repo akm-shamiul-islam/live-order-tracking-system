@@ -1,6 +1,9 @@
+import { useCopy } from '../../lib/i18n';
+import { IconAction, IconActionLink } from '../ui/IconAction';
+import { ClipboardList, Settings2, UserRoundPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { api } from '../../lib/api';
 import {
   ORDER_STATUS_SEQUENCE,
@@ -46,6 +49,8 @@ function OrderCreatedAt({ value }: { value: string }) {
 }
 
 export function AdminOrdersTable() {
+  const c = useCopy();
+
   useOrderListUpdates();
   const { user } = useAuth();
   const {
@@ -135,10 +140,10 @@ export function AdminOrdersTable() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display font-extrabold text-2xl text-slate-900 dark:text-slate-100">
-            Kitchen Dispatch Station
+            {c('Kitchen Dispatch Station')}{' '}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Real-time multi-order lifecycle & courier telemetry control
+            {c('Real-time multi-order lifecycle & courier telemetry control')}{' '}
           </p>
         </div>
 
@@ -147,7 +152,7 @@ export function AdminOrdersTable() {
           className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition cursor-pointer shadow-xs"
         >
           {isFetching ? <Spinner /> : <RefreshCw aria-hidden="true" className="w-3.5 h-3.5" />}
-          <span>Refresh List</span>
+          <span>{c('Refresh List')}</span>
         </button>
       </div>
 
@@ -174,25 +179,25 @@ export function AdminOrdersTable() {
             <thead className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th scope="col" className="py-3.5 px-4 text-center">
-                  Order #
+                  {c('Order #')}{' '}
                 </th>
                 <th scope="col" className="py-3.5 px-4 text-center">
-                  Customer
+                  {c('Customer')}{' '}
                 </th>
                 <th scope="col" className="py-3.5 px-4 text-center">
-                  Items
+                  {c('Order items')}{' '}
                 </th>
                 <th scope="col" className="py-3.5 px-4 text-center">
-                  Total
+                  {c('Total')}{' '}
                 </th>
                 <th scope="col" className="py-3.5 px-4 text-center">
-                  Current Status
+                  {c('Current Status')}{' '}
                 </th>
                 <th scope="col" className="py-3.5 px-4 text-center">
-                  Created
+                  {c('Created')}{' '}
                 </th>
                 <th scope="col" className="py-3.5 px-4 text-center">
-                  Actions
+                  {c('Actions')}{' '}
                 </th>
               </tr>
             </thead>
@@ -203,8 +208,8 @@ export function AdminOrdersTable() {
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
                     {error
-                      ? 'Orders could not be loaded. Please try Refresh List.'
-                      : 'No orders match your search.'}
+                      ? c('Orders could not be loaded. Please try Refresh List.')
+                      : c('No orders match your search.')}
                   </td>
                 </tr>
               ) : (
@@ -219,6 +224,9 @@ export function AdminOrdersTable() {
                           order.status === OrderStatus.OUT_FOR_DELIVERY))) &&
                     (order.status !== OrderStatus.READY_FOR_PICKUP || Boolean(order.courierId));
                   const nextStatus = canAdvance ? ORDER_STATUS_SEQUENCE[currentIdx + 1] : null;
+                  const requestCount = (order.deliveryRequests ?? []).filter(
+                    (request) => request.status === 'PENDING',
+                  ).length;
 
                   return (
                     <tr
@@ -237,7 +245,7 @@ export function AdminOrdersTable() {
                         </div>
                       </td>
                       <td className="py-4 px-4 max-w-xs truncate text-slate-600 dark:text-slate-300">
-                        {order.items.map((i) => `${i.name} (x${i.quantity})`).join(', ')}
+                        {order.items.map((i) => `${c(i.name)} (x${i.quantity})`).join(', ')}
                       </td>
                       <td className="py-4 px-4 font-mono font-bold text-slate-900 dark:text-slate-100 text-center">
                         ${order.pricing.total.toFixed(2)}
@@ -248,7 +256,7 @@ export function AdminOrdersTable() {
                             order.status,
                           )}`}
                         >
-                          {order.status.replace(/_/g, ' ')}
+                          {c(order.status.replace(/_/g, ' '))}
                         </span>
                       </td>
                       <td className="py-4 px-4 text-slate-600 dark:text-slate-300 font-mono text-[11px] text-center">
@@ -256,47 +264,50 @@ export function AdminOrdersTable() {
                       </td>
                       <td className="py-4 px-4 align-middle text-center">
                         <div className="flex items-center justify-center gap-2 whitespace-nowrap">
-                          <Link
+                          <IconActionLink
                             to="/tracking/$orderId"
-                            params={{ orderId: order.id }}
-                            className="inline-flex h-8 shrink-0 items-center justify-center gap-1 px-2.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition cursor-pointer shadow-xs"
-                            title="Open Live Tracker"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Track</span>
-                          </Link>
+                            orderId={order.id}
+                            context={order.orderNumber}
+                            icon={Eye}
+                            label={c('Track')}
+                          />
 
                           {canAdvance && nextStatus && (
-                            <button
+                            <IconAction
+                              icon={ArrowRight}
+                              tone="primary"
+                              label={advancingId === order.id ? c('Advancing…') : c('Advance')}
+                              aria-label={c('Advance to {{status}}', { status: c(nextStatus) })}
                               onClick={() => handleAdvanceStatus(order)}
                               disabled={advancingId !== null}
-                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 px-2.5 rounded-lg border border-transparent text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
-                              title={`Advance to ${nextStatus}`}
-                            >
-                              {advancingId === order.id && <Spinner />}
-                              <span>{advancingId === order.id ? 'Advancing…' : 'Advance'}</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
+                              pending={advancingId === order.id}
+                            />
                           )}
                           {![
                             OrderStatus.OUT_FOR_DELIVERY,
                             OrderStatus.DELIVERED,
                             OrderStatus.CANCELLED,
                           ].some((status) => status === order.status) && (
-                            <Link
+                            <IconActionLink
                               to="/courier/$orderId"
-                              params={{ orderId: order.id }}
-                              className="inline-flex h-8 items-center justify-center gap-1 px-2.5 rounded-lg text-xs font-bold bg-teal-700 hover:bg-teal-800 text-white transition"
-                            >
-                              {(order.deliveryRequests ?? []).some(
-                                (request) => request.status === 'PENDING',
-                              )
-                                ? `Requests (${order.deliveryRequests.filter((request) => request.status === 'PENDING').length})`
-                                : order.courierId
-                                  ? 'Manage'
-                                  : 'Assign'}
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </Link>
+                              orderId={order.id}
+                              icon={
+                                requestCount > 0
+                                  ? ClipboardList
+                                  : order.courierId
+                                    ? Settings2
+                                    : UserRoundPlus
+                              }
+                              context={order.orderNumber}
+                              badge={requestCount}
+                              label={
+                                requestCount > 0
+                                  ? c('Delivery Requests ({{count}})', { count: requestCount })
+                                  : order.courierId
+                                    ? c('Manage Delivery')
+                                    : c('Assign courier')
+                              }
+                            />
                           )}
                         </div>
                       </td>

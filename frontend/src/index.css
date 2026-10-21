@@ -101,6 +101,41 @@ body {
 .route-page {
   view-transition-name: page-content;
 }
+/* Theme and language changes crossfade the complete interface together. */
+:root:active-view-transition-type(theme-change) .route-page,
+:root:active-view-transition-type(language-change) .route-page {
+  view-transition-name: none;
+}
+:root:active-view-transition-type(theme-change) * {
+  transition-duration: 0s !important;
+}
+:root:active-view-transition-type(theme-change)::view-transition-old(root),
+:root:active-view-transition-type(language-change)::view-transition-old(root) {
+  display: block;
+  mix-blend-mode: normal;
+  animation: appearance-fade-out 220ms ease-out both;
+}
+:root:active-view-transition-type(theme-change)::view-transition-new(root),
+:root:active-view-transition-type(language-change)::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation: appearance-fade-in 260ms ease-out both;
+}
+@keyframes appearance-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes appearance-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
 ::view-transition {
   pointer-events: none;
 }
@@ -207,6 +242,38 @@ body {
 }
 .select-options {
   animation: select-reveal 140ms ease-out;
+}
+
+:where(button, a[data-button], a[class*='rounded']) {
+  transition-property: background-color, border-color, color, box-shadow, opacity, scale, filter;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.icon-action {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :where(button, a[data-button], a[class*='rounded']):not(:disabled):hover {
+    scale: 1.02;
+    filter: brightness(0.97);
+  }
+  .dark :where(button, a[data-button], a[class*='rounded']):not(:disabled):hover {
+    filter: brightness(1.1);
+  }
+  :where(button, a[data-button]):not(:disabled):active {
+    scale: 0.97;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a[data-button], a[class*='rounded']),
+  .themed-tooltip {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+:lang(ja) {
+  --font-sans: 'Inter', 'Yu Gothic', Meiryo, system-ui, sans-serif;
 }
 @keyframes select-reveal {
   from {

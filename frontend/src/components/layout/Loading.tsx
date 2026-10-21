@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { LoaderCircle } from 'lucide-react';
 
 export function Spinner({ className = 'h-4 w-4' }: { className?: string }) {
@@ -5,21 +6,25 @@ export function Spinner({ className = 'h-4 w-4' }: { className?: string }) {
 }
 
 export function LoadingState({ label = 'Loading…' }: { label?: string }) {
+  const c = useCopy();
+
   return (
     <div
       role="status"
       className="flex items-center justify-center gap-3 p-6 text-sm font-medium text-slate-600 dark:text-slate-300"
     >
       <Spinner className="h-5 w-5 text-teal-700 dark:text-teal-400" />
-      <span>{label}</span>
+      <span>{c(label)}</span>
     </div>
   );
 }
 
 export function PageSkeleton({ label = 'Loading page…' }: { label?: string }) {
+  const c = useCopy();
+
   return (
-    <section aria-busy="true" aria-label={label} className="space-y-5">
-      <LoadingState label={label} />
+    <section aria-busy="true" aria-label={c(label)} className="space-y-5">
+      <LoadingState label={c(label)} />
       <div aria-hidden="true" className="space-y-5 motion-safe:animate-pulse">
         <div className="h-24 rounded-2xl bg-slate-200/80 dark:bg-slate-800" />
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -44,11 +49,13 @@ export function TableSkeleton({
   columns?: number;
   label?: string;
 }) {
+  const c = useCopy();
+
   return (
     <>
       <tr>
         <td colSpan={columns}>
-          <LoadingState label={label} />
+          <LoadingState label={c(label)} />
         </td>
       </tr>
       {Array.from({ length: 4 }, (_, row) => (

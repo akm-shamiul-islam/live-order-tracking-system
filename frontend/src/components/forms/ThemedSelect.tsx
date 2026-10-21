@@ -1,14 +1,25 @@
+import { useCopy } from '../../lib/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Languages, LoaderCircle } from 'lucide-react';
+import { Tooltip } from '../ui/Tooltip';
+
+interface SelectOption {
+  value: string;
+  label: string;
+  translate?: boolean;
+}
 
 interface ThemedSelectProps {
   label: string;
   value: string;
-  options: readonly { value: string; label: string }[];
+  options: readonly SelectOption[];
   onChange: (value: string) => void;
   placement?: 'above' | 'below';
   disabled?: boolean;
+  compact?: boolean;
+  tooltip?: string;
+  busy?: boolean;
 }
 
 export function ThemedSelect({
@@ -18,7 +29,12 @@ export function ThemedSelect({
   onChange,
   placement = 'below',
   disabled = false,
+  compact = false,
+  tooltip,
+  busy = false,
 }: ThemedSelectProps) {
+  const c = useCopy();
+
   const id = useId();
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -29,6 +45,8 @@ export function ThemedSelect({
     options.findIndex((option) => option.value === value),
   );
   const [active, setActive] = useState(selected);
+  const optionLabel = (option?: SelectOption) =>
+    option?.translate === false ? option.label : c(option?.label);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -88,7 +106,9 @@ export function ThemedSelect({
         (now - typeahead.current.time > 700 ? '' : typeahead.current.text) +
         event.key.toLowerCase();
       typeahead.current = { text, time: now };
-      const match = options.findIndex((option) => option.label.toLowerCase().startsWith(text));
+      const match = options.findIndex((option) =>
+        optionLabel(option).toLowerCase().startsWith(text),
+      );
       if (match >= 0) {
         event.preventDefault();
         setActive(match);
@@ -105,35 +125,46 @@ export function ThemedSelect({
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
     >
-      <button
-        ref={trigger}
-        type="button"
-        role="combobox"
-        aria-label={label}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={`${id}-options`}
-        aria-activedescendant={open ? `${id}-option-${active}` : undefined}
-        disabled={disabled}
-        onKeyDown={handleKey}
-        onClick={() => {
-          setActive(selected);
-          setOpen(!open);
-        }}
-        className="flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 text-left text-xs font-semibold text-slate-700 shadow-xs transition-colors hover:border-teal-400 hover:bg-teal-50/60 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-teal-500/60 dark:hover:bg-teal-500/10"
-      >
-        <span className="truncate">{options[selected]?.label}</span>
-        <ChevronDown
-          aria-hidden="true"
-          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
+      <Tooltip label={tooltip ?? label} triggerRef={trigger}>
+        <button
+          type="button"
+          role="combobox"
+          aria-label={c(label)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-busy={busy || undefined}
+          aria-controls={`${id}-options`}
+          aria-activedescendant={open ? `${id}-option-${active}` : undefined}
+          disabled={disabled}
+          onKeyDown={handleKey}
+          onClick={() => {
+            setActive(selected);
+            setOpen(!open);
+          }}
+          className={`flex ${compact ? 'h-10 w-20 gap-1 px-2.5' : 'h-11 w-full gap-3 px-3.5'} items-center justify-between rounded-xl border border-slate-200 bg-white text-left text-xs font-semibold text-slate-700 shadow-xs hover:border-teal-400 hover:bg-teal-50/60 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-teal-500/60 dark:hover:bg-teal-500/10`}
+        >
+          {compact &&
+            (busy ? (
+              <LoaderCircle
+                aria-hidden="true"
+                className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+              />
+            ) : (
+              <Languages aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            ))}
+          <span className="truncate">{optionLabel(options[selected])}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+      </Tooltip>
       {open && (
         <div
           id={`${id}-options`}
           role="listbox"
-          aria-label={label}
-          className={`select-options absolute left-0 z-40 max-h-[min(24rem,50dvh)] w-max min-w-full max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 ${placement === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'}`}
+          aria-label={c(label)}
+          className={`select-options absolute ${compact ? 'right-0' : 'left-0'} z-40 max-h-[min(24rem,50dvh)] w-max min-w-full max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40 ${placement === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'}`}
         >
           {options.map((option, index) => (
             <div
@@ -146,7 +177,7 @@ export function ThemedSelect({
               onClick={() => choose(index)}
               className={`flex min-h-10 cursor-pointer items-center justify-between gap-4 rounded-lg px-3 text-xs font-semibold transition-colors ${index === active ? 'bg-teal-50 text-teal-800 dark:bg-teal-500/15 dark:text-teal-200' : 'text-slate-600 dark:text-slate-300'}`}
             >
-              <span>{option.label}</span>
+              <span>{optionLabel(option)}</span>
               {value === option.value ? (
                 <Check aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-400" />
               ) : (

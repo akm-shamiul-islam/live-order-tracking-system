@@ -1,9 +1,12 @@
+import { useCopy } from '../../lib/i18n';
 import { useState, useEffect } from 'react';
 import { getSocket } from '../../lib/socket';
 import { clientSettings } from '../../lib/clientSettings';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 export function ConnectionBadge() {
+  const c = useCopy();
+
   const [connected, setConnected] = useState(() => getSocket().connected);
   const [latency, setLatency] = useState<number | null>(null);
 
@@ -50,8 +53,8 @@ export function ConnectionBadge() {
       }`}
       title={
         connected
-          ? `Connected via WebSocket (${latency ?? '--'} ms)`
-          : 'Disconnected from WebSocket'
+          ? c('Connected via WebSocket ({{latency}} ms)', { latency: latency ?? '--' })
+          : c('Disconnected from WebSocket')
       }
     >
       <span className="relative flex h-2 w-2">
@@ -67,7 +70,9 @@ export function ConnectionBadge() {
       {connected ? (
         <span className="flex items-center gap-1">
           <Wifi className="w-3 h-3" />
-          <span>Live {latency !== null ? `${latency}ms` : ''}</span>
+          <span>
+            {c('Live')} {latency !== null ? `${latency}ms` : ''}
+          </span>
         </span>
       ) : (
         <span className="flex items-center gap-1">
@@ -75,10 +80,10 @@ export function ConnectionBadge() {
           <button
             type="button"
             onClick={() => getSocket().connect()}
-            aria-label="Reconnect live updates"
+            aria-label={c('Reconnect live updates')}
             className="inline-flex items-center gap-1 font-semibold underline underline-offset-2"
           >
-            <RefreshCw aria-hidden="true" className="h-3 w-3" /> Reconnect
+            <RefreshCw aria-hidden="true" className="h-3 w-3" /> {c('Reconnect')}{' '}
           </button>
         </span>
       )}

@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
 import {
@@ -24,6 +25,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { useDialog } from '../../hooks/useDialog';
 import { useIdleReady } from '../../hooks/useIdleReady';
 import { Spinner } from './Loading';
+import { Tooltip } from '../ui/Tooltip';
+import { LanguageSwitcher } from './LanguageSwitcher';
 const ConnectionBadge = lazy(() =>
   import('../tracking/ConnectionBadge').then((module) => ({ default: module.ConnectionBadge })),
 );
@@ -97,6 +100,8 @@ export function Navbar({
   navigationOpen,
   onToggleNavigation,
 }: NavbarProps) {
+  const c = useCopy();
+
   const pathname = useLocation({ select: (location) => location.pathname });
   const navigate = useNavigate();
   const livePage = ['/tracking', '/courier', '/dispatch'].some((prefix) =>
@@ -114,7 +119,7 @@ export function Navbar({
             type="button"
             onClick={onToggleNavigation}
             className={iconButton}
-            aria-label={navigationOpen ? 'Close navigation' : 'Open navigation'}
+            aria-label={navigationOpen ? c('Close navigation') : c('Open navigation')}
             aria-expanded={navigationOpen}
             aria-controls="site-navigation"
           >
@@ -129,10 +134,10 @@ export function Navbar({
             </span>
             <span className="min-w-0">
               <span className="font-display block truncate bg-gradient-to-r from-emerald-700 to-sky-600 bg-clip-text text-lg font-extrabold tracking-tight text-transparent sm:text-xl dark:from-emerald-400 dark:to-sky-400">
-                KitchenToDoor
+                {c('KitchenToDoor')}{' '}
               </span>
               <span className="hidden text-[9px] font-bold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-300 sm:block">
-                Fresh food. Live updates.
+                {c('Fresh food. Live updates.')}{' '}
               </span>
             </span>
           </Link>
@@ -143,7 +148,7 @@ export function Navbar({
               <Suspense
                 fallback={
                   <span role="status" className="text-xs text-slate-600 dark:text-slate-300">
-                    Connecting…
+                    {c('Connecting…')}{' '}
                   </span>
                 }
               >
@@ -154,37 +159,42 @@ export function Navbar({
                     role="status"
                     className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"
                   >
-                    <Spinner /> Connecting…
+                    <Spinner /> {c('Connecting…')}{' '}
                   </span>
                 )}
               </Suspense>
             </div>
           )}
-          <button
-            type="button"
-            onClick={onOpenCart}
-            className={`${iconButton} relative`}
-            aria-label={`View cart, ${cartCount} items`}
-          >
-            <ShoppingBag aria-hidden="true" className="h-5 w-5" />
-            {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-teal-700 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-950">
-                {cartCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className={iconButton}
-            aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-          >
-            {isDark ? (
-              <Sun aria-hidden="true" className="h-5 w-5" />
-            ) : (
-              <Moon aria-hidden="true" className="h-5 w-5" />
-            )}
-          </button>
+          <LanguageSwitcher />
+          <Tooltip label={c('View cart, {{count}} items', { count: cartCount })}>
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className={`${iconButton} relative`}
+              aria-label={c('View cart, {{count}} items', { count: cartCount })}
+            >
+              <ShoppingBag aria-hidden="true" className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-teal-700 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-slate-950">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </Tooltip>
+          <Tooltip label={c(isDark ? 'Switch to light mode' : 'Switch to dark mode')}>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={iconButton}
+              aria-label={c(isDark ? 'Switch to light mode' : 'Switch to dark mode')}
+            >
+              {isDark ? (
+                <Sun aria-hidden="true" className="h-5 w-5" />
+              ) : (
+                <Moon aria-hidden="true" className="h-5 w-5" />
+              )}
+            </button>
+          </Tooltip>
           <button
             type="button"
             onClick={
@@ -201,7 +211,7 @@ export function Navbar({
             ) : (
               <Shield aria-hidden="true" className="h-4 w-4" />
             )}
-            {isAuthenticatedAdmin ? 'Sign Out' : 'Sign In / Register'}
+            {isAuthenticatedAdmin ? c('Sign Out') : c('Sign In / Register')}
           </button>
         </div>
       </div>
@@ -222,6 +232,8 @@ export function NavigationDrawer({
   isStaff: boolean;
   onStaffAction: () => void;
 }) {
+  const c = useCopy();
+
   const pathname = useLocation({ select: (location) => location.pathname });
   const { user } = useAuth();
   const visibleItems = navigationItems.filter((item) => canOpenPage(item.to, user?.role));
@@ -231,19 +243,19 @@ export function NavigationDrawer({
       <div className="flex items-start justify-between gap-3 border-b border-slate-200/70 px-5 py-5 dark:border-slate-800">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-400">
-            KitchenToDoor
+            {c('KitchenToDoor')}{' '}
           </span>
           <h2
             id="navigation-title"
             className="font-display mt-1 text-xl font-extrabold text-slate-900 dark:text-white"
           >
-            Explore
+            {c('Explore')}{' '}
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close navigation drawer"
+          aria-label={c('Close navigation drawer')}
           className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white"
         >
           <X aria-hidden="true" className="h-5 w-5" />
@@ -251,7 +263,7 @@ export function NavigationDrawer({
       </div>
       <nav
         id="site-navigation"
-        aria-label="Main navigation"
+        aria-label={c('Main navigation')}
         className="flex-1 space-y-2 overflow-y-auto p-3.5"
       >
         {(['Your account', 'Delivery workspace', 'Administration'] as const).map((section) => {
@@ -260,7 +272,7 @@ export function NavigationDrawer({
           return (
             <div key={section} className="space-y-2 pb-3">
               <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300">
-                {section}
+                {c(section)}
               </p>
               {items.map(({ to, label, description, icon: Icon }) => {
                 const active = pathname === to || (to !== '/' && pathname.startsWith(`${to}/`));
@@ -283,13 +295,13 @@ export function NavigationDrawer({
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs font-bold">
                         {to === '/orders' && user?.role === UserRole.COURIER
-                          ? 'My Deliveries'
-                          : label}
+                          ? c('My Deliveries')
+                          : c(label)}
                       </span>
                       <span className="mt-1 block text-[10px] text-slate-500 dark:text-slate-400">
                         {to === '/orders' && user?.role === UserRole.COURIER
-                          ? 'Your approved delivery assignments'
-                          : description}
+                          ? c('Your approved delivery assignments')
+                          : c(description)}
                       </span>
                     </span>
                     {active && (
@@ -305,12 +317,14 @@ export function NavigationDrawer({
       <div className="m-3.5 mt-auto rounded-2xl border border-teal-100 bg-teal-50/70 p-4 dark:border-teal-500/15 dark:bg-teal-500/5">
         <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
           <Shield aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-          {isStaff ? `Welcome, ${user?.name || 'back'}` : 'Your next meal awaits'}
+          {isStaff
+            ? c('Welcome, {{name}}', { name: user?.name || c('Anonymous') })
+            : c('Your next meal awaits')}
         </div>
         <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
           {isStaff
-            ? 'Your workspace follows your account access.'
-            : 'Create an account to order and track your delivery.'}
+            ? c('Your workspace follows your account access.')
+            : c('Create an account to order and track your delivery.')}
         </p>
         <button
           type="button"
@@ -320,7 +334,7 @@ export function NavigationDrawer({
           }}
           className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-teal-100"
         >
-          {isStaff ? 'Sign Out' : 'Sign In / Register'}
+          {isStaff ? c('Sign Out') : c('Sign In / Register')}
           {isStaff ? (
             <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
           ) : (

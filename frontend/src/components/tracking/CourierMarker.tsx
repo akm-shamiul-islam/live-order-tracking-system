@@ -1,8 +1,11 @@
+import { useCopy } from '../../lib/i18n';
 import { Bike } from 'lucide-react';
 
 export const MARKER_CLASS =
   'absolute z-30 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center';
 export function CourierMarker() {
+  const c = useCopy();
+
   return (
     <>
       <div className="relative">
@@ -12,7 +15,7 @@ export function CourierMarker() {
         </div>
       </div>
       <div className="mt-1.5 whitespace-nowrap rounded-md bg-teal-400 px-2.5 py-0.5 text-[10px] font-extrabold tracking-tight text-slate-950 shadow-md">
-        Courier Beacon
+        {c('Courier Beacon')}{' '}
       </div>
     </>
   );

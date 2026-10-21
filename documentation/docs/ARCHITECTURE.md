@@ -41,6 +41,7 @@ flowchart LR
 | Page, order, filters and pagination | TanStack Router URLs, real links, refresh and browser history. |
 | Cart, dialogs and form drafts | React state. Root layout retains the cart during SPA sign-in/registration. |
 | Navigation drawer | React state initialized from localStorage; defaults open and persists both states under kitchentodoor.navigation.open. |
+| Theme and language | Device theme in `ktd_theme`; EN/JA in `ktd_language`, with a scoped account preference and monotonic `languageVersion` in MongoDB. |
 
 `authSession.ts` explicitly persists the existing `ktd_token`/`ktd_user` keys; Zustand persist middleware is not used. Storage events synchronize tabs. `/auth/me` refreshes the saved profile at startup, focus and the configured verification interval. Passwords and refresh tokens never enter Zustand or localStorage.
 
@@ -60,6 +61,22 @@ The main element is the single named `page-content` participant. Its outgoing sn
 | Browser Back/Forward | Same fade for pathname changes on browsers supporting transition types. |
 | Filters, search, pagination and live data | Immediate updates with current component/form state preserved. |
 | Direct entry, reduced motion or unsupported transition APIs/types | Normal rendering; reduced-motion CSS also disables snapshot animations. |
+
+## Appearance, localization and controls
+
+English and Japanese resources live in `frontend/src/locales/en.json` and `ja.json`, with `ui` and `food` namespaces. i18next 26.5.4 uses its typed selector API through `useCopy`; react-i18next 17.1.0 subscribes React to language changes. English is bundled once, and Japanese loads on demand. Initialization restores the local language before mounting React, sets `html.lang` and preserves the current route and form/cart state. Prices remain USD demonstration amounts. User-entered names, addresses, cancellation notes and other content remain unchanged.
+
+Registration records the selected language. Authenticated `PATCH /api/auth/preferences` accepts only an `en`/`ja` language for the current account; strict shared Zod validation rejects account IDs, role fields and unsupported languages. An atomic update increments `languageVersion`. Login, refresh and `/auth/me` return the preference, with `en`/0 fallback for older documents. The session store preserves a newer language revision when an older profile response arrives.
+
+Manual changes update localStorage immediately, then queue the owned account save. A durable `ktd_language_pending` record allows an offline choice to retry after reload, sign-in or reconnection. One Web Lock serializes preference writes between tabs; local coalescing retains the newest queued choice. Identity/intent checks prevent delayed responses from restoring a signed-out account or changing another account's session. Signed-in account preferences take precedence on sign-in; guest language remains local. Without Web Locks, writes are serialized within each tab and the last server write wins between tabs/devices.
+
+The language control displays a spinner and announces loading/saving progress. Failed saves retain the choice and offer retry. Dropdown options containing user-entered courier names opt out of translation so names that match an interface key remain unchanged.
+
+Theme and manual language changes use typed native whole-interface snapshots: 220 ms outgoing and 260 ms incoming opacity fades. `flushSync` commits the React/external-store change inside the snapshot callback. Reduced motion and unsupported APIs/types apply changes directly. Skipped snapshot rejections are handled while real update failures propagate. Normal button colors, focus rings and modest hover/press scaling use CSS transitions, with reduced-motion overrides.
+
+Floating UI 0.27.20 supplies hover/focus/Escape behavior, collision-aware positioning and portals for the shared themed tooltip. Tooltips inside native dialogs stay in that dialog's top layer. Icon actions retain accessible names, pending indicators and minimum 44-pixel targets; destructive actions keep distinct colors. Users centers every header and the Phone/Role/Account/Actions cells. Account Status uses the shared keyboard-operable dropdown and retains server access checks. Available Deliveries lets its introduction span the full header width and wrap naturally on narrower screens.
+
+`pnpm locales:check` validates EN/JA key and interpolation parity, missing literal translation keys, visible JSX/conditional copy and accessible labels. It also rejects translating direct business comparisons or identity/form values. Oxc Parser 0.155.0 parses the maintained TSX source for this gate; `pnpm typecheck` includes it.
 
 ## Authentication and user management
 

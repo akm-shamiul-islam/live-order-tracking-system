@@ -1,5 +1,16 @@
 // Vite compiles and embeds this initializer; the API permits its exact SHA-256 hash in CSP.
 try {
+  const language = localStorage.getItem('ktd_language') === 'ja' ? 'ja' : 'en';
+  document.documentElement.lang = language;
+  if (language === 'ja')
+    document.addEventListener(
+      'DOMContentLoaded',
+      () => {
+        const loading = document.getElementById('initial-loading-message');
+        if (loading) loading.textContent = 'KitchenToDoorを開いています…';
+      },
+      { once: true },
+    );
   const dark = localStorage.getItem('ktd_theme') === 'dark';
   document.documentElement.classList.toggle('dark', dark);
   document

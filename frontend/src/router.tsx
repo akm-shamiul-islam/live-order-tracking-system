@@ -1,3 +1,4 @@
+import { useCopy } from './lib/i18n';
 import {
   createRootRoute,
   createRoute,
@@ -24,15 +25,19 @@ import { RefreshCw } from 'lucide-react';
 import { startPageTransition } from './lib/pageTransition';
 
 function NotFoundPage() {
+  const c = useCopy();
+
   return (
     <section className="glass-panel rounded-2xl p-12 text-center">
-      <h1 className="font-display text-2xl font-bold">Page Not Found</h1>
-      <p className="mt-2 text-sm text-slate-500">Check the address or return to the food menu.</p>
+      <h1 className="font-display text-2xl font-bold">{c('Page Not Found')}</h1>
+      <p className="mt-2 text-sm text-slate-500">
+        {c('Check the address or return to the food menu.')}
+      </p>
       <Link
         to="/"
         className="mt-4 inline-block font-bold text-teal-700 underline dark:text-teal-400"
       >
-        Open Food Menu
+        {c('Open Food Menu')}{' '}
       </Link>
     </section>
   );
@@ -164,19 +169,22 @@ export const router = createRouter({
   routeTree,
   scrollRestoration: true,
   defaultPendingComponent: PageSkeleton,
-  defaultErrorComponent: ({ reset }) => (
-    <section role="alert" className="glass-panel rounded-2xl p-8 text-center">
-      <h1 className="font-display text-xl font-bold">This Page Could Not Be Loaded</h1>
-      <p className="mt-2 text-sm text-slate-500">Check your connection and try again.</p>
-      <button
-        onClick={reset}
-        className="mt-4 inline-flex items-center gap-2 font-bold text-teal-700 underline"
-      >
-        <RefreshCw aria-hidden="true" className="h-4 w-4" />
-        Try Again
-      </button>
-    </section>
-  ),
+  defaultErrorComponent: ({ reset }) => {
+    const c = useCopy();
+    return (
+      <section role="alert" className="glass-panel rounded-2xl p-8 text-center">
+        <h1 className="font-display text-xl font-bold">{c('This Page Could Not Be Loaded')}</h1>
+        <p className="mt-2 text-sm text-slate-500">{c('Check your connection and try again.')}</p>
+        <button
+          onClick={reset}
+          className="mt-4 inline-flex items-center gap-2 font-bold text-teal-700 underline"
+        >
+          <RefreshCw aria-hidden="true" className="h-4 w-4" />
+          {c('Try Again')}{' '}
+        </button>
+      </section>
+    );
+  },
 });
 
 // RouterCore calls this hook for the actual route commit. Its default native

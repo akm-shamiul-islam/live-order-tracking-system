@@ -13,6 +13,9 @@ import {
   type ManagedUser,
   type UpdateUserDto,
   type UserRole,
+  type Language,
+  LanguagePreferenceResponseSchema,
+  type LanguagePreference,
 } from '@kitchentodoor/shared';
 import {
   clearSession,
@@ -23,6 +26,7 @@ import {
 } from './authSession';
 import { clientSettings } from './clientSettings';
 import { getCheckoutAttempt, completeCheckoutAttempt } from './checkoutAttempt';
+import { getDesiredLanguage } from './i18n';
 
 const API_BASE = '/api';
 let refreshInFlight: Promise<AuthResponse | null> | undefined;
@@ -285,6 +289,7 @@ export const api = {
         password: pass,
         phone,
         ...(address ? { address } : {}),
+        language: getDesiredLanguage(),
       });
     },
 
@@ -293,6 +298,21 @@ export const api = {
         headers: getHeaders(),
       });
       return handleResponse<UserSummary>(res);
+    },
+
+    async updateLanguage(this: void, language: Language): Promise<LanguagePreference> {
+      const intent = authIntent;
+      const owner = getSession().user?.id;
+      if (!owner) throw new ApiError('Please sign in again.', 401);
+      const res = await request(`${API_BASE}/auth/preferences`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ language }),
+      });
+      const preference = LanguagePreferenceResponseSchema.parse(await handleResponse<unknown>(res));
+      if (intent !== authIntent || getSession().user?.id !== owner)
+        throw new ApiError('Your account changed. Sign in and try again.', 409);
+      return preference;
     },
 
     logout() {

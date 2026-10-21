@@ -1,3 +1,4 @@
+import { useCopy } from './lib/i18n';
 import { lazy, Suspense, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { UserRole } from '@kitchentodoor/shared';
@@ -25,6 +26,8 @@ const AdminLoginModal = lazy(() =>
 const loadingPanel = <PageSkeleton />;
 
 export function App() {
+  const c = useCopy();
+
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -66,7 +69,7 @@ export function App() {
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3 focus:text-slate-900"
         >
-          Skip to Content
+          {c('Skip to Content')}{' '}
         </a>
         <Navbar
           cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -103,15 +106,15 @@ export function App() {
               <Outlet />
             </Suspense>
           </main>
-          <footer className="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-600 dark:text-slate-300">
-            <p>KitchenToDoor © 2026. Real-Time Order Lifecycle & Telemetry Platform.</p>
+          <footer className="border-t border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-slate-600 dark:text-slate-300">
+            <p>{c('KitchenToDoor © 2026. Real-Time Order Lifecycle & Telemetry Platform.')}</p>
           </footer>
         </div>
         <Suspense
           fallback={
             <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40">
               <div className="glass-panel rounded-2xl">
-                <LoadingState label="Opening…" />
+                <LoadingState label={c('Opening…')} />
               </div>
             </div>
           }

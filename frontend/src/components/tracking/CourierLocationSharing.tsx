@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { formatDateTime } from '../../lib/dateTime';
 import { useEffect, useRef, useState } from 'react';
 import { LocateFixed, Square } from 'lucide-react';
@@ -6,6 +7,8 @@ import { clientSettings } from '../../lib/clientSettings';
 import { Spinner } from '../layout/Loading';
 
 export function CourierLocationSharing({ orderId }: { orderId: string }) {
+  const c = useCopy();
+
   const watcher = useRef<number | undefined>(undefined);
   const sending = useRef(false);
   const lastSent = useRef(0);
@@ -82,23 +85,26 @@ export function CourierLocationSharing({ orderId }: { orderId: string }) {
     >
       <h2 id="location-sharing-title" className="font-display flex items-center gap-2 font-bold">
         <LocateFixed aria-hidden="true" className="h-5 w-5 text-teal-700 dark:text-teal-300" />
-        Share Your Location
+        {c('Share Your Location')}{' '}
       </h2>
       <p className="text-sm text-slate-600 dark:text-slate-300">
-        Share this device’s location with the customer and kitchen while this delivery page stays
-        open. Sharing stops when you leave or finish the delivery.
+        {c(
+          'Share this device’s location with the customer and kitchen while this delivery page stays open. Sharing stops when you leave or finish the delivery.',
+        )}{' '}
       </p>
       {error && (
         <p role="alert" className="text-sm text-rose-800 dark:text-rose-200">
-          {error}
+          {c(error)}
         </p>
       )}
       <p role="status" className="text-xs text-slate-600 dark:text-slate-300">
         {sharing
           ? updatedAt
-            ? `Sharing is on. Last sent ${formatDateTime(updatedAt, 'timeSeconds')}.`
-            : 'Waiting for your device’s location…'
-          : 'Location sharing is off.'}
+            ? c('Sharing is on. Last sent {{time}}.', {
+                time: formatDateTime(updatedAt, 'timeSeconds'),
+              })
+            : c('Waiting for your device’s location…')
+          : c('Location sharing is off.')}
       </p>
       <button
         onClick={sharing ? stop : start}
@@ -111,7 +117,7 @@ export function CourierLocationSharing({ orderId }: { orderId: string }) {
         ) : (
           <LocateFixed aria-hidden="true" className="h-4 w-4" />
         )}
-        {sharing ? 'Stop Sharing' : 'Start Sharing'}
+        {sharing ? c('Stop Sharing') : c('Start Sharing')}
       </button>
     </section>
   );

@@ -160,6 +160,12 @@ try {
     });
     await writeFile(join(directory, `${name}.png`), Buffer.from(result.data, 'base64'));
   }
+  async function hover(selector: string) {
+    const point = await evaluate<{ x: number; y: number }>(
+      `(()=>{const rect=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2}})()`,
+    );
+    await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+  }
   const session = () =>
     evaluate<BrowserSession>(
       `({token:localStorage.getItem('ktd_token'),user:JSON.parse(localStorage.getItem('ktd_user')||'null')})`,
@@ -362,6 +368,147 @@ try {
   await waitText('Made fresh.');
   await click('[aria-label="Close navigation drawer"]');
 
+  await evaluate(`(()=>{
+    window.ktdAppearanceNative=document.startViewTransition;
+    window.ktdAppearanceTransitions=[];
+    document.startViewTransition=function(options){
+      const transition=window.ktdAppearanceNative.call(this,options);
+      const record={types:options.types??[],animations:[],finished:false};
+      window.ktdAppearanceTransitions.push(record);
+      transition.ready.then(()=>{record.animations=document.getAnimations().filter(a=>a.animationName?.startsWith('appearance-fade-')).map(a=>a.animationName)},()=>{});
+      transition.finished.then(()=>{record.finished=true},()=>{record.finished=true});
+      return transition;
+    };
+  })()`);
+  await click('button[aria-label="Switch to dark mode"]');
+  await waitFor(
+    () => evaluate('document.documentElement.classList.contains("dark")'),
+    'Dark theme',
+  );
+  await waitFor(
+    () =>
+      evaluate(
+        'window.ktdAppearanceTransitions.some(t=>t.types.includes("theme-change")&&t.animations.includes("appearance-fade-in")&&t.animations.includes("appearance-fade-out"))',
+      ),
+    'Whole-interface theme crossfade',
+  );
+  await waitFor(
+    () => evaluate('window.ktdAppearanceTransitions.every(t=>t.finished)'),
+    'Theme transition finishes',
+  );
+  await click('button[aria-label="Switch to light mode"]');
+  await waitFor(
+    () => evaluate('!document.documentElement.classList.contains("dark")'),
+    'Light theme',
+  );
+  await openNavigation();
+  await click('#site-navigation a[href="/account"]');
+  await waitText('Welcome Back');
+  await clickText('Create an Account', 'main a');
+  await waitText('Create Your Account');
+  await input('#register-name', 'Preserved Language Draft');
+  await select('Language', 'JA');
+  await waitFor(() => evaluate('document.documentElement.lang === "ja"'), 'Japanese language');
+  await waitText('アカウントの新規登録');
+  await waitFor(
+    () =>
+      evaluate(
+        'window.ktdAppearanceTransitions.some(t=>t.types.includes("language-change")&&t.animations.includes("appearance-fade-in")&&t.animations.includes("appearance-fade-out"))',
+      ),
+    'Whole-interface language crossfade',
+  );
+  assert.equal(
+    await evaluate('document.querySelector("#register-name").value'),
+    'Preserved Language Draft',
+  );
+  assert.equal(await evaluate('localStorage.getItem("ktd_language")'), 'ja');
+  assert.equal(
+    await evaluate(
+      `Boolean(document.querySelector('#site-navigation a[href="/"]')?.textContent.includes("料理を注文"))`,
+    ),
+    true,
+  );
+  await waitFor(
+    () => evaluate('window.ktdAppearanceTransitions.every(t=>t.finished)'),
+    'Japanese appearance settles before form interaction',
+  );
+  await clickText('アカウントを作成');
+  await waitText('有効なメールアドレスを入力してください');
+  await screenshot('registration-japanese');
+  await select('言語', 'EN');
+  await waitText('Create Your Account');
+  assert.equal(
+    await evaluate('document.querySelector("#register-name").value'),
+    'Preserved Language Draft',
+  );
+  await click('#site-navigation a[href="/"]');
+  await waitText('Made fresh.');
+  await click('[aria-label="Close navigation drawer"]');
+  await waitFor(
+    () => evaluate('window.ktdAppearanceTransitions.every(t=>t.finished)'),
+    'Appearance transitions finish',
+  );
+  await evaluate(
+    'document.startViewTransition=window.ktdAppearanceNative; delete window.ktdAppearanceNative; delete window.ktdAppearanceTransitions',
+  );
+  pass(
+    'Theme/language crossfades, Japanese forms/navigation, inline validation and draft preservation',
+  );
+
+  // Earlier synthetic clicks do not move the pointer or emit mouseleave.
+  // Reproduce a real pointer leaving the theme trigger before tabbing back.
+  await hover('button[aria-label="Switch to dark mode"]');
+  await hover('button[aria-label^="View cart"]');
+  await waitFor(
+    () =>
+      evaluate(
+        'Boolean(document.querySelector("[role=tooltip]")?.textContent.includes("View cart"))',
+      ),
+    'Custom cart tooltip',
+  );
+  assert.equal(
+    await evaluate(
+      '(()=>{const r=document.querySelector("[role=tooltip]").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})()',
+    ),
+    true,
+  );
+  await evaluate(`document.querySelector('button[aria-label^="View cart"]').focus()`);
+  await page.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Tab',
+    code: 'Tab',
+    windowsVirtualKeyCode: 9,
+  });
+  await page.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: 'Tab',
+    code: 'Tab',
+    windowsVirtualKeyCode: 9,
+  });
+  await waitFor(
+    () =>
+      evaluate(
+        'Boolean(document.querySelector("[role=tooltip]")?.textContent.includes("Switch to dark mode"))',
+      ),
+    'Keyboard theme tooltip',
+  );
+  await page.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+  });
+  await page.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+  });
+  await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 });
+  await evaluate('document.activeElement.blur()');
+  await waitFor(() => evaluate('!document.querySelector("[role=tooltip]")'), 'Tooltip dismissal');
+  pass('Themed cart/theme tooltips support hover, keyboard focus, Escape and viewport boundaries');
+
   await click('button[aria-label^="Add "]');
   await click('header button[aria-label^="View cart"]');
   await waitFor(() => evaluate('Boolean(document.querySelector("dialog[open]"))'), 'Cart dialog');
@@ -501,7 +648,7 @@ try {
   );
   await clickText('Deliver');
   await waitText('Order Details');
-  const customer = await session();
+  let customer = await session();
   assert(customer.token, 'Checkout requires a signed-in customer');
   const own = await api<{ orders: OrderDetails[] }>('/orders/my-orders?page=1&limit=100', {
     token: customer.token,
@@ -521,6 +668,35 @@ try {
   assert.equal(savedProfile.body.address, savedAddress);
   assert.equal(savedProfile.body.name, 'Browser Customer');
   assert.equal(savedProfile.body.phone, '555-1234567');
+  await select('Language', 'JA');
+  await waitFor(async () => (await session()).user?.language === 'ja', 'Account language saved');
+  const languageProfile = await api<UserSummary>('/auth/me', { token: customer.token });
+  assert.equal(languageProfile.body.language, 'ja');
+  const languageToken = (await session()).token;
+  await clickText('ログアウト', 'header button');
+  await waitFor(
+    async () => (await api('/auth/me', { token: languageToken })).status === 401,
+    'Japanese sign out',
+  );
+  await select('言語', 'EN');
+  await waitFor(
+    () => evaluate('document.documentElement.lang === "en"'),
+    'Guest English preference',
+  );
+  await login(email, app.password);
+  await waitFor(
+    () => evaluate('document.documentElement.lang === "ja"'),
+    'Saved account language restored on login',
+  );
+  await goto('/orders', '注文履歴');
+  await waitText(order.orderNumber);
+  await select('言語', 'EN');
+  await waitFor(async () => (await session()).user?.language === 'en', 'Return account to English');
+  customer = await session();
+  assert(customer.token);
+  pass(
+    'A language preference persists in MongoDB and returns after sign-out, guest changes and sign-in',
+  );
   pass(
     'Registration saves an optional address; checkout prefills contact details, accepts edits and clears stale map pins',
   );
@@ -613,12 +789,30 @@ try {
   await input('#edit-user-name', 'Browser Courier');
   await input('#edit-user-email', nextEmail);
   await select('User role', 'Courier');
+  assert.equal(
+    await evaluate('Boolean(document.querySelector("dialog input[type=checkbox]"))'),
+    false,
+  );
+  await select('Account Status', 'Disabled');
+  await select('Account Status', 'Active');
+  assert.equal(
+    await evaluate(
+      '(()=>{const buttons=[...document.querySelectorAll("dialog button")].filter(b=>["Cancel","Save Changes"].includes(b.textContent.trim()));return buttons.length===2&&buttons.every(b=>getComputedStyle(b).transitionDuration.split(",").some(t=>parseFloat(t)>0))})()',
+    ),
+    true,
+  );
   await clickText('Save Changes');
   await waitFor(() => evaluate('!document.querySelector("dialog[open]")'), 'Saved role editor');
   assert.equal((await api('/auth/me', { token: customer.token })).status, 401);
   await input('#users-search', nextEmail);
   await clickText('Search Users');
   await waitText(nextEmail);
+  assert.equal(
+    await evaluate(
+      '(()=>{const table=document.querySelector("table");return [...table.querySelectorAll("th")].every(th=>getComputedStyle(th).textAlign==="center")&&[...table.querySelectorAll("tbody tr")].every(row=>[2,3,4,5].every(i=>getComputedStyle(row.cells[i]).textAlign==="center"))})()',
+    ),
+    true,
+  );
   await screenshot('users-desktop');
   pass('Admin Users search, profile editing and courier promotion revoke the previous session');
 
@@ -643,6 +837,12 @@ try {
   );
   await click('[aria-label="Close navigation drawer"]');
   await waitFor(usesFullContentWidth, 'Available Deliveries expands when its drawer closes');
+  assert.equal(
+    await evaluate(
+      '(()=>{const p=[...document.querySelectorAll("main p")].find(p=>p.textContent.includes("Request a delivery below."));const range=document.createRange();range.selectNodeContents(p);return range.getClientRects().length===1})()',
+    ),
+    true,
+  );
   await waitFor(
     () => evaluate('document.querySelector(".app-content").getAnimations().length === 0'),
     'Desktop drawer finishes closing',
@@ -660,14 +860,14 @@ try {
   await logout();
   await login('dispatcher@example.test', app.password);
   await goto(`/tracking/${order.id}`, 'Delivery Requests (1)');
-  await clickText('Approve', 'button');
+  await click('[aria-label="Approve Browser Courier"]');
   await waitText('A courier is assigned');
   await logout();
   await login(nextEmail, app.password);
   await goto('/orders', 'My Deliveries');
   await waitText(order.orderNumber);
   await evaluate(
-    `(()=>{const link=[...document.querySelectorAll('main a')].find(element=>element.textContent.includes('Manage Delivery'));link.click()})()`,
+    `(()=>{const link=[...document.querySelectorAll('main a')].find(element=>element.getAttribute('aria-label')?.startsWith('Manage Delivery'));link.click()})()`,
   );
   await waitText('Update Status');
   for (const status of ['CONFIRMED', 'PREPARING', 'READY FOR PICKUP', 'OUT FOR DELIVERY']) {
@@ -682,6 +882,13 @@ try {
     );
   }
   await waitText('Share Your Location');
+  // Chrome keeps the timestamp of an emulated sample, even with maximumAge: 0.
+  // Supply a fresh device observation after the intervening account workflows.
+  await page.send('Emulation.setGeolocationOverride', {
+    latitude: 40.713,
+    longitude: -74.005,
+    accuracy: 5,
+  });
   await clickText('Start Sharing');
   await waitText('Sharing is on.');
   const courier = await session();
@@ -902,6 +1109,12 @@ try {
   console.log(`Saved ${checks.length} browser checks. Screenshots: ${directory}`);
 } catch (error) {
   if (cleanupPage) {
+    const notices = await cleanupPage
+      .evaluate(
+        `JSON.stringify([...document.querySelectorAll('main [role="alert"], main [role="status"]')].map(element=>element.textContent?.trim()).filter(Boolean))`,
+      )
+      .catch(() => undefined);
+    if (typeof notices === 'string') console.log(`Browser notices: ${notices}`);
     const capture = await cleanupPage
       .send('Page.captureScreenshot', { format: 'png' })
       .catch(() => undefined);

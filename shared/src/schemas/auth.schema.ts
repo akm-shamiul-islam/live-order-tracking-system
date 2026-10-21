@@ -16,6 +16,14 @@ export const LoginSchema = z.object({
 
 export type LoginDto = z.infer<typeof LoginSchema>;
 
+export const LanguageSchema = z.enum(['en', 'ja']);
+export type Language = z.infer<typeof LanguageSchema>;
+export const LanguagePreferenceSchema = z.strictObject({ language: LanguageSchema });
+export const LanguagePreferenceResponseSchema = LanguagePreferenceSchema.extend({
+  languageVersion: z.number().int().nonnegative(),
+});
+export type LanguagePreference = z.infer<typeof LanguagePreferenceResponseSchema>;
+
 export const RegisterSchema = z.object({
   name: z
     .string()
@@ -33,6 +41,7 @@ export const RegisterSchema = z.object({
   phone: PhoneSchema,
   address: OptionalDeliveryAddressSchema,
   role: z.literal(UserRole.CUSTOMER).default(UserRole.CUSTOMER),
+  language: LanguageSchema.optional(),
 });
 
 export type RegisterDto = z.infer<typeof RegisterSchema>;
@@ -58,6 +67,8 @@ export const UserSummarySchema = z.object({
   role: z.enum([UserRole.CUSTOMER, UserRole.COURIER, UserRole.ADMIN]),
   phone: z.string().optional(),
   address: z.string().optional(),
+  language: LanguageSchema.optional(),
+  languageVersion: z.number().int().nonnegative().optional(),
 });
 
 export type UserSummary = z.infer<typeof UserSummarySchema>;

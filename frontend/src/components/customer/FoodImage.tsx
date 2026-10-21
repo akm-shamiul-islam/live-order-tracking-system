@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCopy } from '../../lib/i18n';
 
 export function FoodImage({
   photo,
@@ -13,6 +14,7 @@ export function FoodImage({
   className?: string;
   sizes?: string;
 }) {
+  const c = useCopy();
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
@@ -25,7 +27,7 @@ export function FoodImage({
       )}
       {failed ? (
         <div className="grid h-full min-h-24 place-items-center p-3 text-center text-sm text-slate-600 dark:text-slate-300">
-          {name}
+          {c(name)}
         </div>
       ) : (
         <img
@@ -34,7 +36,7 @@ export function FoodImage({
           sizes={sizes}
           width={960}
           height={640}
-          alt={name}
+          alt={c(name)}
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'auto'}
           decoding="async"

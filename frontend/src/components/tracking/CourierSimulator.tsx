@@ -1,3 +1,4 @@
+import { useCopy } from '../../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { getSocket } from '../../lib/socket';
 import { clientSettings } from '../../lib/clientSettings';
@@ -22,6 +23,8 @@ export function CourierSimulator({
   destLng = -74.006,
   onAdvanceStatus,
 }: CourierSimulatorProps) {
+  const c = useCopy();
+
   const [progress, setProgress] = useState(25);
   const [simulating, setSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,31 +100,33 @@ export function CourierSimulator({
     <div className="glass-panel p-6 rounded-2xl border-teal-500/30">
       {error && (
         <p role="alert" className="mb-4 text-xs text-rose-700 dark:text-rose-300">
-          {error}
+          {c(error)}
         </p>
       )}
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800/60">
         <div className="flex items-center gap-2">
           <Bike className="w-5 h-5 text-teal-500" />
           <h4 className="font-display font-bold text-sm text-slate-900 dark:text-slate-100">
-            Courier GPS Telemetry Simulator ({orderNumber})
+            {c('Courier GPS Telemetry Simulator (')}
+            {orderNumber})
           </h4>
         </div>
         <span className="text-xs font-mono font-bold text-teal-700 dark:text-teal-400">
-          Route Progress: {progress}%
+          {c('Route Progress:')} {progress}%
         </span>
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        Drag the slider or click &quot;Simulate Drive&quot; to broadcast real-time GPS telemetry
-        over WebSocket to the Live Radar.
+        {c(
+          'Drag the slider or click "Simulate Drive" to broadcast real-time GPS telemetry over WebSocket to the Live Radar.',
+        )}{' '}
       </p>
 
       {/* Progress Slider */}
       <div className="space-y-2 mb-5">
         <input
           type="range"
-          aria-label="Courier route progress"
+          aria-label={c('Courier route progress')}
           disabled={simulating}
           min="0"
           max="100"
@@ -130,9 +135,9 @@ export function CourierSimulator({
           className="w-full accent-teal-500 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-lg"
         />
         <div className="flex justify-between text-[11px] font-semibold text-slate-400">
-          <span>Kitchen (0%)</span>
-          <span>In-Transit (50%)</span>
-          <span>Customer Doorstep (100%)</span>
+          <span>{c('Kitchen (0%)')}</span>
+          <span>{c('In-Transit (50%)')}</span>
+          <span>{c('Customer Doorstep (100%)')}</span>
         </div>
       </div>
 
@@ -144,7 +149,7 @@ export function CourierSimulator({
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
         >
           <Play className="w-3.5 h-3.5 fill-current" />
-          <span>{simulating ? 'Driving...' : 'Simulate Drive'}</span>
+          <span>{simulating ? c('Driving...') : c('Simulate Drive')}</span>
         </button>
 
         <button
@@ -153,7 +158,7 @@ export function CourierSimulator({
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset Route</span>
+          <span>{c('Reset Route')}</span>
         </button>
 
         {onAdvanceStatus && (
@@ -162,7 +167,7 @@ export function CourierSimulator({
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-teal-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 text-white transition ml-auto cursor-pointer"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Advance Next Status</span>
+            <span>{c('Advance Next Status')}</span>
           </button>
         )}
       </div>

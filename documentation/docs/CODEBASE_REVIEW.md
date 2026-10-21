@@ -30,6 +30,14 @@ Updated 2026-10-21 (Asia/Tokyo). This document tracks implementation and verific
 
 Commands, saved browser/Lighthouse summaries and limitations are in [IMPLEMENTATION_AND_VERIFICATION_REPORT.md](IMPLEMENTATION_AND_VERIFICATION_REPORT.md) and [QUALITY.md](QUALITY.md).
 
+## Appearance and language follow-up
+
+- Whole-interface theme/language crossfades respect reduced motion and API support. Hover transitions, custom cart/theme tooltips and icon-only actions preserve accessible labels, keyboard focus and Escape dismissal.
+- Users centers the requested columns and uses the themed Account Status dropdown. Available Deliveries gives its introduction the full header width.
+- EN/JA JSON resources cover interface/validation copy and the food catalog. Local device preferences and owned MongoDB preferences restore on reload/sign-in; failed saves retain a scoped retry record. Strict preference validation and revision/identity guards reject account-edit injection and stale session writes.
+- The Japanese browser check found an untranslated conditional account heading and breadcrumb label; both are corrected and the source locale gate now checks conditional display text as well.
+- Current verification is recorded below and in the implementation report. Existing Lighthouse measurements remain historical; this follow-up does not rerun Lighthouse.
+
 ## Review of the committed baseline
 
 Reviewed the application at `9361f45`, including the account/courier implementation in `83353a9`, against the earlier requirements. Passing workflow tests had not covered several failure paths. This follow-up adds regression coverage and fixes the following findings; severity describes their impact before the fix.
@@ -73,4 +81,4 @@ The former seven gaps therefore have separate outcomes: privacy, atomic audit, a
 
 ## Measured limitations
 
-The earlier eight-case Lighthouse run reports 100 accessibility/best-practices throughout and 100 public-menu SEO. Performance is 90 on the mobile menu, 99–100 on tested desktop pages and 82–91 on private/account mobile pages. The saved-address/full-width courier follow-up reports 82 performance and 100 accessibility/best-practices on both changed mobile pages, with zero layout shift. The TypeScript/theme follow-up reports mobile performance 81 (menu) and 85 (registration), with accessibility/best-practices 100 and zero layout shift; public SEO remains 100. Mobile startup/unused JavaScript and some image/layout diagnostics remain; this is not a claim of perfect performance or zero security defects. Details and test conditions are in QUALITY.md. Lint has zero errors and 127 warnings, including deliberate sequential test steps, existing style/type suggestions and explicit serialization-boundary assertions in the typed tooling.
+The earlier eight-case Lighthouse run reports 100 accessibility/best-practices throughout and 100 public-menu SEO. Performance is 90 on the mobile menu, 99–100 on tested desktop pages and 82–91 on private/account mobile pages. The saved-address/full-width courier follow-up reports 82 performance and 100 accessibility/best-practices on both changed mobile pages, with zero layout shift. The TypeScript/theme follow-up reports mobile performance 81 (menu) and 85 (registration), with accessibility/best-practices 100 and zero layout shift; public SEO remains 100. Mobile startup/unused JavaScript and some image/layout diagnostics remain; this is not a claim of perfect performance or zero security defects. Details and test conditions are in QUALITY.md. Lint has zero errors and nonblocking warnings, including deliberate sequential test steps, existing style/type suggestions and explicit serialization-boundary assertions in the typed tooling.

@@ -20,5 +20,12 @@
     "no-underscore-dangle": ["warn", { "allow": ["_id", "_zod"] }],
     "typescript/no-deprecated": "error"
   },
-  "ignorePatterns": ["dist/**", "node_modules/**", "backup/**", "documentation/**"]
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "backup/**",
+    "documentation/**",
+    ".agents/**",
+    ".codex/**"
+  ]
 }

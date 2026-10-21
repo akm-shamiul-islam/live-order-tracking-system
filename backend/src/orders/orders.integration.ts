@@ -142,6 +142,89 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     return orders.createOrder(dto, owner ? actor(owner).id : undefined);
   }
 
+  it('persists an owned language preference through registration, login and refresh without exposing account edits', async () => {
+    const email = `language-${randomUUID()}@example.test`;
+    const password = 'Language-Test#2026!';
+    const registration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { name: 'Language Customer', email, password, phone: '555-1234567', language: 'ja' },
+    });
+    expect(registration.statusCode).toBe(201);
+    const registered = registration.json<{ accessToken: string; user: UserSummary }>();
+    expect(registered.user).toMatchObject({
+      role: UserRole.CUSTOMER,
+      language: 'ja',
+      languageVersion: 0,
+    });
+    const headers = { authorization: `Bearer ${registered.accessToken}` };
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: '/api/auth/preferences',
+          payload: { language: 'en' },
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: '/api/auth/preferences',
+          headers,
+          payload: { language: 'fr' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: '/api/auth/preferences',
+          headers,
+          payload: { language: 'en', role: 'ADMIN', id: actor('customer2').id },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const update = await app.inject({
+      method: 'PATCH',
+      url: '/api/auth/preferences',
+      headers,
+      payload: { language: 'en' },
+    });
+    expect(update.statusCode).toBe(200);
+    expect(update.json()).toEqual({ language: 'en', languageVersion: 1 });
+    expect((await app.inject({ url: '/api/auth/me', headers })).json()).toMatchObject({
+      language: 'en',
+      languageVersion: 1,
+      role: UserRole.CUSTOMER,
+    });
+    expect((await userModel.findById(actor('customer2').id))?.languageVersion).toBe(0);
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email, password },
+    });
+    expect(login.statusCode).toBe(200);
+    expect(login.json<{ user: UserSummary }>().user).toMatchObject({
+      language: 'en',
+      languageVersion: 1,
+    });
+    const setCookie = login.headers['set-cookie'];
+    const cookie = (Array.isArray(setCookie) ? setCookie[0] : setCookie)?.split(';')[0] ?? '';
+    const refreshed = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      headers: { cookie, origin: 'http://localhost:5173' },
+    });
+    expect(refreshed.statusCode).toBe(200);
+    expect(refreshed.json<{ user: UserSummary }>().user).toMatchObject({
+      language: 'en',
+      languageVersion: 1,
+    });
+  });
+
   it('requires sign-in and protects order identifiers and tracking links by account ownership', async () => {
     const order = await create('customer1');
     expect(order.trackingId).toMatch(/^trk_[\w-]{43}$/);

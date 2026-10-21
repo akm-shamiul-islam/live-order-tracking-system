@@ -1,3 +1,5 @@
+import { useCopy } from '../../lib/i18n';
+import { IconAction } from '../ui/IconAction';
 import { formatDateTime } from '../../lib/dateTime';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +12,8 @@ import { OrderStatusControl } from './OrderStatusControl';
 import { Spinner } from '../layout/Loading';
 
 export function DeliveryAssignment({ order }: { order: OrderDetails }) {
+  const c = useCopy();
+
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [selection, setSelection] = useState<{
@@ -56,30 +60,30 @@ export function DeliveryAssignment({ order }: { order: OrderDetails }) {
     >
       <h2 id="delivery-assignment-title" className="font-display flex items-center gap-2 font-bold">
         <Bike aria-hidden="true" className="h-5 w-5 text-teal-500" />
-        Delivery assignment
+        {c('Delivery assignment')}{' '}
       </h2>
       <p className="text-sm text-slate-500 dark:text-slate-400">
         {assignedToMe
-          ? 'This delivery is assigned to you.'
+          ? c('This delivery is assigned to you.')
           : order.courierId
-            ? 'A courier is assigned to this order.'
-            : 'Assign a courier before starting delivery.'}
+            ? c('A courier is assigned to this order.')
+            : c('Assign a courier before starting delivery.')}
       </p>
       {error && (
         <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">
-          {error}
+          {c(error)}
         </p>
       )}
       {isAdmin && couriers.error && (
         <p role="alert" className="text-sm text-rose-600">
-          {couriers.error.message}
+          {c(couriers.error.message)}
         </p>
       )}
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
         {canAssign && (
           <>
             <ThemedSelect
-              label="Assigned courier"
+              label={c('Assigned courier')}
               value={selected}
               disabled={pending || couriers.isLoading}
               options={[
@@ -87,6 +91,7 @@ export function DeliveryAssignment({ order }: { order: OrderDetails }) {
                 ...(couriers.data ?? []).map((courier) => ({
                   value: courier.id,
                   label: courier.name,
+                  translate: false,
                 })),
               ]}
               onChange={(value) => setSelection({ value, original: order.courierId })}
@@ -98,14 +103,16 @@ export function DeliveryAssignment({ order }: { order: OrderDetails }) {
               className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-50"
             >
               {pending ? <Spinner /> : <Save aria-hidden="true" className="h-4 w-4" />}
-              Save assignment
+              {c('Save assignment')}{' '}
             </button>
           </>
         )}
       </div>
       {isAdmin && requests.length > 0 && !order.courierId && (
         <div className="space-y-3 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50">
-          <h3 className="text-sm font-bold">Delivery Requests ({requests.length})</h3>
+          <h3 className="text-sm font-bold">
+            {c('Delivery Requests ({{count}})', { count: requests.length })}
+          </h3>
           {requests.map((request) => (
             <div
               key={request.courierId}
@@ -121,29 +128,29 @@ export function DeliveryAssignment({ order }: { order: OrderDetails }) {
                 </time>
               </div>
               <div className="flex gap-2">
-                <button
+                <IconAction
+                  icon={Check}
+                  tone="primary"
+                  label={c('Approve')}
+                  aria-label={c('Approve {{name}}', { name: request.courierName })}
                   disabled={pending}
+                  pending={pending}
                   onClick={() =>
                     void act(() =>
                       api.orders.reviewDelivery(order.id, request.courierId, 'APPROVE'),
                     )
                   }
-                  aria-label={`Approve ${request.courierName}`}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-700 px-3 text-xs font-bold text-white hover:bg-teal-800 disabled:opacity-60"
-                >
-                  {pending ? <Spinner /> : <Check aria-hidden="true" className="h-4 w-4" />}Approve
-                </button>
-                <button
+                />
+                <IconAction
+                  icon={X}
+                  tone="danger"
+                  label={c('Decline')}
+                  aria-label={c('Decline {{name}}', { name: request.courierName })}
                   disabled={pending}
                   onClick={() =>
                     void act(() => api.orders.reviewDelivery(order.id, request.courierId, 'REJECT'))
                   }
-                  aria-label={`Decline ${request.courierName}`}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300 px-3 text-xs font-bold text-rose-800 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950"
-                >
-                  <X aria-hidden="true" className="h-4 w-4" />
-                  Decline
-                </button>
+                />
               </div>
             </div>
           ))}
