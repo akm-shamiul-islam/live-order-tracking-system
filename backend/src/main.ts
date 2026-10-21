@@ -1,33 +1,16 @@
 import 'reflect-metadata';
-import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import helmet from '@fastify/helmet';
-import cors from '@fastify/cors';
 import { Logger } from '@nestjs/common';
-import { AppModule } from './app.module.js';
-import { allowedOrigins } from './common/cors.js';
 import { configureDns } from './config/dns.js';
 import { getRuntimeSettings } from './config/runtime-settings.js';
+import { createApplication } from './bootstrap.js';
 
 configureDns();
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter({ logger: false }),
-  );
-
-  await app.register(helmet, {
-    contentSecurityPolicy: false,
-  });
-
-  await app.register(cors, {
-    origin: allowedOrigins(),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  });
+  const app = await createApplication();
+  app.enableShutdownHooks();
 
   const { PORT: port, API_HOST: host } = getRuntimeSettings();
   await app.listen(port, host);
@@ -43,4 +26,9 @@ async function bootstrap() {
   `);
 }
 
-void bootstrap();
+void bootstrap().catch(() => {
+  new Logger('Bootstrap').error(
+    'API startup failed. Check database reachability, MONGODB_URI, JWT_SECRET and the configured ports.',
+  );
+  process.exitCode = 1;
+});

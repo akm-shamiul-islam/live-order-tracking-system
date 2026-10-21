@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { api } from '../../lib/api';
-import { getSocket } from '../../lib/socket';
-import { ORDER_STATUS_SEQUENCE, OrderDetails, paginate } from '@kitchentodoor/shared';
+import {
+  ORDER_STATUS_SEQUENCE,
+  OrderDetails,
+  OrderStatus,
+  UserRole,
+  paginate,
+} from '@kitchentodoor/shared';
 import { ArrowRight, Eye, RefreshCw } from 'lucide-react';
 import { Pagination } from '../layout/Pagination';
 import { DispatchFilters } from './DispatchFilters';
+import { useAuth } from '../../hooks/useAuth';
+import { TableSkeleton, Spinner } from '../layout/Loading';
+import { useOrderListUpdates } from '../../hooks/useOrderListUpdates';
+import { clientSettings } from '../../lib/clientSettings';
 
 const createdAtFormatter = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric',
@@ -37,7 +46,8 @@ function OrderCreatedAt({ value }: { value: string }) {
 }
 
 export function AdminOrdersTable() {
-  const queryClient = useQueryClient();
+  useOrderListUpdates();
+  const { user } = useAuth();
   const {
     status: selectedStatus,
     q: searchQuery,
@@ -57,6 +67,7 @@ export function AdminOrdersTable() {
         page,
         pageSize: size,
       }),
+    refetchInterval: clientSettings.VITE_ORDER_LIST_REFRESH_MS,
   });
   const orders = data?.orders ?? [];
   const pagination = data?.pagination ?? paginate(0, page, size);
@@ -66,31 +77,6 @@ export function AdminOrdersTable() {
       void navigate({ search: (previous) => ({ ...previous, page: resolvedPage }), replace: true });
     }
   }, [resolvedPage, navigate, page]);
-
-  // Real-time synchronization for Admin Dispatch station
-  useEffect(() => {
-    const socket = getSocket();
-
-    const handleOrderCreated = () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-    };
-
-    const handleStatusUpdated = () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-    };
-
-    socket.on('order:created', handleOrderCreated);
-    socket.on('order:status_updated', handleStatusUpdated);
-    socket.on('order:cancelled', handleStatusUpdated);
-    socket.on('connect', handleStatusUpdated);
-
-    return () => {
-      socket.off('order:created', handleOrderCreated);
-      socket.off('order:status_updated', handleStatusUpdated);
-      socket.off('order:cancelled', handleStatusUpdated);
-      socket.off('connect', handleStatusUpdated);
-    };
-  }, [queryClient]);
 
   const handleAdvanceStatus = async (order: OrderDetails) => {
     if (advancingId) return;
@@ -148,9 +134,9 @@ export function AdminOrdersTable() {
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-display font-extrabold text-2xl text-slate-900 dark:text-slate-100">
+          <h1 className="font-display font-extrabold text-2xl text-slate-900 dark:text-slate-100">
             Kitchen Dispatch Station
-          </h2>
+          </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Real-time multi-order lifecycle & courier telemetry control
           </p>
@@ -160,7 +146,7 @@ export function AdminOrdersTable() {
           onClick={() => refetch()}
           className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition cursor-pointer shadow-xs"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          {isFetching ? <Spinner /> : <RefreshCw aria-hidden="true" className="w-3.5 h-3.5" />}
           <span>Refresh List</span>
         </button>
       </div>
@@ -185,7 +171,7 @@ export function AdminOrdersTable() {
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th scope="col" className="py-3.5 px-4 text-center">
                   Order #
@@ -211,21 +197,27 @@ export function AdminOrdersTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
-              {orders.length === 0 ? (
+              {isLoading ? (
+                <TableSkeleton />
+              ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400">
-                    {isLoading
-                      ? 'Loading orders…'
-                      : error
-                        ? 'Orders could not be loaded. Please try Refresh List.'
-                        : 'No orders match your search.'}
+                    {error
+                      ? 'Orders could not be loaded. Please try Refresh List.'
+                      : 'No orders match your search.'}
                   </td>
                 </tr>
               ) : (
                 orders.map((order) => {
                   const currentIdx = ORDER_STATUS_SEQUENCE.indexOf(order.status);
                   const canAdvance =
-                    currentIdx >= 0 && currentIdx < ORDER_STATUS_SEQUENCE.length - 1;
+                    currentIdx >= 0 &&
+                    currentIdx < ORDER_STATUS_SEQUENCE.length - 1 &&
+                    (user?.role === UserRole.ADMIN ||
+                      (order.courierId === user?.id &&
+                        (order.status === OrderStatus.READY_FOR_PICKUP ||
+                          order.status === OrderStatus.OUT_FOR_DELIVERY))) &&
+                    (order.status !== OrderStatus.READY_FOR_PICKUP || Boolean(order.courierId));
                   const nextStatus = canAdvance ? ORDER_STATUS_SEQUENCE[currentIdx + 1] : null;
 
                   return (
@@ -233,14 +225,14 @@ export function AdminOrdersTable() {
                       key={order.id}
                       className="hover:bg-teal-50/40 dark:hover:bg-slate-800/30 transition-colors"
                     >
-                      <td className="py-4 px-4 font-mono font-bold text-teal-600 dark:text-teal-400 text-center">
+                      <td className="py-4 px-4 font-mono font-bold text-teal-700 dark:text-teal-400 text-center">
                         {order.orderNumber}
                       </td>
                       <td className="py-4 px-4">
                         <div className="font-semibold text-slate-900 dark:text-slate-100">
                           {order.customer.name}
                         </div>
-                        <div className="text-[11px] text-slate-400 font-mono">
+                        <div className="text-[11px] text-slate-600 dark:text-slate-300 font-mono">
                           {order.customer.phone}
                         </div>
                       </td>
@@ -259,7 +251,7 @@ export function AdminOrdersTable() {
                           {order.status.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-slate-400 font-mono text-[11px] text-center">
+                      <td className="py-4 px-4 text-slate-600 dark:text-slate-300 font-mono text-[11px] text-center">
                         <OrderCreatedAt value={order.createdAt} />
                       </td>
                       <td className="py-4 px-4 align-middle text-center">
@@ -278,12 +270,33 @@ export function AdminOrdersTable() {
                             <button
                               onClick={() => handleAdvanceStatus(order)}
                               disabled={advancingId !== null}
-                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 px-2.5 rounded-lg border border-transparent text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                              className="inline-flex h-8 shrink-0 items-center justify-center gap-1 px-2.5 rounded-lg border border-transparent text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
                               title={`Advance to ${nextStatus}`}
                             >
+                              {advancingId === order.id && <Spinner />}
                               <span>{advancingId === order.id ? 'Advancing…' : 'Advance'}</span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
+                          )}
+                          {![
+                            OrderStatus.OUT_FOR_DELIVERY,
+                            OrderStatus.DELIVERED,
+                            OrderStatus.CANCELLED,
+                          ].some((status) => status === order.status) && (
+                            <Link
+                              to="/courier/$orderId"
+                              params={{ orderId: order.id }}
+                              className="inline-flex h-8 items-center justify-center gap-1 px-2.5 rounded-lg text-xs font-bold bg-teal-700 hover:bg-teal-800 text-white transition"
+                            >
+                              {(order.deliveryRequests ?? []).some(
+                                (request) => request.status === 'PENDING',
+                              )
+                                ? `Requests (${order.deliveryRequests.filter((request) => request.status === 'PENDING').length})`
+                                : order.courierId
+                                  ? 'Manage'
+                                  : 'Assign'}
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </Link>
                           )}
                         </div>
                       </td>
@@ -303,7 +316,7 @@ export function AdminOrdersTable() {
         }
         onPageSizeChange={(next) =>
           void navigate({
-            search: (previous) => ({ ...previous, size: next as typeof size, page: 1 }),
+            search: (previous) => ({ ...previous, size: next, page: 1 }),
           })
         }
       />

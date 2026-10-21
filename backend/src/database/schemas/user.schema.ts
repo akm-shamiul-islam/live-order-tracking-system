@@ -6,6 +6,31 @@ export type UserDocument = User & Document;
 
 @Schema({ timestamps: true, collection: 'users' })
 export class User {
+  createdAt: Date;
+  updatedAt: Date;
+
+  @Prop({
+    type: [{ _id: false, actorId: String, fields: [String], timestamp: Date }],
+    default: [],
+    select: false,
+  })
+  managementHistory: { actorId: string; fields: string[]; timestamp: Date }[];
+
+  @Prop({ type: String, select: false })
+  resetTokenHash?: string;
+
+  @Prop({ type: Date, select: false })
+  resetExpiresAt?: Date;
+
+  @Prop({ type: Date, select: false })
+  resetRequestedAt?: Date;
+
+  @Prop({ type: Number, default: 0 })
+  tokenVersion: number;
+
+  @Prop({ type: Boolean, default: false })
+  disabled: boolean;
+
   @Prop({ type: String, required: true, trim: true })
   name: string;
 
@@ -22,10 +47,11 @@ export class User {
     default: UserRole.CUSTOMER,
     index: true,
   })
-  role: string;
+  role: UserRole;
 
   @Prop({ type: String, required: false, trim: true })
   phone?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.index({ resetTokenHash: 1 }, { unique: true, sparse: true });

@@ -1,33 +1,38 @@
-import { useEffect, useState } from 'react';
+import { formatDateTime } from '../../lib/dateTime';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { OrderHistorySearchSchema, paginate } from '@kitchentodoor/shared';
+import { paginate } from '@kitchentodoor/shared';
+import { z } from '@kitchentodoor/shared/zod';
 import { api, ApiError } from '../../lib/api';
 import { useZodForm } from '../../hooks/useZodForm';
 import { FieldError } from '../forms/FieldError';
-import { Search, Clock, Eye, ShoppingBag } from 'lucide-react';
+import { Search, Clock, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
 import { Pagination } from '../layout/Pagination';
+import { useAuth } from '../../hooks/useAuth';
+import { PageSkeleton, Spinner } from '../layout/Loading';
+import { useOrderListUpdates } from '../../hooks/useOrderListUpdates';
+import { clientSettings } from '../../lib/clientSettings';
+
+const SearchSchema = z.object({ q: z.string().trim().max(100, 'Use at most 100 characters') });
 
 export function OrderHistory() {
-  const { page, size } = useSearch({ from: '/orders' });
+  const { q } = useSearch({ from: '/orders' });
+  return <OrderHistoryContent key={q} />;
+}
+
+function OrderHistoryContent() {
+  const { user, isCourier } = useAuth();
+  const { page, size, q } = useSearch({ from: '/orders' });
   const navigate = useNavigate({ from: '/orders' });
-  const [initialPhone] = useState(() => {
-    try {
-      const saved = OrderHistorySearchSchema.safeParse({
-        phone: localStorage.getItem('ktd_last_phone') || '',
-      });
-      return saved.success ? saved.data.phone : '';
-    } catch {
-      return '';
-    }
-  });
-  const form = useZodForm(OrderHistorySearchSchema, { phone: initialPhone }, 'history');
-  const [searchPhone, setSearchPhone] = useState(initialPhone);
+  const form = useZodForm(SearchSchema, { q }, 'history');
+  useOrderListUpdates();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['my-orders', searchPhone, page, size],
-    queryFn: () => api.orders.getHistoryPage(searchPhone, page, size),
-    enabled: !!searchPhone,
+    queryKey: ['my-orders', user?.id, user?.role, q, page, size],
+    queryFn: () => api.orders.getHistoryPage(undefined, page, size, q),
+    enabled: !!user,
+    refetchInterval: clientSettings.VITE_ORDER_LIST_REFRESH_MS,
   });
   const orders = data?.orders ?? [];
   const pagination = data?.pagination ?? paginate(0, page, size);
@@ -42,32 +47,24 @@ export function OrderHistory() {
     e.preventDefault();
     const values = form.validate(e.currentTarget);
     if (!values) return;
-    try {
-      localStorage.setItem('ktd_last_phone', values.phone);
-    } catch {
-      /* Storage may be blocked. */
-    }
-    if (values.phone === searchPhone && page === 1) void refetch();
-    else {
-      setSearchPhone(values.phone);
-      void navigate({ search: (previous) => ({ ...previous, page: 1 }) });
-    }
+    if (values.q === q && page === 1) void refetch();
+    else void navigate({ search: (previous) => ({ ...previous, q: values.q, page: 1 }) });
   };
 
-  const phoneError =
-    form.errors.phone ||
-    (form.values.phone === searchPhone && error instanceof ApiError
-      ? error.fieldErrors.phone
-      : undefined);
+  const searchError =
+    form.errors.q ||
+    (form.values.q === q && error instanceof ApiError ? error.fieldErrors.q : undefined);
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="w-full min-w-0 space-y-6 mx-auto">
       <div>
-        <h2 className="font-display font-extrabold text-2xl text-slate-900 dark:text-slate-100">
-          My Order History
-        </h2>
+        <h1 className="font-display font-extrabold text-2xl text-slate-900 dark:text-slate-100">
+          {isCourier ? 'My Deliveries' : 'My Order History'}
+        </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Look up past orders using your mobile phone number
+          {isCourier
+            ? 'Only deliveries approved and assigned to your account appear here.'
+            : 'All orders placed with your account. Other customers cannot access these details.'}
         </p>
       </div>
 
@@ -78,8 +75,8 @@ export function OrderHistory() {
         className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-start gap-3 shadow-xs"
       >
         <div className="w-full min-w-0 flex-1">
-          <label htmlFor="history-phone" className="sr-only">
-            Phone number used to place your order
+          <label htmlFor="history-q" className="sr-only">
+            Search your order number
           </label>
           <div className="relative">
             <span
@@ -89,24 +86,22 @@ export function OrderHistory() {
               <Search className="h-4 w-4" />
             </span>
             <input
-              type="tel"
-              {...form.field('phone')}
-              inputMode="tel"
-              aria-invalid={phoneError ? true : undefined}
-              aria-describedby={phoneError ? 'history-phone-error' : undefined}
-              autoComplete="tel"
-              required
-              placeholder="Phone number (e.g. 555-1234)…"
+              type="search"
+              {...form.field('q')}
+              aria-invalid={searchError ? true : undefined}
+              aria-describedby={searchError ? 'history-q-error' : undefined}
+              autoComplete="off"
+              placeholder="Search your order number…"
               className="h-11 w-full pl-11 pr-4 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
           </div>
-          <FieldError id="history-phone-error" message={phoneError} />
+          <FieldError id="history-q-error" message={searchError} />
         </div>
         <button
           type="submit"
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition-colors shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition-colors shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
         >
-          <Search aria-hidden="true" className="h-4 w-4" />
+          {isFetching ? <Spinner /> : <Search aria-hidden="true" className="h-4 w-4" />}
           <span>Search Orders</span>
         </button>
       </form>
@@ -114,28 +109,38 @@ export function OrderHistory() {
       {/* Orders List */}
       <div className="space-y-4">
         {isLoading ? (
-          <div role="status" className="text-center py-12 text-slate-400">
-            Loading your orders…
-          </div>
+          <PageSkeleton label="Loading your orders…" />
         ) : error ? (
           <div
             role="alert"
             className="glass-panel rounded-2xl p-6 text-center text-sm text-rose-700 dark:text-rose-300"
           >
             <p>{error.message}</p>
-            <button onClick={() => void refetch()} className="mt-3 font-bold underline">
+            <button
+              onClick={() => void refetch()}
+              className="mt-3 inline-flex items-center gap-2 font-bold underline"
+            >
+              <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Try Again
             </button>
           </div>
         ) : orders.length === 0 ? (
           <div className="glass-panel text-center py-12 rounded-2xl">
             <ShoppingBag className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-            <h4 className="font-display font-bold text-base text-slate-700 dark:text-slate-300">
+            <h2 className="font-display font-bold text-base text-slate-700 dark:text-slate-300">
               No orders found
-            </h4>
-            <p className="text-xs text-slate-400 mt-1">
-              Enter your phone number above or place an order from the food menu.
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+              {isCourier
+                ? 'Request an available delivery and wait for administrator approval.'
+                : 'Place your first order or try a different order number.'}
             </p>
+            <Link
+              to={isCourier ? '/courier' : '/'}
+              className="mt-4 inline-block font-bold text-teal-800 underline dark:text-teal-200"
+            >
+              {isCourier ? 'Find Available Deliveries' : 'Explore Food Menu'}
+            </Link>
           </div>
         ) : (
           orders.map((order) => (
@@ -145,7 +150,7 @@ export function OrderHistory() {
             >
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="font-mono font-bold text-teal-600 dark:text-teal-400 text-sm">
+                  <span className="font-mono font-bold text-teal-700 dark:text-teal-400 text-sm">
                     {order.orderNumber}
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
@@ -155,14 +160,11 @@ export function OrderHistory() {
                 <div className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1">
                   {order.items.map((i) => `${i.name} (${i.quantity}x)`).join(', ')}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
+                <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 flex flex-wrap items-center gap-2">
                   <Clock className="w-3 h-3" />
                   <span>
-                    {new Date(order.createdAt).toLocaleDateString()} at{' '}
-                    {new Date(order.createdAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatDateTime(order.createdAt, 'date')} at{' '}
+                    {formatDateTime(order.createdAt, 'time')}
                   </span>
                   <span>•</span>
                   <span>Deliver to: {order.customer.address}</span>
@@ -174,19 +176,19 @@ export function OrderHistory() {
                   ${order.pricing.total.toFixed(2)}
                 </span>
                 <Link
-                  to="/tracking/$orderId"
-                  params={{ orderId: order.id }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition active:scale-95 shadow-xs shadow-emerald-500/20 cursor-pointer"
+                  to={isCourier ? '/courier/$orderId' : '/tracking/$orderId'}
+                  params={{ orderId: order.trackingId || order.id }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition active:scale-95 shadow-xs shadow-emerald-500/20 cursor-pointer"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span>Live Tracking</span>
+                  <span>{isCourier ? 'Manage Delivery' : 'Live Tracking'}</span>
                 </Link>
               </div>
             </div>
           ))
         )}
       </div>
-      {searchPhone && !error && (
+      {!error && (
         <Pagination
           pagination={pagination}
           disabled={isFetching}
@@ -195,7 +197,7 @@ export function OrderHistory() {
           }
           onPageSizeChange={(next) =>
             void navigate({
-              search: (previous) => ({ ...previous, size: next as typeof size, page: 1 }),
+              search: (previous) => ({ ...previous, size: next, page: 1 }),
             })
           }
         />

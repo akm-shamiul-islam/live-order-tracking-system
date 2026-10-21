@@ -9,6 +9,11 @@ import { AuthModule } from './auth/auth.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { getRuntimeSettings, validateEnvironment } from './config/runtime-settings.js';
 import { PublicConfigController } from './config/public-config.controller.js';
+import { OperationsModule } from './operations/operations.module.js';
+import { UsersModule } from './users/users.module.js';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { DatabaseExceptionFilter } from './common/database-exception.filter.js';
+import { ApiResponseInterceptor } from './common/api-response.interceptor.js';
 
 @Module({
   imports: [
@@ -29,6 +34,16 @@ import { PublicConfigController } from './config/public-config.controller.js';
           serverSelectionTimeoutMS: settings.MONGODB_SERVER_SELECTION_TIMEOUT_MS,
           retryAttempts: settings.MONGODB_RETRY_ATTEMPTS,
           retryDelay: settings.MONGODB_RETRY_DELAY_MS,
+          heartbeatFrequencyMS: settings.MONGODB_HEARTBEAT_FREQUENCY_MS,
+          maxPoolSize: settings.MONGODB_MAX_POOL_SIZE,
+          socketTimeoutMS: settings.MONGODB_SOCKET_TIMEOUT_MS,
+          waitQueueTimeoutMS: settings.MONGODB_WAIT_QUEUE_TIMEOUT_MS,
+          bufferCommands: false,
+          writeConcern: {
+            w: 'majority',
+            journal: true,
+            wtimeoutMS: settings.MONGODB_WRITE_TIMEOUT_MS,
+          },
         };
       },
     }),
@@ -40,8 +55,14 @@ import { PublicConfigController } from './config/public-config.controller.js';
     DatabaseModule,
     AuthModule,
     OrdersModule,
+    UsersModule,
+    OperationsModule,
   ],
-  providers: [httpRateLimiterProvider],
+  providers: [
+    httpRateLimiterProvider,
+    { provide: APP_FILTER, useClass: DatabaseExceptionFilter },
+    { provide: APP_INTERCEPTOR, useClass: ApiResponseInterceptor },
+  ],
   controllers: [PublicConfigController],
 })
 export class AppModule {}

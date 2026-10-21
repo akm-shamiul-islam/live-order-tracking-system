@@ -1,13 +1,33 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { formatDateTime } from '../../lib/dateTime';
+import { lazy, Suspense } from 'react';
 import { OrderDetails } from '@kitchentodoor/shared';
-import { Bike, Home, Store, Compass, Navigation } from 'lucide-react';
+import { Home, Store, Compass, Navigation } from 'lucide-react';
+import { CourierMarker, MARKER_CLASS } from './CourierMarker';
+const AnimatedCourierBeacon = lazy(() => import('./AnimatedCourierBeacon'));
 
 interface LiveMapTrackerProps {
   order: OrderDetails;
 }
 
 export function LiveMapTracker({ order }: LiveMapTrackerProps) {
-  const shouldReduceMotion = useReducedMotion();
+  const hasLocation = order.courierCoordinates?.lat != null && order.courierCoordinates.lng != null;
+  if (!order.deliveryLocationProvided || !hasLocation)
+    return (
+      <section className="glass-panel space-y-3 rounded-2xl p-6" aria-label="Delivery location">
+        <h2 className="font-display flex items-center gap-2 font-bold">
+          <Navigation aria-hidden="true" className="h-5 w-5 text-teal-700 dark:text-teal-300" />
+          Delivery Location
+        </h2>
+        <p className="break-words text-sm text-slate-700 dark:text-slate-200">
+          {order.customer.address}
+        </p>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          {hasLocation
+            ? `Courier GPS: ${order.courierCoordinates!.lat!.toFixed(5)}, ${order.courierCoordinates!.lng!.toFixed(5)}. The delivery address has no customer-provided map pin.`
+            : 'Waiting for the assigned courier to share their location after starting delivery.'}
+        </p>
+      </section>
+    );
   const deliveryLat = order.deliveryCoordinates?.lat ?? 40.7128;
   const deliveryLng = order.deliveryCoordinates?.lng ?? -74.006;
 
@@ -40,9 +60,9 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
         <div className="flex items-center gap-2">
           <Navigation className="w-5 h-5 text-teal-500 animate-pulse" />
-          <h3 className="font-display font-bold text-base text-slate-900 dark:text-slate-100">
-            Real-Time Courier Telemetry Radar
-          </h3>
+          <h2 className="font-display font-bold text-base text-slate-900 dark:text-slate-100">
+            Live Delivery Progress
+          </h2>
         </div>
 
         <div className="flex items-center gap-3 text-xs font-mono text-slate-500 dark:text-slate-400">
@@ -57,6 +77,10 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
           </span>
         </div>
       </div>
+
+      <p className="mb-4 text-xs text-slate-600 dark:text-slate-300">
+        Illustrated progress from GPS updates. Use the delivery address for navigation.
+      </p>
 
       {/* Radar Map Canvas Container */}
       <div className="relative w-full h-80 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden shadow-inner">
@@ -117,24 +141,15 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
         </div>
 
         {/* Courier Beacon */}
-        <motion.div
-          className="absolute z-30 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-          animate={{ left: `${courierX}%`, top: `${courierY}%` }}
-          transition={
-            shouldReduceMotion ? { duration: 0 } : { type: 'spring', damping: 20, stiffness: 60 }
+        <Suspense
+          fallback={
+            <div className={MARKER_CLASS} style={{ left: `${courierX}%`, top: `${courierY}%` }}>
+              <CourierMarker />
+            </div>
           }
         >
-          <div className="relative">
-            {/* Pulsing Beacon Rings */}
-            <div className="absolute -inset-3 rounded-full bg-teal-400/30 animate-radar-ripple" />
-            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-xl shadow-teal-500/60 border-2 border-white dark:border-slate-950">
-              <Bike className="w-6 h-6 animate-bounce" />
-            </div>
-          </div>
-          <div className="mt-1.5 px-2.5 py-0.5 rounded-md bg-teal-500 text-slate-950 font-extrabold text-[10px] whitespace-nowrap shadow-md tracking-tight">
-            Courier Beacon
-          </div>
-        </motion.div>
+          <AnimatedCourierBeacon x={courierX} y={courierY} />
+        </Suspense>
       </div>
 
       {/* Telemetry Status Bar */}
@@ -147,14 +162,11 @@ export function LiveMapTracker({ order }: LiveMapTrackerProps) {
         </div>
         <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/50">
           <span className="text-slate-400 font-medium block mb-0.5">Estimated Arrival</span>
-          <span className="font-semibold text-teal-600 dark:text-teal-400 font-mono block">
+          <span className="font-semibold text-teal-700 dark:text-teal-400 font-mono block">
             {order.status === 'DELIVERED'
               ? 'Delivered'
               : order.estimatedDeliveryAt
-                ? new Date(order.estimatedDeliveryAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
+                ? formatDateTime(order.estimatedDeliveryAt, 'time')
                 : '25-35 mins'}
           </span>
         </div>

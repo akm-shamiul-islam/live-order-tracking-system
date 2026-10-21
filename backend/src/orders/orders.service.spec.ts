@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OrdersService } from './orders.service.js';
 import { OrderStatus } from '@kitchentodoor/shared';
-import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Types } from 'mongoose';
 
 describe('OrdersService Unit Tests', () => {
@@ -74,7 +79,7 @@ describe('OrdersService Unit Tests', () => {
 
   it('generates an order number starting with KTD-', () => {
     const orderNumber = service.generateOrderNumber();
-    expect(orderNumber).toMatch(/^KTD-\d{4}$/);
+    expect(orderNumber).toMatch(/^KTD-[A-F\d]{12}$/);
   });
 
   it('calculates totals correctly when creating an order', async () => {
@@ -117,6 +122,9 @@ describe('OrdersService Unit Tests', () => {
     expect(result.pricing.tax).toBe(3.08);
     expect(result.pricing.total).toBe(46.56);
     expect(result.status).toBe('PLACED');
+    expect(result.statusHistory).toHaveLength(1);
+    expect(mockOrderModel.create.mock.calls[0][0].auditTrail).toHaveLength(1);
+    expect(mockStatusLogModel.create).not.toHaveBeenCalled();
   });
 
   it('updateOrderStatus advances status and creates audit log', async () => {
@@ -154,11 +162,39 @@ describe('OrdersService Unit Tests', () => {
     const result = await service.updateOrderStatus('KTD-1001', OrderStatus.CONFIRMED);
     expect(mockOrderModel.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: mockOrder._id, status: OrderStatus.PLACED },
-      { $set: { status: OrderStatus.CONFIRMED } },
+      {
+        $set: { status: OrderStatus.CONFIRMED },
+        $push: {
+          auditTrail: expect.objectContaining({
+            orderId: '64f1a2b3c4d5e6f7a8b9c0d1',
+            status: OrderStatus.CONFIRMED,
+            timestamp: expect.any(Date),
+          }),
+        },
+      },
       { returnDocument: 'after' },
     );
     expect(result.order.status).toBe(OrderStatus.CONFIRMED);
     expect(result.logEntry.status).toBe(OrderStatus.CONFIRMED);
+    expect(mockStatusLogModel.create).not.toHaveBeenCalled();
+  });
+
+  it('bounds duplicate order-number retries and returns a recoverable error', async () => {
+    vi.stubEnv('ORDER_NUMBER_RETRY_ATTEMPTS', '2');
+    try {
+      mockOrderModel.create.mockRejectedValue({ code: 11000, keyPattern: { orderNumber: 1 } });
+      await expect(
+        service.createOrder({
+          customer: { name: 'Customer', phone: '555-1234', address: '123 Main St' },
+          items: [{ itemId: 'item-1', name: 'Burger', price: 15.99, quantity: 1 }],
+          deliveryAddress: '123 Main St',
+        }),
+      ).rejects.toThrow(ServiceUnavailableException);
+      expect(mockOrderModel.create).toHaveBeenCalledTimes(2);
+      expect(mockStatusLogModel.create).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('updateOrderStatus rejects invalid status progression with BadRequestException', async () => {
@@ -218,11 +254,11 @@ describe('OrdersService Unit Tests', () => {
     expect(result.order.status).toBe(OrderStatus.CANCELLED);
   });
 
-  it('cancelOrder rejects cancellation when order is OUT_FOR_DELIVERY', async () => {
+  it('cancelOrder rejects cancellation after delivery is complete', async () => {
     const mockOrder: any = {
       _id: { toString: () => '64f1a2b3c4d5e6f7a8b9c0d1' },
       orderNumber: 'KTD-1004',
-      status: OrderStatus.OUT_FOR_DELIVERY,
+      status: OrderStatus.DELIVERED,
     };
     mockOrderModel.findOne.mockResolvedValue(mockOrder);
 
@@ -310,7 +346,7 @@ describe('OrdersService Unit Tests', () => {
       const request =
         action === 'advance'
           ? service.updateOrderStatus('KTD-1000', OrderStatus.CONFIRMED)
-          : service.cancelOrder('KTD-1000');
+          : service.cancelOrder('KTD-1000', 'Customer requested cancellation');
       await expect(request).rejects.toThrow(ConflictException);
       expect(mockStatusLogModel.create).not.toHaveBeenCalled();
     },

@@ -1,93 +1,146 @@
 # Environment configuration
 
-Copy the root [.env.example](../../.env.example) to `.env`, configure MongoDB, and generate a unique `JWT_SECRET` before starting the API. Keep values containing `#` quoted. Environment files with real credentials stay out of Git.
+Copy the root [.env.example](../../.env.example) to `.env`, configure MongoDB and generate a unique `JWT_SECRET`. Quote passwords containing `#`; an unquoted `#` starts a dotenv comment. Real secrets stay out of Git.
 
-The API reads the root `.env`, then `backend/.env` as a fallback. Existing process environment values take precedence. Zod validates runtime settings before application startup and reports invalid setting names without printing their values. Restart `pnpm dev` after changes.
+The API reads root `.env`, then `backend/.env` as fallback; process environment values take precedence. Zod validates settings before startup and reports setting names without echoing secrets. Restart the API after changes.
 
-The frontend reads root `.env`, `.env.local`, `.env.<mode>`, and `.env.<mode>.local` in that order; later files override earlier files, and process values take precedence. Only the explicitly allowlisted browser settings below are added to the bundle. Public browser values require a Vite restart in development and a new frontend build in production. Vite's [environment documentation](https://vite.dev/guide/env-and-mode) describes this build-time behavior.
+Vite reads root `.env`, `.env.local`, `.env.<mode>` and `.env.<mode>.local`; later files win, with process values first. Only the allowlisted `VITE_*` settings enter the browser bundle. Rebuild production assets when public settings change. See [Vite environment behavior](https://vite.dev/guide/env-and-mode).
 
-## Server and accounts
+## Ports and hosting
 
-| Setting | Default or example | Purpose |
-| --- | --- | --- |
-| `NODE_ENV` | Template: `development` | Production disables default staff seeding. |
-| `PORT` | `5000` | API listen port, from 1 to 65535. |
-| `API_HOST` | `0.0.0.0` | API listen address. |
-| `FRONTEND_PORT` | `5173` | Vite development port. Update `FRONTEND_URL` if it changes. |
-| `FRONTEND_URL` | `http://localhost:5173` | Comma-separated allowed HTTP and socket origins. |
-| `API_PROXY_TARGET` | Derived from `PORT` | Optional Vite development/preview API target. |
-| `MONGODB_URI` | `mongodb://localhost:27017/kitchentodoor_db` | MongoDB connection string. |
-| `JWT_SECRET` | Required | Access-token signing secret; no published fallback. |
-| `JWT_EXPIRES_IN` | `1d` | Access-token lifetime. |
-| `ADMIN_DEFAULT_EMAIL`, `ADMIN_DEFAULT_PASSWORD` | See template | Required for development administrator seeding/recovery. |
-| `COURIER_DEFAULT_EMAIL`, `COURIER_DEFAULT_PASSWORD` | See template | Required for development courier seeding. |
-| `PASSWORD_HASH_ROUNDS` | `12` | bcrypt work factor, integer from 10 to 15; affects new hashes. |
+`PORT=5000` and `FRONTEND_PORT=5173` are development defaults. `API_PROXY_TARGET` optionally overrides the proxy target; otherwise Vite uses the configured API port. `FRONTEND_URL` is an exact comma-separated Origin allowlist for HTTP and WebSocket upgrades: include each real scheme/host/port, including localhost versus 127.0.0.1 when both are used.
 
-Development staff credentials have no hardcoded fallback in the seeder. Startup creates missing accounts and preserves existing passwords. Follow the [administrator recovery steps](../../README.md#recover-an-existing-development-administrator) to change an existing development password. `JWT_REFRESH_SECRET` and `JWT_REFRESH_EXPIRES_IN` are reserved template entries; refresh tokens are not implemented.
+`SERVE_FRONTEND=true` serves built `frontend/dist` from Fastify, including direct page URLs and `/socket.io`. Build first. `PUBLIC_APP_URL` is the canonical browser origin for recovery links; use HTTPS in production, set the matching `FRONTEND_URL`, and set `AUTH_COOKIE_SECURE=true`. Hashed assets default to one-year immutable caching; HTML/theme initialization use no-store. Unknown API/assets remain 404 rather than receiving SPA HTML.
 
-## HTTP limits
+## Authentication and accounts
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `RATE_LIMIT_MAX` | `120` | General requests allowed per IP and handler window. |
-| `RATE_LIMIT_TTL_MS` | `60000` | General request window in milliseconds. |
-| `LOGIN_RATE_LIMIT_MAX` | `10` | Login requests allowed per IP and window. |
-| `LOGIN_RATE_LIMIT_TTL_MS` | `60000` | Login window in milliseconds. |
-| `REGISTER_RATE_LIMIT_MAX` | `5` | Registration requests allowed per IP and window. |
-| `REGISTER_RATE_LIMIT_TTL_MS` | `60000` | Registration window in milliseconds. |
+- `JWT_SECRET` is required. Generate with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+- `JWT_EXPIRES_IN` defaults to `15m`. Accepts positive seconds or `s`, `m`, `h`, `d`, `w` suffixes; validated values become numeric seconds for JWT signing. Maximum: one year.
+- `AUTH_SESSION_TTL_MS` defaults to seven days absolute lifetime. Refresh tokens are opaque, rotated and hashed. `AUTH_REFRESH_HISTORY_MAX` bounds remembered token hashes used to detect reuse.
+- `AUTH_COOKIE_SECURE` defaults from the validated NODE_ENV when omitted. The example explicitly uses false for local HTTP; set true for deployed HTTPS. Cookies are HttpOnly, SameSite=Strict and scoped to `/api/auth`.
+- `PASSWORD_HASH_ROUNDS` accepts 10–15, default 12. Registration accepts customer accounts only; admin role changes happen through Users.
+- Development requires `ADMIN_DEFAULT_*` and `COURIER_DEFAULT_*` to create missing staff. Changes do not reset existing passwords. `pnpm auth:reset-dev-admin` explicitly restores only the configured existing administrator and invalidates its sessions.
+- Production startup does not seed staff. After building, `pnpm auth:bootstrap-admin` creates an initial admin only with NODE_ENV=production, separate `BOOTSTRAP_ADMIN_EMAIL` and a 12+ character `BOOTSTRAP_ADMIN_PASSWORD` (maximum 72 bytes). It refuses an existing active admin or occupied email. Remove the bootstrap password afterward. Normal role/profile editing uses the admin Users page.
 
-Limits and windows must be positive integers. Login and registration override the general settings. The UI derives retry guidance from the response's `Retry-After` header. The current limiter uses process-local storage; multiple API instances need shared storage. Socket events require their own flood protection.
+## Recovery email
 
-Throttler configuration loads asynchronously, and per-route decorators resolve settings after environment loading, following [NestJS rate-limiting configuration](https://docs.nestjs.com/security/rate-limiting). Nest's [configuration guide](https://docs.nestjs.com/techniques/configuration) documents the startup validation hook.
+`PASSWORD_RESET_ENABLED=false` by default. Enable only after setting `SMTP_HOST` and `SMTP_FROM`; `SMTP_USER`/`SMTP_PASSWORD` must be paired if authentication is needed. Port 587 with required STARTTLS is the default; use SMTP_SECURE=true with the provider's implicit TLS port when appropriate. Configure connection/socket timeouts and a real HTTPS PUBLIC_APP_URL for production.
 
-## Orders and pricing
+Reset links default to 30 minutes, with a per-account five-minute request interval. Responses do not reveal whether the email exists. Tokens are single-use and password changes invalidate sessions. SMTP delivery errors are logged without credentials. The implementation sends asynchronously without a durable job queue; verify sender/domain and delivery with the chosen provider. See [Nodemailer SMTP](https://nodemailer.com/smtp) and [OWASP recovery guidance](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html).
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `ORDER_LIST_DEFAULT_LIMIT` | `50` | Default dispatch response size when `limit` is omitted. |
-| `ORDER_LIST_MAX_LIMIT` | `100` | Maximum accepted dispatch response size. |
-| `ORDER_HISTORY_LIMIT` | `20` | Default history size for requests without an explicit `limit`. |
-| `ORDER_ESTIMATE_MINUTES` | `35` | Initial estimated delivery duration. |
-| `DELIVERY_FEE` | `5` | Nonnegative delivery fee in the application's dollar currency. |
-| `TAX_RATE` | `0.08` | Tax fraction from 0 to 1; `0.08` means 8%. |
+## Limits, lists and pricing
 
-Order limits and estimates must be positive integers, and the default list limit cannot exceed its maximum. `GET /api/config` exposes only `{ pricing: { deliveryFee, taxRate } }`. Cart, checkout, and server pricing use these values with the shared calculation in cents. New orders use the current server settings; stored orders retain their original pricing. Changing a fee does not change past orders.
+HTTP limits are per IP and handler, with stricter login/registration settings. Refresh and recovery use their own maximums with RATE_LIMIT_TTL_MS. UI retry messages use Retry-After. Socket settings bound packets per connection/IP, tracked IPs, handshake attempts, concurrent connections, rooms and payload bytes. IP packet budgets survive reconnects. TRUSTED_PROXY_IPS is empty by default; forwarded IPs are used only through exact explicitly trusted proxy addresses. Configure the actual edge topology as described in OPERATIONS.md. State is process-local; deployment/proxy/scaling requirements are in [OPERATIONS.md](OPERATIONS.md).
 
-The paginated UI defaults to 10 items and offers 25, 50, and 100. Dispatch/history send an explicit `limit`, bounded by `ORDER_LIST_MAX_LIMIT`, and `page`. To offer all four sizes, retain a maximum of at least 100. The history default no longer truncates a paginated lookup to the first 20 orders; matching totals and page metadata describe the complete result set.
+ORDER_LIST_MAX_LIMIT and USER_LIST_MAX_LIMIT bound paginated APIs. UI sizes are 10/25/50/100; retain maximums of at least 100 to offer all four. Default limits cannot exceed their maximum. Delivery requests and user-management history have independent caps.
 
-## Database and DNS
+DELIVERY_FEE and TAX_RATE configure server pricing; `/api/config` exposes only public pricing. Totals are calculated in cents using canonical menu prices. Stored orders retain their original totals. Current prices use USD demonstration amounts; payment processing and jurisdiction-specific tax are not integrated.
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `MONGODB_SERVER_SELECTION_TIMEOUT_MS` | `30000` | MongoDB server selection timeout. |
-| `MONGODB_RETRY_ATTEMPTS` | `9` | Nest connection retry setting; nonnegative integer. |
-| `MONGODB_RETRY_DELAY_MS` | `3000` | Delay between connection retries. |
-| `DNS_SERVERS` | Empty; template uses `8.8.8.8,1.1.1.1` | Optional comma-separated IPv4/IPv6 resolver addresses; empty uses system resolvers. |
+KITCHEN_LATITUDE/LONGITUDE are fallback storage coordinates, not geocoding. The UI displays a delivery pin only when coordinates were actually supplied. Browser current-location attachment is optional and requires consent; real courier sharing is limited to their active assigned delivery. TELEMETRY_MAX_AGE_MS/FUTURE_MS reject stale samples. Device acquisition/send intervals are public VITE_GPS_* values. VITE_ENABLE_COURIER_SIMULATOR is an optional admin demonstration setting, disabled by default.
 
-Keep timeout/retry choices appropriate for the deployment. The 30-second selection default preserves time for replica-set elections; see [Mongoose connection options](https://mongoosejs.com/docs/connections.html). The optional resolver override uses Node's documented [dns.setServers](https://nodejs.org/docs/latest-v24.x/api/dns.html#dnssetserversservers) API.
+## Database and operations
 
-## Public browser settings
+MongoDB selection, socket, pool-wait and write timeouts are bounded. Queries do not buffer through outages; readiness fails and API reads return 503. Writes use majority plus journaling with MONGODB_WRITE_TIMEOUT_MS. RetryAttempts may be zero; other count/time settings are positive, except explicitly zero-capable query settings. DNS_SERVERS is empty by default, using system resolvers; configure only for a known resolver requirement.
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `VITE_REQUEST_TIMEOUT_MS` | `15000` | HTTP request timeout. |
-| `VITE_QUERY_STALE_TIME_MS` | `30000` | Default cached-query freshness. |
-| `VITE_QUERY_RETRY_COUNT` | `1` | Default query retries. |
-| `VITE_SESSION_STALE_TIME_MS` | `60000` | Freshness of `/api/auth/me` verification; no periodic token refresh. |
-| `VITE_SOCKET_ACK_TIMEOUT_MS` | `5000` | Order socket acknowledgment timeout. |
-| `VITE_SOCKET_RECONNECT_ATTEMPTS` | `15` | Socket reconnection attempts. |
-| `VITE_SOCKET_RECONNECT_DELAY_MS` | `1000` | Initial socket reconnection delay. |
-| `VITE_HEARTBEAT_INTERVAL_MS` | `4000` | Connection badge heartbeat interval. |
-| `VITE_HEARTBEAT_TIMEOUT_MS` | `3000` | Heartbeat acknowledgment timeout. |
-| `VITE_SIMULATION_INTERVAL_MS` | `600` | Demonstration courier update interval. |
-| `VITE_SIMULATION_STEP_PERCENT` | `5` | Progress per simulation tick, integer from 1 to 100. |
+HEALTHCHECK_TIMEOUT_MS bounds database readiness pings. `/api/health/live` is process liveness; `/api/health/ready` checks MongoDB. `/api/ops/metrics` requires an administrator. Monitor and supervise these as described in [OPERATIONS.md](OPERATIONS.md).
 
-Values must be integers. Query freshness and retry count may be zero; other browser timing/count settings must be positive. Public pricing always loads from the API rather than a separate frontend fee setting. Browser settings contain no secrets.
+## Complete template inventory
 
-## Deprecation checks
+The table below records template values, not deployed secrets. Optional commented SMTP/proxy entries are described above. Sources of truth are `.env.example`, `RuntimeSettingsSchema` and `ClientSettingsSchema`.
 
-Both order status updates now use `returnDocument: 'after'`. Mongoose documents the deprecated `new` and `returnOriginal` options and their replacements in its [Mongoose 9 migration guide](https://mongoosejs.com/docs/migrating_to_9.html#new-and-returnoriginal-options-deprecated).
-
-The audit also replaced deprecated React `FormEvent` types with `SubmitEvent` and TanStack Query `fetchQuery` with `query`, matching the installed declarations and primary sources: [React type definitions](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/react/index.d.ts) and [QueryClient source](https://github.com/TanStack/query/blob/main/packages/query-core/src/queryClient.ts). Vite config imports use explicit TypeScript extensions for its [native config loader](https://vite.dev/config/).
-
-The type-aware [Oxlint no-deprecated rule](https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-deprecated.html) is an error in workspace lint and staged-file checks. It catches APIs annotated as deprecated; it does not replace runtime checks or dependency migration reviews.
+| Setting | Template value |
+| --- | --- |
+| `ADMIN_DEFAULT_EMAIL` | `admin@kitchentodoor.io` |
+| `ADMIN_DEFAULT_PASSWORD` | Set privately |
+| `API_HOST` | `0.0.0.0` |
+| `API_PROXY_TARGET` | `http://127.0.0.1:5000` |
+| `AUTH_COOKIE_SECURE` | `false` |
+| `AUTH_REFRESH_HISTORY_MAX` | `1000` |
+| `AUTH_SESSION_TTL_MS` | `604800000` |
+| `BOOTSTRAP_ADMIN_EMAIL` | Empty |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Set privately |
+| `COURIER_DEFAULT_EMAIL` | `courier@kitchentodoor.io` |
+| `COURIER_DEFAULT_PASSWORD` | Set privately |
+| `DELIVERY_FEE` | `5` |
+| `DELIVERY_REQUESTS_MAX` | `100` |
+| `DNS_SERVERS` | Empty |
+| `FRONTEND_PORT` | `5173` |
+| `FRONTEND_URL` | `http://localhost:5173` |
+| `HEALTHCHECK_TIMEOUT_MS` | `1000` |
+| `JWT_EXPIRES_IN` | `15m` |
+| `JWT_SECRET` | Set privately |
+| `KITCHEN_LATITUDE` | `40.7128` |
+| `KITCHEN_LONGITUDE` | `-74.006` |
+| `LOGIN_RATE_LIMIT_MAX` | `10` |
+| `LOGIN_RATE_LIMIT_TTL_MS` | `60000` |
+| `MONGODB_HEARTBEAT_FREQUENCY_MS` | `10000` |
+| `MONGODB_MAX_POOL_SIZE` | `100` |
+| `MONGODB_RETRY_ATTEMPTS` | `1` |
+| `MONGODB_RETRY_DELAY_MS` | `3000` |
+| `MONGODB_SERVER_SELECTION_TIMEOUT_MS` | `5000` |
+| `MONGODB_SOCKET_TIMEOUT_MS` | `10000` |
+| `MONGODB_URI` | `mongodb://localhost:27017/kitchentodoor_db` |
+| `MONGODB_WAIT_QUEUE_TIMEOUT_MS` | `5000` |
+| `MONGODB_WRITE_TIMEOUT_MS` | `5000` |
+| `NODE_ENV` | `development` |
+| `ORDER_ESTIMATE_MINUTES` | `35` |
+| `ORDER_HISTORY_LIMIT` | `20` |
+| `ORDER_LIST_DEFAULT_LIMIT` | `50` |
+| `ORDER_LIST_MAX_LIMIT` | `100` |
+| `ORDER_NUMBER_RETRY_ATTEMPTS` | `5` |
+| `PASSWORD_HASH_ROUNDS` | Set privately |
+| `PASSWORD_RESET_ENABLED` | Set privately |
+| `PASSWORD_RESET_INTERVAL_MS` | Set privately |
+| `PASSWORD_RESET_TTL_MS` | Set privately |
+| `PORT` | `5000` |
+| `PUBLIC_APP_URL` | `http://localhost:5173` |
+| `RATE_LIMIT_MAX` | `120` |
+| `RATE_LIMIT_TTL_MS` | `60000` |
+| `REFRESH_RATE_LIMIT_MAX` | `30` |
+| `REGISTER_RATE_LIMIT_MAX` | `5` |
+| `REGISTER_RATE_LIMIT_TTL_MS` | `60000` |
+| `RESET_RATE_LIMIT_MAX` | `5` |
+| `SERVE_FRONTEND` | `false` |
+| `SMTP_CONNECTION_TIMEOUT_MS` | `10000` |
+| `SMTP_FROM` | `kitchen@example.com` |
+| `SMTP_HOST` | `smtp.example.com` |
+| `SMTP_PASSWORD` | Set privately |
+| `SMTP_PORT` | `587` |
+| `SMTP_REQUIRE_TLS` | `true` |
+| `SMTP_SECURE` | `false` |
+| `SMTP_SOCKET_TIMEOUT_MS` | `15000` |
+| `SMTP_USER` | Empty |
+| `SOCKET_CONNECT_MAX` | `30` |
+| `SOCKET_CONNECT_WINDOW_MS` | `60000` |
+| `SOCKET_CONNECTIONS_MAX` | `2000` |
+| `SOCKET_CONNECTIONS_PER_IP_MAX` | `20` |
+| `SOCKET_IP_RATE_LIMIT_MAX` | `200` |
+| `SOCKET_MAX_PAYLOAD_BYTES` | `16384` |
+| `SOCKET_ORDER_ROOMS_MAX` | `20` |
+| `SOCKET_RATE_LIMIT_IPS_MAX` | `10000` |
+| `SOCKET_RATE_LIMIT_MAX` | `50` |
+| `SOCKET_RATE_LIMIT_WINDOW_MS` | `1000` |
+| `STATIC_ASSET_MAX_AGE_SECONDS` | `3600` |
+| `STATIC_HASHED_MAX_AGE_SECONDS` | `31536000` |
+| `TAX_RATE` | `0.08` |
+| `TELEMETRY_MAX_AGE_MS` | `15000` |
+| `TELEMETRY_MAX_FUTURE_MS` | `5000` |
+| `TRUSTED_PROXY_IPS` | Empty |
+| `USER_LIST_DEFAULT_LIMIT` | `10` |
+| `USER_LIST_MAX_LIMIT` | `100` |
+| `USER_MANAGEMENT_AUDIT_MAX` | `100` |
+| `VITE_ENABLE_COURIER_SIMULATOR` | `false` |
+| `VITE_GPS_SEND_INTERVAL_MS` | `5000` |
+| `VITE_GPS_TIMEOUT_MS` | `15000` |
+| `VITE_HEARTBEAT_INTERVAL_MS` | `4000` |
+| `VITE_HEARTBEAT_TIMEOUT_MS` | `3000` |
+| `VITE_ORDER_LIST_REFRESH_MS` | `15000` |
+| `VITE_QUERY_RETRY_COUNT` | `1` |
+| `VITE_QUERY_STALE_TIME_MS` | `30000` |
+| `VITE_REQUEST_TIMEOUT_MS` | `15000` |
+| `VITE_SESSION_STALE_TIME_MS` | `60000` |
+| `VITE_SIMULATION_INTERVAL_MS` | `600` |
+| `VITE_SIMULATION_STEP_PERCENT` | `5` |
+| `VITE_SOCKET_ACK_TIMEOUT_MS` | `5000` |
+| `VITE_SOCKET_RECONNECT_ATTEMPTS` | `15` |
+| `VITE_SOCKET_RECONNECT_DELAY_MS` | `1000` |

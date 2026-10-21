@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { OrderStatus } from '@kitchentodoor/shared';
+import { OrderStatusLogSchema, type OrderStatusLogRecord } from './order-status-log.schema.js';
 
 export type OrderDocument = Order & Document;
 
@@ -81,6 +82,35 @@ export const PricingSchema = SchemaFactory.createForClass(PricingSubdocument);
 
 @Schema({ timestamps: true, collection: 'orders' })
 export class Order {
+  @Prop({ type: Number, default: 0 })
+  deliveryRevision: number;
+  @Prop({
+    type: [
+      {
+        _id: false,
+        courierId: { type: MongooseSchema.Types.ObjectId, ref: 'User', required: true },
+        courierName: String,
+        status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'] },
+        requestedAt: Date,
+      },
+    ],
+    default: [],
+  })
+  deliveryRequests: {
+    courierId: string;
+    courierName: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    requestedAt: Date;
+  }[];
+  @Prop({ type: String, unique: true, sparse: true, select: false })
+  trackingTokenHash?: string;
+
+  @Prop({ type: [OrderStatusLogSchema], default: undefined })
+  auditTrail?: OrderStatusLogRecord[];
+
+  @Prop({ type: Boolean, default: false })
+  auditTrailComplete: boolean;
+
   @Prop({ type: String, required: true, unique: true, index: true })
   orderNumber: string;
 
@@ -111,9 +141,15 @@ export class Order {
     default: OrderStatus.PLACED,
     index: true,
   })
-  status: string;
+  status: OrderStatus;
 
-  @Prop({ type: CoordinatesSchema, default: { lat: 40.7128, lng: -74.006 } })
+  createdAt: Date;
+  updatedAt: Date;
+
+  @Prop({ type: Boolean, default: false })
+  deliveryLocationProvided: boolean;
+
+  @Prop({ type: CoordinatesSchema, required: true })
   deliveryCoordinates: CoordinatesSubdocument;
 
   @Prop({
@@ -127,3 +163,7 @@ export class Order {
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
+OrderSchema.index({ createdAt: -1, _id: -1 });
+OrderSchema.index({ status: 1, createdAt: -1, _id: -1 });
+OrderSchema.index({ courierId: 1, status: 1, createdAt: -1, _id: -1 });
+OrderSchema.index({ 'customer.userId': 1, 'customer.phone': 1, createdAt: -1, _id: -1 });

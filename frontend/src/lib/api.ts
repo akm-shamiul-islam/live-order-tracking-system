@@ -7,16 +7,62 @@ import {
   AuthResponseSchema,
   PublicConfigSchema,
   type PublicConfig,
+  type AvailableDelivery,
+  type PaginationInfo,
+  type UserPage,
+  type ManagedUser,
+  type UpdateUserDto,
+  type UserRole,
 } from '@kitchentodoor/shared';
-import { clearSession, getSession, saveSession } from './authSession';
+import { clearSession, getSession, saveSession, synchronizeStoredSession } from './authSession';
 import { clientSettings } from './clientSettings';
 
 const API_BASE = '/api';
+let refreshInFlight: Promise<AuthResponse | null> | undefined;
+
+async function refreshSession(failedToken: string): Promise<AuthResponse | null> {
+  if (refreshInFlight) return refreshInFlight;
+  const rotate = async () => {
+    synchronizeStoredSession();
+    const before = getSession();
+    if (before.token !== failedToken) {
+      return before.token && before.user ? { accessToken: before.token, user: before.user } : null;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
+      });
+      if (response.status === 401) {
+        if (getSession().token === before.token) clearSession();
+        return null;
+      }
+      const auth = parseAuthResponse(await handleResponse<unknown>(response));
+      if (getSession().token !== before.token) return null;
+      saveSession(auth);
+      return auth;
+    } catch (error) {
+      // A temporary outage must not turn a saved session into a sign-out.
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        'We could not renew your session. Check your connection and try again.',
+        0,
+      );
+    }
+  };
+  const run =
+    typeof navigator !== 'undefined' && navigator.locks
+      ? navigator.locks.request('ktd-auth-refresh', rotate)
+      : rotate();
+  refreshInFlight = run.finally(() => {
+    refreshInFlight = undefined;
+  });
+  return refreshInFlight;
+}
 
 function getHeaders(): HeadersInit {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
   const token = getSession().token;
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -55,20 +101,39 @@ function retryAfterMessage(response: Response): string {
 
 async function request(url: string, options: RequestInit = {}): Promise<Response> {
   try {
-    const response = await fetch(url, {
+    // Fastify rejects an application/json POST with no body. Only label actual JSON bodies.
+    const requestHeaders = new Headers(options.headers);
+    if (typeof options.body === 'string' && !requestHeaders.has('Content-Type'))
+      requestHeaders.set('Content-Type', 'application/json');
+    let response = await fetch(url, {
       ...options,
+      headers: requestHeaders,
+      credentials: 'same-origin',
       signal: options.signal ?? AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
     });
-    const authorization = new Headers(options.headers).get('Authorization');
+    const authorization = requestHeaders.get('Authorization');
     if (
       response.status === 401 &&
-      authorization &&
-      authorization === `Bearer ${getSession().token}`
+      authorization === `Bearer ${getSession().token}` &&
+      !url.endsWith('/auth/logout')
     ) {
-      clearSession();
+      const failedToken = authorization.replace(/^Bearer\s+/i, '');
+      const refreshed = await refreshSession(failedToken);
+      if (refreshed && getSession().token === refreshed.accessToken) {
+        const headers = new Headers(requestHeaders);
+        headers.set('Authorization', `Bearer ${refreshed.accessToken}`);
+        response = await fetch(url, {
+          ...options,
+          headers,
+          credentials: 'same-origin',
+          signal: options.signal ?? AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
+        });
+        if (response.status === 401 && getSession().token === refreshed.accessToken) clearSession();
+      }
     }
     return response;
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
     throw new ApiError('We could not reach the service. Check your connection and try again.', 0);
   }
 }
@@ -123,6 +188,26 @@ export const api = {
     },
   },
   auth: {
+    async forgotPassword(email: string): Promise<void> {
+      await handleResponse(
+        await request(`${API_BASE}/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }),
+      );
+    },
+
+    async resetPassword(token: string, password: string, confirmPassword: string): Promise<void> {
+      await handleResponse(
+        await request(`${API_BASE}/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, password, confirmPassword }),
+        }),
+      );
+      clearSession();
+    },
     async login(email: string, pass: string): Promise<AuthResponse> {
       const res = await request(`${API_BASE}/auth/login`, {
         method: 'POST',
@@ -158,11 +243,64 @@ export const api = {
     },
 
     logout() {
+      const headers = getHeaders();
       clearSession();
+      return request(`${API_BASE}/auth/logout`, { method: 'POST', headers, keepalive: true }).then(
+        () => undefined,
+        () => undefined,
+      );
     },
   },
 
   orders: {
+    async available(
+      page: number,
+      pageSize: number,
+    ): Promise<{ orders: AvailableDelivery[]; pagination: PaginationInfo }> {
+      return handleResponse(
+        await request(
+          `${API_BASE}/orders/available?${new URLSearchParams({ page: String(page), limit: String(pageSize) })}`,
+          { headers: getHeaders() },
+        ),
+      );
+    },
+    async requestDelivery(orderId: string): Promise<void> {
+      await handleResponse(
+        await request(`${API_BASE}/orders/${encodeURIComponent(orderId)}/delivery-requests`, {
+          method: 'POST',
+          headers: getHeaders(),
+        }),
+      );
+    },
+    async reviewDelivery(
+      orderId: string,
+      courierId: string,
+      decision: 'APPROVE' | 'REJECT',
+    ): Promise<void> {
+      await handleResponse(
+        await request(
+          `${API_BASE}/orders/${encodeURIComponent(orderId)}/delivery-requests/${encodeURIComponent(courierId)}`,
+          { method: 'POST', headers: getHeaders(), body: JSON.stringify({ decision }) },
+        ),
+      );
+    },
+    async getCouriers(): Promise<UserSummary[]> {
+      const data = await handleResponse<{ couriers: UserSummary[] }>(
+        await request(`${API_BASE}/orders/couriers`, { headers: getHeaders() }),
+      );
+      return data.couriers;
+    },
+
+    async assignCourier(orderId: string, courierId?: string | null): Promise<OrderDetails> {
+      const data = await handleResponse<{ order: OrderDetails }>(
+        await request(`${API_BASE}/orders/${encodeURIComponent(orderId)}/courier`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ courierId }),
+        }),
+      );
+      return data.order;
+    },
     async create(dto: CreateOrderDto): Promise<{ success: boolean; order: OrderDetails }> {
       const res = await request(`${API_BASE}/orders`, {
         method: 'POST',
@@ -199,11 +337,14 @@ export const api = {
     },
 
     async getHistoryPage(
-      phone: string,
+      phone: string | undefined,
       page: number,
       pageSize: number,
+      q = '',
     ): Promise<import('@kitchentodoor/shared').OrderPage> {
-      const params = new URLSearchParams({ phone, page: String(page), limit: String(pageSize) });
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      if (phone) params.set('phone', phone);
+      if (q) params.set('q', q);
       const res = await request(`${API_BASE}/orders/my-orders?${params}`, {
         headers: getHeaders(),
       });
@@ -257,13 +398,37 @@ export const api = {
       return data.order;
     },
 
-    async updateTelemetry(orderId: string, lat: number, lng: number): Promise<void> {
+    async updateTelemetry(
+      orderId: string,
+      lat: number,
+      lng: number,
+      timestamp = new Date().toISOString(),
+    ): Promise<void> {
       const res = await request(`${API_BASE}/orders/${encodeURIComponent(orderId)}/telemetry`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ lat, lng }),
+        body: JSON.stringify({ lat, lng, timestamp }),
       });
       await handleResponse<{ success: boolean }>(res);
+    },
+  },
+  users: {
+    async list(page: number, pageSize: number, q = '', role?: UserRole): Promise<UserPage> {
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize), q });
+      if (role) params.set('role', role);
+      return handleResponse(
+        await request(`${API_BASE}/users?${params}`, { headers: getHeaders() }),
+      );
+    },
+    async update(id: string, dto: UpdateUserDto): Promise<ManagedUser> {
+      const data = await handleResponse<{ user: ManagedUser }>(
+        await request(`${API_BASE}/users/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify(dto),
+        }),
+      );
+      return data.user;
     },
   },
 };

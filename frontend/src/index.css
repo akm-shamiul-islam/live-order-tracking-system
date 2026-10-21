@@ -2,11 +2,26 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-latin-3100e775.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/outfit-latin-6c18d579.woff2') format('woff2');
+}
+
 @layer base {
   :root {
     color-scheme: light;
-    --font-sans: 'Inter', sans-serif;
-    --font-display: 'Outfit', sans-serif;
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   }
 
   :root.dark {
@@ -46,6 +61,36 @@
 
 body {
   font-family: var(--font-sans);
+}
+
+.initial-loading {
+  display: flex;
+  min-height: 60vh;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #0f766e;
+}
+.dark .initial-loading {
+  color: #99f6e4;
+}
+.initial-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: initial-spin 800ms linear infinite;
+}
+@keyframes initial-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .initial-spinner {
+    animation: none;
+  }
 }
 
 .app-content {
@@ -173,6 +218,11 @@ h4,
 }
 
 /* Glassmorphism & High-Quality Card Elevation */
+.menu-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
+}
+
 .glass-panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;

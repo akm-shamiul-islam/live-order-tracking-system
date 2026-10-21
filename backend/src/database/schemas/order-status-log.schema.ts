@@ -1,7 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Document, Schema as MongooseSchema, type Types } from 'mongoose';
+import { OrderStatus } from '@kitchentodoor/shared';
 
 export type OrderStatusLogDocument = OrderStatusLog & Document;
+export type OrderStatusLogRecord = OrderStatusLog & { _id: Types.ObjectId };
 
 @Schema({ _id: false })
 export class ChangedBySubdocument {
@@ -29,7 +31,7 @@ export class OrderStatusLog {
   orderNumber: string;
 
   @Prop({ type: String, required: true })
-  status: string;
+  status: OrderStatus;
 
   @Prop({ type: String, default: '' })
   note: string;

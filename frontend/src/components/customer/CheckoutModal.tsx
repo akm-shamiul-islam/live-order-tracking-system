@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CartItem } from './CartDrawer';
-import { CreateOrderSchema, calculatePricing } from '@kitchentodoor/shared';
+import { CreateOrderSchema, calculatePricing, type Coordinates } from '@kitchentodoor/shared';
 import { api, ApiError } from '../../lib/api';
 import { CheckoutFormSchema } from '../../lib/formSchemas';
 import { useZodForm } from '../../hooks/useZodForm';
@@ -8,7 +8,10 @@ import { FieldError } from '../forms/FieldError';
 import { usePublicSettings } from '../../hooks/usePublicSettings';
 import { useDialog } from '../../hooks/useDialog';
 import { queryClient } from '../../lib/queryClient';
-import { X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Spinner } from '../layout/Loading';
+import { useAuth } from '../../hooks/useAuth';
+import { X, CheckCircle2, AlertCircle, LocateFixed, RefreshCw, MapPinX } from 'lucide-react';
+import { clientSettings } from '../../lib/clientSettings';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -18,13 +21,17 @@ interface CheckoutModalProps {
 }
 
 export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: CheckoutModalProps) {
+  const { user } = useAuth();
   const form = useZodForm(
     CheckoutFormSchema,
-    { name: '', phone: '', address: '', note: '' },
+    { name: user?.name || '', phone: user?.phone || '', address: '', note: '' },
     'checkout',
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [coordinates, setCoordinates] = useState<Coordinates>();
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string>();
   const dialogRef = useDialog(isOpen);
   const settings = usePublicSettings();
 
@@ -60,10 +67,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
         imageUrl: item.emoji,
       })),
       deliveryAddress: values.address,
-      deliveryCoordinates: {
-        lat: 40.7128 + (Math.random() - 0.5) * 0.01,
-        lng: -74.006 + (Math.random() - 0.5) * 0.01,
-      },
+      deliveryCoordinates: coordinates,
       note: values.note || undefined,
     };
 
@@ -83,7 +87,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
         /* Storage may be blocked. */
       }
       void queryClient.invalidateQueries({ queryKey: ['my-orders'] });
-      onOrderSuccess(res.order.id);
+      onOrderSuccess(res.order.trackingId || res.order.id);
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         const fields = Object.fromEntries(
@@ -150,8 +154,11 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
         {!settings.data && settings.error && (
           <p role="alert" className="mb-4 text-sm text-rose-600 dark:text-rose-400">
             {settings.error.message}
-            <button onClick={() => void settings.refetch()} className="ml-2 font-bold underline">
-              Try Loading Pricing Again
+            <button
+              onClick={() => void settings.refetch()}
+              className="ml-2 inline-flex items-center gap-2 font-bold underline"
+            >
+              <RefreshCw aria-hidden="true" className="h-4 w-4" /> Try Loading Pricing Again
             </button>
           </p>
         )}
@@ -213,6 +220,72 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               className="w-full px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
             <FieldError id="checkout-address-error" message={form.errors.address} />
+            <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">
+              If you are at the delivery address, you can attach this device’s current location as
+              an optional map pin. Your written address is still required.
+            </p>
+            <button
+              type="button"
+              disabled={loading || locating}
+              onClick={() => {
+                setLocationError(undefined);
+                if (!navigator.geolocation || !window.isSecureContext) {
+                  setLocationError(
+                    'Current location needs HTTPS (or localhost) and a supported browser.',
+                  );
+                  return;
+                }
+                setLocating(true);
+                navigator.geolocation.getCurrentPosition(
+                  (position) => {
+                    setCoordinates({
+                      lat: position.coords.latitude,
+                      lng: position.coords.longitude,
+                    });
+                    setLocating(false);
+                  },
+                  (cause) => {
+                    setLocationError(
+                      cause.code === 1
+                        ? 'Location permission was denied. You can continue using your written address.'
+                        : 'Your location could not be found. You can continue using your written address.',
+                    );
+                    setLocating(false);
+                  },
+                  {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: clientSettings.VITE_GPS_TIMEOUT_MS,
+                  },
+                );
+              }}
+              className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-teal-600 px-3 text-xs font-bold text-teal-800 dark:text-teal-200"
+            >
+              {locating ? <Spinner /> : <LocateFixed aria-hidden="true" className="h-4 w-4" />}
+              {locating
+                ? 'Getting Location…'
+                : coordinates
+                  ? 'Update Current Location'
+                  : 'Use My Current Location'}
+            </button>
+            {coordinates && (
+              <p role="status" className="mt-2 text-xs text-teal-800 dark:text-teal-200">
+                Map pin attached.{' '}
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setCoordinates(undefined)}
+                  className="inline-flex items-center gap-1 font-bold underline"
+                >
+                  <MapPinX aria-hidden="true" className="h-3.5 w-3.5" /> Remove Pin
+                </button>
+              </p>
+            )}
+            {locationError && (
+              <p role="alert" className="mt-2 text-xs text-rose-800 dark:text-rose-200">
+                {locationError}
+              </p>
+            )}
           </div>
 
           <div>
@@ -244,9 +317,10 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             <button
               type="submit"
               disabled={loading || !settings.data}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />
+              {loading && <Spinner />}
               <span>{loading ? 'Placing Order…' : 'Place Order'}</span>
             </button>
           </div>

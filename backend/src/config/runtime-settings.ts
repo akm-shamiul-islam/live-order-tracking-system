@@ -2,27 +2,100 @@ import { z } from 'zod';
 import { isIP } from 'node:net';
 
 const positiveInteger = (value: number) => z.coerce.number().int().positive().default(value);
+const tokenLifetime = z
+  .string()
+  .regex(/^[1-9]\d*(?:s|m|h|d|w)?$/, 'Use seconds or a duration such as 15m, 1h, or 7d')
+  .default('15m')
+  .transform((value) => {
+    const unit = value.slice(-1);
+    const seconds = /\d/.test(unit)
+      ? Number(value)
+      : Number(value.slice(0, -1)) * ({ s: 1, m: 60, h: 3600, d: 86400, w: 604800 }[unit] ?? 1);
+    return seconds;
+  })
+  .pipe(z.number().int().positive().max(31_536_000));
 
 export const RuntimeSettingsSchema = z
   .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: positiveInteger(5000).pipe(z.number().max(65535)),
     API_HOST: z.string().trim().min(1).default('0.0.0.0'),
+    TRUSTED_PROXY_IPS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      )
+      .refine(
+        (entries) => entries.every((entry) => isIP(entry) !== 0),
+        'Use exact comma-separated proxy IP addresses',
+      ),
     RATE_LIMIT_TTL_MS: positiveInteger(60_000),
     RATE_LIMIT_MAX: positiveInteger(120),
     LOGIN_RATE_LIMIT_TTL_MS: positiveInteger(60_000),
     LOGIN_RATE_LIMIT_MAX: positiveInteger(10),
     REGISTER_RATE_LIMIT_TTL_MS: positiveInteger(60_000),
     REGISTER_RATE_LIMIT_MAX: positiveInteger(5),
+    REFRESH_RATE_LIMIT_MAX: positiveInteger(30),
+    RESET_RATE_LIMIT_MAX: positiveInteger(5),
+    AUTH_SESSION_TTL_MS: positiveInteger(604_800_000),
+    JWT_EXPIRES_IN: tokenLifetime,
+    AUTH_REFRESH_HISTORY_MAX: positiveInteger(1000),
+    AUTH_COOKIE_SECURE: z.stringbool().optional(),
+    PASSWORD_RESET_ENABLED: z.stringbool().default(false),
+    PASSWORD_RESET_TTL_MS: positiveInteger(1_800_000),
+    PASSWORD_RESET_INTERVAL_MS: positiveInteger(300_000),
+    PUBLIC_APP_URL: z.url().default('http://localhost:5173'),
+    SMTP_HOST: z.string().trim().optional(),
+    SMTP_PORT: positiveInteger(587),
+    SMTP_SECURE: z.stringbool().default(false),
+    SMTP_REQUIRE_TLS: z.stringbool().default(true),
+    SMTP_CONNECTION_TIMEOUT_MS: positiveInteger(10_000),
+    SMTP_SOCKET_TIMEOUT_MS: positiveInteger(15_000),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    SMTP_FROM: z.email().optional(),
     PASSWORD_HASH_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
     ORDER_LIST_DEFAULT_LIMIT: positiveInteger(50),
     ORDER_LIST_MAX_LIMIT: positiveInteger(100),
     ORDER_HISTORY_LIMIT: positiveInteger(20),
     ORDER_ESTIMATE_MINUTES: positiveInteger(35),
+    KITCHEN_LATITUDE: z.coerce.number().min(-90).max(90).default(40.7128),
+    KITCHEN_LONGITUDE: z.coerce.number().min(-180).max(180).default(-74.006),
+    ORDER_NUMBER_RETRY_ATTEMPTS: positiveInteger(5),
+    DELIVERY_REQUESTS_MAX: positiveInteger(100),
+    USER_LIST_DEFAULT_LIMIT: positiveInteger(10),
+    USER_LIST_MAX_LIMIT: positiveInteger(100),
+    USER_MANAGEMENT_AUDIT_MAX: positiveInteger(100),
+    TELEMETRY_MAX_AGE_MS: positiveInteger(15_000),
+    TELEMETRY_MAX_FUTURE_MS: positiveInteger(5000),
+    SOCKET_RATE_LIMIT_WINDOW_MS: positiveInteger(1000),
+    SOCKET_RATE_LIMIT_MAX: positiveInteger(50),
+    SOCKET_IP_RATE_LIMIT_MAX: positiveInteger(200),
+    SOCKET_RATE_LIMIT_IPS_MAX: positiveInteger(10_000),
+    SOCKET_ORDER_ROOMS_MAX: positiveInteger(20),
+    SOCKET_MAX_PAYLOAD_BYTES: positiveInteger(16_384),
+    SOCKET_CONNECT_WINDOW_MS: positiveInteger(60_000),
+    SOCKET_CONNECT_MAX: positiveInteger(30),
+    SOCKET_CONNECTIONS_MAX: positiveInteger(2000),
+    SOCKET_CONNECTIONS_PER_IP_MAX: positiveInteger(20),
     DELIVERY_FEE: z.coerce.number().min(0).default(5),
     TAX_RATE: z.coerce.number().min(0).max(1).default(0.08),
-    MONGODB_SERVER_SELECTION_TIMEOUT_MS: positiveInteger(30_000),
-    MONGODB_RETRY_ATTEMPTS: z.coerce.number().int().min(0).default(9),
+    MONGODB_SERVER_SELECTION_TIMEOUT_MS: positiveInteger(5000),
+    MONGODB_RETRY_ATTEMPTS: z.coerce.number().int().min(0).default(1),
     MONGODB_RETRY_DELAY_MS: positiveInteger(3000),
+    MONGODB_HEARTBEAT_FREQUENCY_MS: positiveInteger(10_000).pipe(z.number().min(500)),
+    MONGODB_MAX_POOL_SIZE: positiveInteger(100),
+    MONGODB_SOCKET_TIMEOUT_MS: positiveInteger(10_000),
+    MONGODB_WAIT_QUEUE_TIMEOUT_MS: positiveInteger(5000),
+    MONGODB_WRITE_TIMEOUT_MS: positiveInteger(5000),
+    HEALTHCHECK_TIMEOUT_MS: positiveInteger(1000),
+    SERVE_FRONTEND: z.stringbool().default(false),
+    STATIC_ASSET_MAX_AGE_SECONDS: positiveInteger(3600),
+    STATIC_HASHED_MAX_AGE_SECONDS: positiveInteger(31_536_000),
     DNS_SERVERS: z
       .string()
       .default('')
@@ -38,6 +111,38 @@ export const RuntimeSettingsSchema = z
       ),
   })
   .superRefine((settings, context) => {
+    if (settings.USER_LIST_DEFAULT_LIMIT > settings.USER_LIST_MAX_LIMIT) {
+      context.addIssue({
+        code: 'custom',
+        path: ['USER_LIST_DEFAULT_LIMIT'],
+        message: 'Default user limit must not exceed USER_LIST_MAX_LIMIT',
+      });
+    }
+    if (settings.PASSWORD_RESET_ENABLED && (!settings.SMTP_HOST || !settings.SMTP_FROM)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PASSWORD_RESET_ENABLED'],
+        message: 'Configure SMTP_HOST and SMTP_FROM before enabling password recovery',
+      });
+    }
+    if (Boolean(settings.SMTP_USER) !== Boolean(settings.SMTP_PASSWORD)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SMTP_USER'],
+        message: 'SMTP_USER and SMTP_PASSWORD must be configured together',
+      });
+    }
+    if (
+      settings.NODE_ENV === 'production' &&
+      settings.PASSWORD_RESET_ENABLED &&
+      !settings.PUBLIC_APP_URL.startsWith('https://')
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['PUBLIC_APP_URL'],
+        message: 'Use HTTPS for production password recovery links',
+      });
+    }
     if (settings.ORDER_LIST_DEFAULT_LIMIT > settings.ORDER_LIST_MAX_LIMIT) {
       context.addIssue({
         code: 'custom',
@@ -45,7 +150,11 @@ export const RuntimeSettingsSchema = z
         message: 'Default order limit must not exceed ORDER_LIST_MAX_LIMIT',
       });
     }
-  });
+  })
+  .transform((settings) => ({
+    ...settings,
+    AUTH_COOKIE_SECURE: settings.AUTH_COOKIE_SECURE ?? settings.NODE_ENV === 'production',
+  }));
 
 export type RuntimeSettings = z.infer<typeof RuntimeSettingsSchema>;
 let configuredSettings: RuntimeSettings | undefined;

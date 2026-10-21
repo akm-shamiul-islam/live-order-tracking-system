@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, Injectable, Logger, Inject } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+  Inject,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
 import { AuthService } from '../auth.service.js';
 
@@ -18,11 +25,14 @@ export class WsJwtGuard implements CanActivate {
     }
 
     try {
-      if (typeof token !== 'string') throw new Error('Invalid authentication token');
+      if (typeof token !== 'string')
+        throw new UnauthorizedException('Invalid authentication token');
       const user = await this.authService.verifyToken(token.replace(/^Bearer\s+/i, ''));
       client.user = user;
       return true;
-    } catch {
+    } catch (error) {
+      if (!(error instanceof UnauthorizedException))
+        throw new WsException('The order service is temporarily unavailable. Please try again.');
       this.logger.warn(`Rejected invalid token socket connection: ${client.id}`);
       throw new WsException('Unauthorized: Invalid or expired authentication token');
     }

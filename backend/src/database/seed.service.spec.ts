@@ -7,7 +7,13 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'dotenv';
 
 describe('Explicit development administrator recovery', () => {
-  type Account = { passwordHash: string; role: string; name?: string; save: () => Promise<void> };
+  type Account = {
+    passwordHash: string;
+    role: string;
+    name?: string;
+    tokenVersion?: number;
+    save: () => Promise<void>;
+  };
   const findOne = vi.fn<(filter: { email: string }) => Promise<Account | null>>();
   const save = vi.fn<() => Promise<void>>();
   const service = new SeedService({ findOne } as unknown as Model<UserDocument>);
@@ -29,13 +35,20 @@ describe('Explicit development administrator recovery', () => {
   });
 
   it('restores the configured administrator password without changing role or profile', async () => {
-    const admin = { passwordHash: 'previous-hash', role: 'ADMIN', name: 'Existing Admin', save };
+    const admin = {
+      passwordHash: 'previous-hash',
+      role: 'ADMIN',
+      name: 'Existing Admin',
+      tokenVersion: 3,
+      save,
+    };
     findOne.mockResolvedValue(admin);
     await service.resetDevelopmentAdmin();
     expect(findOne).toHaveBeenCalledWith({ email: 'admin@kitchentodoor.io' });
     expect(await bcrypt.compare('KitchenAdmin#2026!Secure', admin.passwordHash)).toBe(true);
     expect(admin.role).toBe('ADMIN');
     expect(admin.name).toBe('Existing Admin');
+    expect(admin.tokenVersion).toBe(4);
     expect(save).toHaveBeenCalledTimes(1);
   });
 

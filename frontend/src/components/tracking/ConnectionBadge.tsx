@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSocket } from '../../lib/socket';
 import { clientSettings } from '../../lib/clientSettings';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 export function ConnectionBadge() {
   const [connected, setConnected] = useState(() => getSocket().connected);
@@ -72,7 +72,14 @@ export function ConnectionBadge() {
       ) : (
         <span className="flex items-center gap-1">
           <WifiOff className="w-3 h-3" />
-          <span>Offline</span>
+          <button
+            type="button"
+            onClick={() => getSocket().connect()}
+            aria-label="Reconnect live updates"
+            className="inline-flex items-center gap-1 font-semibold underline underline-offset-2"
+          >
+            <RefreshCw aria-hidden="true" className="h-3 w-3" /> Reconnect
+          </button>
         </span>
       )}
     </div>

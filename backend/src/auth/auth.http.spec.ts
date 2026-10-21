@@ -20,11 +20,18 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { httpRateLimiterProvider } from '../common/rate-limit.js';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { PublicConfigController } from '../config/public-config.controller.js';
+import { AuthSession } from '../database/schemas/auth-session.schema.js';
+import { RecoveryMailer } from './recovery-mailer.js';
 
 const users = new Map<string, Record<string, unknown>>();
 const userModel = {
   findOne: async ({ email }: { email: string }) => users.get(email) ?? null,
   findById: async (id: string) => [...users.values()].find((user) => user._id === id),
+  updateOne: async ({ _id }: { _id: string }) => {
+    const user = [...users.values()].find((entry) => entry._id === _id);
+    if (user) user.tokenVersion = Number(user.tokenVersion ?? 0) + 1;
+    return { modifiedCount: user ? 1 : 0 };
+  },
   create: async (user: Record<string, unknown>) => {
     const created = { ...user, _id: `user-${users.size}` };
     users.set(String(user.email), created);
@@ -49,6 +56,15 @@ const userModel = {
     RolesGuard,
     httpRateLimiterProvider,
     { provide: getModelToken(User.name), useValue: userModel },
+    {
+      provide: getModelToken(AuthSession.name),
+      useValue: {
+        create: async () => ({}),
+        exists: async () => true,
+        updateMany: async () => ({}),
+      },
+    },
+    { provide: RecoveryMailer, useValue: { send: vi.fn<RecoveryMailer['send']>() } },
     {
       provide: OrdersService,
       useValue: {
@@ -80,6 +96,12 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
       email: 'admin@example.com',
       passwordHash: await bcrypt.hash('correct-password', 4),
       role: UserRole.ADMIN,
+    });
+    users.set('existing-customer@example.com', {
+      _id: 'customer-id',
+      name: 'Customer',
+      email: 'existing-customer@example.com',
+      role: UserRole.CUSTOMER,
     });
     app = await NestFactory.create<NestFastifyApplication>(HttpTestModule, new FastifyAdapter(), {
       logger: false,
@@ -227,17 +249,25 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
 
   it.each([
     '/api/orders/not-an-order',
-    '/api/orders/my-orders',
+    '/api/orders/my-orders?page=0',
     '/api/orders/my-orders?phone=letters',
     '/api/orders/my-orders?phone=123',
   ])('rejects malformed lookup input at %s', async (url) => {
-    const response = await app.inject({ method: 'GET', url });
+    const response = await app.inject({
+      method: 'GET',
+      url,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
     expect(response.statusCode).toBe(400);
     expect(response.json().errors.length).toBeGreaterThan(0);
   });
 
   it('normalizes an order-number URL before looking it up', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/orders/ktd-1234' });
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/orders/ktd-1234',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
     expect(response.statusCode).toBe(200);
     expect(response.json().order.orderNumber).toBe('KTD-1234');
   });
@@ -313,9 +343,18 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/api/orders/my-orders?phone=555-1234&page=2&limit=10',
+      headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().pagination).toEqual({ page: 2, pageSize: 10, total: 26, totalPages: 3 });
+  });
+
+  it('rejects anonymous phone-based history lookup', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/orders/my-orders?phone=555-1234',
+    });
+    expect(response.statusCode).toBe(401);
   });
 
   it.each(['page=0', 'page=-1', 'page=1.5', 'page=nope', `search=${'x'.repeat(101)}`])(

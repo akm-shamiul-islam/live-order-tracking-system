@@ -1,6 +1,6 @@
 # Dependency version audit
 
-Registry metadata was checked on **2026-10-20** across all four workspace manifests. After removing the deprecated bcrypt types stub, there are **49 maintained packages across 58 declarations**. Of these, 48 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime.
+Registry metadata was checked on **2026-10-21 (Asia/Tokyo)** across all four workspace manifests. After removing the deprecated bcrypt types stub, there are **57 maintained packages across 67 declarations**. Of these, 56 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime.
 
 The `^` prefix permits compatible newer versions; it does not mean the installed version equals the minimum shown in `package.json`. The lockfile and installed package metadata establish the version actually used. React 19.3.1 and Tailwind CSS 4.3.3 were already installed at their current stable versions; their README badges and lower dependency bounds were outdated.
 
@@ -25,12 +25,14 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | --- | --- | --- | --- |
 | [@fastify/cors](https://www.npmjs.com/package/@fastify/cors/v/11.3.1) | `^11.3.1` | 11.3.1 | backend |
 | [@fastify/helmet](https://www.npmjs.com/package/@fastify/helmet/v/13.2.0) | `^13.2.0` | 13.2.0 | backend |
+| [@fastify/static](https://www.npmjs.com/package/@fastify/static/v/10.1.6) | `^10.1.6` | 10.1.6 | backend |
 | [@nestjs/common](https://www.npmjs.com/package/@nestjs/common/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
 | [@nestjs/config](https://www.npmjs.com/package/@nestjs/config/v/12.0.1) | `^12.0.1` | 12.0.1 | backend |
 | [@nestjs/core](https://www.npmjs.com/package/@nestjs/core/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
 | [@nestjs/jwt](https://www.npmjs.com/package/@nestjs/jwt/v/12.0.3) | `^12.0.3` | 12.0.3 | backend |
 | [@nestjs/mongoose](https://www.npmjs.com/package/@nestjs/mongoose/v/12.0.0) | `^12.0.0` | 12.0.0 | backend |
 | [@nestjs/passport](https://www.npmjs.com/package/@nestjs/passport/v/12.0.0) | `^12.0.0` | 12.0.0 | backend |
+| [@nestjs/platform-express](https://www.npmjs.com/package/@nestjs/platform-express/v/12.2.0) | `12.2.0` | 12.2.0 | backend |
 | [@nestjs/platform-fastify](https://www.npmjs.com/package/@nestjs/platform-fastify/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
 | [@nestjs/platform-socket.io](https://www.npmjs.com/package/@nestjs/platform-socket.io/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
 | [@nestjs/throttler](https://www.npmjs.com/package/@nestjs/throttler/v/6.7.1) | `^6.7.1` | 6.7.1 | backend |
@@ -39,19 +41,25 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [@tanstack/react-query](https://www.npmjs.com/package/@tanstack/react-query/v/5.104.5) | `^5.104.5` | 5.104.5 | frontend |
 | [@tanstack/react-router](https://www.npmjs.com/package/@tanstack/react-router/v/1.170.45) | `^1.170.45` | 1.170.45 | frontend |
 | [@types/node](https://www.npmjs.com/package/@types/node/v/24.19.2) | `^24.19.2` | 24.19.2 (Node 24) | backend |
+| [@types/nodemailer](https://www.npmjs.com/package/@types/nodemailer/v/8.0.2) | `^8.0.2` | 8.0.2 | backend |
 | [@types/passport-jwt](https://www.npmjs.com/package/@types/passport-jwt/v/4.0.1) | `^4.0.1` | 4.0.1 | backend |
 | [@types/react](https://www.npmjs.com/package/@types/react/v/19.3.0) | `^19.3.0` | 19.3.0 | frontend |
 | [@types/react-dom](https://www.npmjs.com/package/@types/react-dom/v/19.3.0) | `^19.3.0` | 19.3.0 | frontend |
 | [@vitejs/plugin-react](https://www.npmjs.com/package/@vitejs/plugin-react/v/6.1.2) | `^6.1.2` | 6.1.2 | frontend |
+| [autocannon](https://www.npmjs.com/package/autocannon/v/8.0.0) | `8.0.0` | 8.0.0 | backend |
 | [bcryptjs](https://www.npmjs.com/package/bcryptjs/v/3.0.3) | `^3.0.3` | 3.0.3 | backend |
 | [clsx](https://www.npmjs.com/package/clsx/v/2.1.1) | `^2.1.1` | 2.1.1 | frontend |
 | [dotenv](https://www.npmjs.com/package/dotenv/v/18.0.8) | `^18.0.8` | 18.0.8 | backend |
 | [fastify](https://www.npmjs.com/package/fastify/v/5.12.7) | `^5.12.7` | 5.12.7 | backend |
+| [helmet](https://www.npmjs.com/package/helmet/v/8.3.0) | `8.3.0` | 8.3.0 | backend |
 | [husky](https://www.npmjs.com/package/husky/v/9.1.7) | `^9.1.7` | 9.1.7 | root |
+| [lighthouse](https://www.npmjs.com/package/lighthouse/v/13.5.0) | `^13.5.0` | 13.5.0 | root |
 | [lint-staged](https://www.npmjs.com/package/lint-staged/v/17.6.0) | `^17.6.0` | 17.6.0 | root |
 | [lucide-react](https://www.npmjs.com/package/lucide-react/v/1.60.0) | `^1.60.0` | 1.60.0 | frontend |
+| [mongodb-memory-server](https://www.npmjs.com/package/mongodb-memory-server/v/11.3.0) | `11.3.0` | 11.3.0 | backend |
 | [mongoose](https://www.npmjs.com/package/mongoose/v/9.11.2) | `^9.11.2` | 9.11.2 | backend |
 | [motion](https://www.npmjs.com/package/motion/v/14.4.0) | `^14.4.0` | 14.4.0 | frontend |
+| [nodemailer](https://www.npmjs.com/package/nodemailer/v/10.1.7) | `^10.1.7` | 10.1.7 | backend |
 | [oxfmt](https://www.npmjs.com/package/oxfmt/v/0.74.0) | `^0.74.0` | 0.74.0 | root |
 | [oxlint](https://www.npmjs.com/package/oxlint/v/1.89.0) | `^1.89.0` | 1.89.0 | root |
 | [oxlint-tsgolint](https://www.npmjs.com/package/oxlint-tsgolint/v/7.0.2004) | `^7.0.2004` | 7.0.2004 | root |
@@ -62,7 +70,7 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [reflect-metadata](https://www.npmjs.com/package/reflect-metadata/v/0.2.2) | `^0.2.2` | 0.2.2 | backend |
 | [rxjs](https://www.npmjs.com/package/rxjs/v/7.8.2) | `^7.8.2` | 7.8.2 | backend |
 | [socket.io](https://www.npmjs.com/package/socket.io/v/4.8.4) | `^4.8.4` | 4.8.4 | backend |
-| [socket.io-client](https://www.npmjs.com/package/socket.io-client/v/4.8.4) | `^4.8.4` | 4.8.4 | frontend |
+| [socket.io-client](https://www.npmjs.com/package/socket.io-client/v/4.8.4) | `^4.8.4` | 4.8.4 | backend, frontend |
 | [tailwind-merge](https://www.npmjs.com/package/tailwind-merge/v/3.7.0) | `^3.7.0` | 3.7.0 | frontend |
 | [tailwindcss](https://www.npmjs.com/package/tailwindcss/v/4.3.3) | `^4.3.3` | 4.3.3 | frontend |
 | [tsx](https://www.npmjs.com/package/tsx/v/4.23.15) | `^4.23.15` | 4.23.15 | backend |
@@ -76,7 +84,7 @@ Each release below was verified through the [npm registry](https://registry.npmj
 ## Migration and compatibility notes
 
 - **Zod 4.6.7:** Updated native enums to `z.enum`, email formats to `z.email` after trimming/normalization, removed the old `ZodSchema` alias, and read errors through `issues`. Numeric schemas retain finite-number validation because Zod 4 rejects infinity by default. Server field-error response paths and inline client validation are preserved. See the [Zod migration guide](https://zod.dev/v4/changelog).
-- **Motion 14.4.0:** Reviewed the [Motion upgrade guide](https://motion.dev/docs/react-upgrade-guide). Version 13 changes CSS-in-JS prop filtering; this app uses native `motion.div` elements. Version 14 retains the public React APIs used here.
+- **Motion 14.4.0:** Reviewed the [Motion upgrade guide](https://motion.dev/docs/react-upgrade-guide). Version 13 changes CSS-in-JS prop filtering; this app uses native `motion.div` elements. Version 14 retains the public React APIs used here. The current tracking code uses the documented LazyMotion and motion/react-m entry points.
 - **Tooling:** Oxlint 1.89.0 and Oxfmt 0.74.0 are explicit root tools. The installed Vite+ release is 1.3.0 and bundles its own tool versions. Source scripts use the standalone tools described in the README.
 - **Node:** The compatibility review corrected the initial Node 26 type upgrade to `@types/node` 24.19.2, the latest Node 24 types. The root `engines.node` declares `24.x`, matching the project runtime. DefinitelyTyped documents that declarations follow the corresponding library version. The dependency checker reports both the compatible target and the global npm latest version. See [DefinitelyTyped versioning](https://github.com/DefinitelyTyped/DefinitelyTyped#versioning).
 - **Known upstream peer warning:** `pnpm peers check` reports the Vite+ core alias version 1.3.0 against the Vite 6/7/8 peer ranges in its bundled Vitest 5.0.5 and `@vitest/mocker`. Vite+ documents the core alias in its [migration rules](https://viteplus.dev/guide/migrate-rules#vite-and-overrides), and the warning is tracked [upstream](https://github.com/voidzero-dev/vite-plus/issues/1101). The application and standalone runner resolve Vite 8.3.4.
@@ -95,11 +103,11 @@ Review migration notes before accepting a future major release. Regenerate the l
 
 ## Upgrade verification
 
-- `pnpm deps:check`: 49 packages across 58 declarations; all installed versions and declared minimums match their targets, with no deprecated direct packages. The Node 24 type target is reported explicitly.
-- `pnpm typecheck`, `pnpm test`, and `pnpm build`: passed, with 161 source tests across 15 suites.
+- `pnpm deps:check`: 57 packages across 67 declarations; all installed versions and declared minimums match their targets, with no deprecated direct packages. The Node 24 type target is reported explicitly.
+- Typechecking, source/HTTP tests and production builds are recorded in the current verification report. The additional real MongoDB/Socket.IO and browser suites are separate commands.
 - `pnpm lint`: zero errors, including the deprecated API rule; the existing warning backlog remains.
 - `pnpm audit --json`: zero reported vulnerabilities across the resolved dependency tree.
-- A compiled production API and frontend preview passed browser checks for real staff login with normalized email, red inline field errors and first-error focus, Motion tracking rendering, live sockets, and configured delivery/tax pricing. The check did not create or advance orders.
+- The expanded isolated production-browser suite drives customer registration/checkout/history, real HttpOnly refresh, admin user editing, courier requests/approval/status/GPS/cancellation, persistent navigation, loading/dark/responsive states, CSP/assets and Vite restart recovery. It creates and advances only synthetic test orders.
 
 ## Official documentation compatibility review
 
@@ -116,7 +124,7 @@ Reviewed the package APIs used by the application against current maintainer doc
 
 | Packages | Official source | Usage and finding |
 | --- | --- | --- |
-| `motion` 14.4.0 | [Upgrade guide](https://motion.dev/docs/react-upgrade-guide), [MotionConfig](https://motion.dev/docs/react-motion-config), [accessibility](https://motion.dev/docs/react-accessibility) | Native motion elements and spring transitions remain supported across versions 13 and 14. Added reduced-motion controls; no CSS-in-JS prop-filtering integration is used. |
+| `motion` 14.4.0 | [Upgrade guide](https://motion.dev/docs/react-upgrade-guide), [MotionConfig](https://motion.dev/docs/react-motion-config), [accessibility](https://motion.dev/docs/react-accessibility) | Tracking now uses LazyMotion/domAnimation with motion/react-m, reduced-motion handling and spring interpolation. The menu does not load tracking animations. No CSS-in-JS prop filtering integration is used. |
 | `zod` 4.6.7 | [Migration guide](https://zod.dev/v4/changelog), [schema API](https://zod.dev/api) | Checked issues, numeric bounds, defaults/transforms, coercion, enums, email normalization, refinements, and generic schema types. Existing field-error HTTP contracts and finite-value checks pass. |
 | `@tanstack/react-query` 5.104.5 | [Patch release](https://github.com/TanStack/query/releases/tag/%40tanstack%2Freact-query%405.104.5), [QueryClient](https://tanstack.com/query/latest/docs/framework/react/reference/classes/QueryClient) | Uses object query options, immutable cache updates, invalidation/removal filters, and current `queryClient.query`. The patch's mutation-selector fix requires no migration in this app. |
 | `lucide-react` 1.60.0 | [React guide](https://lucide.dev/guide/react), [release](https://github.com/lucide-icons/lucide/releases/tag/1.60.0) | Static named icon components and SVG props remain supported; imports compile and UI icons render. |
@@ -141,4 +149,24 @@ Reviewed the package APIs used by the application against current maintainer doc
 | `clsx`, `tailwind-merge` | [clsx usage](https://github.com/lukeed/clsx), [Tailwind compatibility](https://github.com/dcastil/tailwind-merge) | Installed utilities have no direct source imports. Tailwind merge 3.7 supports Tailwind 4.3; no application calls require migration. |
 | `reflect-metadata`, `rxjs` | [Legacy decorator support](https://github.com/microsoft/reflect-metadata), [RxJS maintainer source](https://github.com/ReactiveX/rxjs/tree/7.8.2) | Metadata is imported before backend startup with compiler decorator options enabled. RxJS supplies the Nest peer; the application has no direct operator calls to migrate. |
 
-The compatibility checks passed 161 tests across 15 suites, workspace typechecking and production builds, zero lint errors, fresh production login/form/socket checks, and temporary normal/reduced-motion component checks. The upstream Vite+ peer warning remains. The separate production issues in the codebase review require their own implementation and verification.
+The current verification results are recorded in [IMPLEMENTATION_AND_VERIFICATION_REPORT.md](IMPLEMENTATION_AND_VERIFICATION_REPORT.md). The upstream Vite+ peer warning remains. Live payment/geocoding/deployment choices are separate from package API compatibility.
+
+## Packages added for verified runtime and measurement
+
+| Package | Official documentation | Integration checked |
+| --- | --- | --- |
+| `@fastify/static` 10.1.6 | [Maintainer API](https://github.com/fastify/fastify-static) | Fastify 5 compatibility, setHeaders receives FastifyReply (`header`), preCompressed assets, safe SPA fallback and immutable hashed paths. |
+| `nodemailer` 10.1.7 / `@types/nodemailer` 8.0.2 | [SMTP](https://nodemailer.com/smtp), [usage](https://nodemailer.com/usage) | SMTP transport, required STARTTLS/implicit TLS options, bounded timeouts, disabled file/URL access and awaited sendMail. Current maintained declarations compile; integration tests mock delivery. |
+| `mongodb-memory-server` 11.3.0 | [API](https://typegoose.github.io/mongodb-memory-server/docs/api/classes/mongo-memory-server/) | Isolated fixtures, persistent stop/restart with start(true), cleanup and on-demand binary download. No development database mutations. |
+| `autocannon` 8.0.0 | [Maintainer API](https://github.com/mcollina/autocannon) | Programmatic closed-loop load, warmup/repetitions, status/error preflight and latency/throughput reporting. |
+| `@nestjs/platform-express` 12.2.0 / `helmet` 8.3.0 | [Nest adapters](https://docs.nestjs.com/faq/http-adapter), [Helmet](https://helmetjs.github.io/) | Benchmark-only Express comparison with the same AppModule, MongoDB, guards, settings and equivalent security headers. |
+| `lighthouse` 13.5.0 | [Maintainer API](https://github.com/GoogleChrome/lighthouse) | Compiled production app, isolated real browser/authentication, cold-cache mobile/desktop measurements and sanitized saved summaries. |
+| Backend `socket.io-client` 4.8.4 | [TypeScript](https://socket.io/docs/v4/typescript/) | Public io/Socket imports replace ambient declarations; transports/on/once compile and real socket tests execute. |
+
+### Benchmark dependency security fix
+
+Autocannon 8 declares Hyperid 3, which included vulnerable UUID 8. The selective workspace override `autocannon>hyperid: 4.0.0` uses the latest upstream Hyperid release. Its [v4 release](https://github.com/mcollina/hyperid/releases/tag/v4.0.0) removes UUID while retaining the documented generator/decode API. This removes [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq), instead of forcing an incompatible UUID export format. The override is separate from the 57 direct package inventory. Full benchmark execution verifies the tool on Node 24; `pnpm audit --json` reports zero known advisories.
+
+### CSP and current persistence options
+
+[Zod maintainer guidance](https://github.com/colinhacks/zod/issues/4461) requires configuring jitless mode before constructing schemas. The shared browser Zod entry does so, preserving strict CSP without unsafe-eval. Refined status objects use [safeExtend](https://zod.dev/api#safeextend), preserving cancellation checks. MongoDB driver 7 uses the documented [journal write concern](https://mongodb.github.io/node-mongodb-native/7.0/interfaces/WriteConcernSettings.html); Mongoose 9 updates use returnDocument: after. Browser geolocation uses current [watchPosition/clearWatch](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/watchPosition) with explicit consent and cleanup.

@@ -39,11 +39,7 @@ export function isValidStatusTransition(
     return false;
   }
   if (nextStatus === OrderStatus.CANCELLED) {
-    return (
-      currentStatus === OrderStatus.PLACED ||
-      currentStatus === OrderStatus.CONFIRMED ||
-      currentStatus === OrderStatus.PREPARING
-    );
+    return true;
   }
 
   const currentIndex = ORDER_STATUS_SEQUENCE.indexOf(currentStatus);

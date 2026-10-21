@@ -36,8 +36,25 @@ export function subscribeSession(listener: () => void) {
   return authStore.subscribe(listener);
 }
 
+function updateSession(next: AuthSession) {
+  const current = getSession();
+  const sameUser =
+    current.user === next.user ||
+    Boolean(
+      current.user &&
+      next.user &&
+      current.user.id === next.user.id &&
+      current.user.name === next.user.name &&
+      current.user.email === next.user.email &&
+      current.user.phone === next.user.phone &&
+      current.user.role === next.user.role,
+    );
+  if (sameUser && current.token === next.token) return;
+  authStore.setState({ ...next, user: sameUser ? current.user : next.user });
+}
+
 export function saveSession(response: AuthResponse) {
-  authStore.setState({ user: response.user, token: response.accessToken });
+  updateSession({ user: response.user, token: response.accessToken });
   try {
     localStorage.setItem('ktd_token', response.accessToken);
     localStorage.setItem('ktd_user', JSON.stringify(response.user));
@@ -47,7 +64,7 @@ export function saveSession(response: AuthResponse) {
 }
 
 export function clearSession() {
-  authStore.setState(emptySession);
+  updateSession(emptySession);
   try {
     localStorage.removeItem('ktd_token');
     localStorage.removeItem('ktd_user');
@@ -62,9 +79,9 @@ function handleStorage(event: StorageEvent) {
   }
 }
 
-function synchronizeStoredSession() {
+export function synchronizeStoredSession() {
   const stored = readStoredSession();
-  if (stored) authStore.setState(stored);
+  if (stored) updateSession(stored);
 }
 
 export function listenForSessionChanges() {

@@ -35,7 +35,7 @@ describe('API requests and shared authentication', () => {
     expect(session.getSession().user?.name).toBe('Dispatcher');
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(1);
-    api.auth.logout();
+    void api.auth.logout();
     expect(session.getSession()).toEqual({ user: null, token: null });
     expect(localStorage.getItem('ktd_token')).toBeNull();
     expect(first).toHaveBeenCalledTimes(2);
@@ -43,10 +43,51 @@ describe('API requests and shared authentication', () => {
     for (const stop of unsubscribe) stop();
   });
 
-  it('clears an expired session on an authenticated 401', async () => {
+  it('clears an expired session when both access and refresh credentials are rejected', async () => {
     session.saveSession(response as Parameters<typeof session.saveSession>[0]);
     fetchMock.mockResolvedValueOnce(Response.json({ message: 'Unauthorized' }, { status: 401 }));
+    fetchMock.mockResolvedValueOnce(Response.json({ message: 'Unauthorized' }, { status: 401 }));
     await expect(api.auth.getMe()).rejects.toMatchObject({ status: 401 });
+    expect(session.getSession().token).toBeNull();
+  });
+
+  it('rotates expired credentials once and retries the original request', async () => {
+    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    const refreshed = { ...response, accessToken: 'refreshed-token' };
+    fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
+    fetchMock.mockResolvedValueOnce(Response.json(refreshed));
+    fetchMock.mockResolvedValueOnce(Response.json(response.user));
+    await expect(api.auth.getMe()).resolves.toEqual(response.user);
+    expect(session.getSession().token).toBe('refreshed-token');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/refresh');
+    expect(new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get('Authorization')).toBe(
+      'Bearer refreshed-token',
+    );
+  });
+
+  it('preserves a saved session during a refresh service outage', async () => {
+    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
+    fetchMock.mockResolvedValueOnce(Response.json({}, { status: 503 }));
+    await expect(api.auth.getMe()).rejects.toMatchObject({ status: 503 });
+    expect(session.getSession().token).toBe(response.accessToken);
+  });
+
+  it('cannot restore a session after sign-out while a refresh response is pending', async () => {
+    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    let finish!: (response: Response) => void;
+    fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const pending = api.auth.getMe();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    session.clearSession();
+    finish(Response.json({ ...response, accessToken: 'late-token' }));
+    await expect(pending).rejects.toMatchObject({ status: 401 });
     expect(session.getSession().token).toBeNull();
   });
 
@@ -146,7 +187,7 @@ describe('API requests and shared authentication', () => {
     fetchMock.mockResolvedValueOnce(Response.json(response));
     await api.auth.login('admin@example.com', 'password');
     expect(session.getSession().token).toBe('signed-token');
-    api.auth.logout();
+    void api.auth.logout();
     expect(session.getSession().token).toBeNull();
   });
 });

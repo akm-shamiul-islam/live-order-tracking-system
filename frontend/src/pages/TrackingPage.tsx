@@ -1,21 +1,30 @@
 import { lazy, Suspense } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { OrderIdentifierSchema, OrderLookupSchema, OrderStatus } from '@kitchentodoor/shared';
-import { Search, Navigation, AlertCircle } from 'lucide-react';
+import { Search, Navigation, AlertCircle, RefreshCw } from 'lucide-react';
 import { useOrderSocket } from '../hooks/useOrderSocket';
 import { useAuth } from '../hooks/useAuth';
 import { useZodForm } from '../hooks/useZodForm';
 import { FieldError } from '../components/forms/FieldError';
 import { ApiError } from '../lib/api';
+import { PageSkeleton, LoadingState } from '../components/layout/Loading';
+import { OrderTimeline } from '../components/tracking/OrderTimeline';
+import { LiveMapTracker } from '../components/tracking/LiveMapTracker';
+import { OrderSummary } from '../components/tracking/OrderSummary';
+import { clientSettings } from '../lib/clientSettings';
 
-const OrderTimeline = lazy(() =>
-  import('../components/tracking/OrderTimeline').then((m) => ({ default: m.OrderTimeline })),
-);
-const LiveMapTracker = lazy(() =>
-  import('../components/tracking/LiveMapTracker').then((m) => ({ default: m.LiveMapTracker })),
-);
 const CourierSimulator = lazy(() =>
   import('../components/tracking/CourierSimulator').then((m) => ({ default: m.CourierSimulator })),
+);
+const DeliveryAssignment = lazy(() =>
+  import('../components/tracking/DeliveryAssignment').then((module) => ({
+    default: module.DeliveryAssignment,
+  })),
+);
+const CourierLocationSharing = lazy(() =>
+  import('../components/tracking/CourierLocationSharing').then((module) => ({
+    default: module.CourierLocationSharing,
+  })),
 );
 
 export function TrackingPage() {
@@ -29,7 +38,7 @@ export function CourierPage() {
 }
 
 function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking' | 'courier' }) {
-  const { isAdmin, isCourier } = useAuth();
+  const { user, isAdmin, isCourier } = useAuth();
   const canDispatch = isAdmin || isCourier;
   const navigate = useNavigate();
   const form = useZodForm(OrderLookupSchema, { orderId }, 'tracking');
@@ -68,7 +77,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
             <Link
               to={view === 'courier' ? '/tracking/$orderId' : '/courier/$orderId'}
               params={{ orderId: order.id }}
-              className="mt-2 inline-block text-xs font-bold text-teal-600 underline dark:text-teal-400"
+              className="mt-2 inline-block text-xs font-bold text-teal-700 underline dark:text-teal-400"
             >
               {view === 'courier' ? 'Open Live Tracking' : 'Open Courier Controls'}
             </Link>
@@ -103,7 +112,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
                 spellCheck={false}
                 aria-invalid={fieldMessage ? true : undefined}
                 aria-describedby={fieldMessage ? 'tracking-orderId-error' : undefined}
-                placeholder="Order number (e.g. KTD-1234)…"
+                placeholder="Private tracking ID or staff order number…"
                 className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-xs text-slate-900 shadow-xs placeholder-slate-400 focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-100"
               />
             </div>
@@ -111,7 +120,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
           </div>
           <button
             type="submit"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 text-xs font-bold text-white shadow-sm hover:from-emerald-600 hover:to-teal-700"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 text-xs font-bold text-white shadow-sm hover:from-emerald-800 hover:to-teal-800"
           >
             <Navigation aria-hidden="true" className="h-4 w-4" />
             <span>Track</span>
@@ -120,10 +129,7 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
       </div>
 
       {isLoading ? (
-        <div role="status" className="glass-panel rounded-3xl p-16 text-center">
-          <h2 className="font-display text-lg font-bold">Loading Your Order…</h2>
-          <p className="mt-1 text-xs text-slate-500">Connecting to live order updates.</p>
-        </div>
+        <PageSkeleton label="Loading your order…" />
       ) : error ? (
         <div role="alert" className="glass-panel rounded-3xl border-rose-500/30 p-12 text-center">
           <AlertCircle aria-hidden="true" className="mx-auto mb-3 h-12 w-12 text-rose-500" />
@@ -137,40 +143,56 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
           </p>
           <button
             onClick={() => void refetch()}
-            className="mt-3 font-bold text-teal-600 underline dark:text-teal-400"
+            className="mt-3 inline-flex items-center gap-2 font-bold text-teal-700 underline dark:text-teal-400"
           >
+            <RefreshCw aria-hidden="true" className="h-4 w-4" />
             Try Again
           </button>
         </div>
       ) : order ? (
-        <Suspense
-          fallback={
-            <p role="status" className="p-8 text-center">
-              Loading Tracking…
-            </p>
-          }
-        >
+        <Suspense fallback={<PageSkeleton label="Loading tracking…" />}>
           <div className="space-y-8">
+            <OrderSummary order={order} />
             {view === 'tracking' && <OrderTimeline order={order} />}
+            {canDispatch && !deliveryFinished && (
+              <Suspense fallback={<LoadingState label="Loading delivery controls…" />}>
+                <DeliveryAssignment order={order} />
+              </Suspense>
+            )}
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-              <div className={canDispatch ? 'lg:col-span-2' : 'lg:col-span-3'}>
+              <div
+                className={
+                  isCourier || (isAdmin && clientSettings.VITE_ENABLE_COURIER_SIMULATOR)
+                    ? 'lg:col-span-2'
+                    : 'lg:col-span-3'
+                }
+              >
                 <LiveMapTracker order={order} />
               </div>
-              {canDispatch && !deliveryFinished && (
+              {isAdmin && clientSettings.VITE_ENABLE_COURIER_SIMULATOR && !deliveryFinished && (
                 <CourierSimulator
                   key={order.id}
                   orderId={order.id}
                   orderNumber={order.orderNumber}
                   destLat={order.deliveryCoordinates.lat}
                   destLng={order.deliveryCoordinates.lng}
+                  initialLat={order.deliveryCoordinates.lat - 0.015}
+                  initialLng={order.deliveryCoordinates.lng - 0.018}
                 />
               )}
+              {isCourier &&
+                order.courierId === user?.id &&
+                order.status === OrderStatus.OUT_FOR_DELIVERY && (
+                  <Suspense fallback={<LoadingState label="Loading location controls…" />}>
+                    <CourierLocationSharing key={order.id} orderId={order.id} />
+                  </Suspense>
+                )}
               {canDispatch && deliveryFinished && (
                 <p
                   role="status"
                   className="glass-panel rounded-2xl p-6 text-sm text-slate-500 dark:text-slate-400"
                 >
-                  This order is {order.status.toLowerCase()}. Courier simulation has stopped.
+                  This order is {order.status.toLowerCase()}. Location sharing has stopped.
                 </p>
               )}
             </div>
@@ -187,10 +209,10 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
             {view === 'courier' ? 'the dispatch station' : 'your order history'}.
           </p>
           <Link
-            to={view === 'courier' ? '/dispatch' : '/'}
-            className="inline-flex rounded-xl bg-teal-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-teal-700"
+            to={view === 'courier' ? '/orders' : '/'}
+            className="inline-flex rounded-xl bg-teal-700 px-6 py-2.5 text-sm font-bold text-white hover:bg-teal-800"
           >
-            {view === 'courier' ? 'Open Dispatch Station' : 'Explore Food Menu'}
+            {view === 'courier' ? 'My Deliveries' : 'Explore Food Menu'}
           </Link>
         </div>
       )}

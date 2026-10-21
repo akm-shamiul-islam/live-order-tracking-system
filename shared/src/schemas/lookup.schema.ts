@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../zod.js';
 
 export const PhoneSchema = z
   .string()
@@ -13,11 +13,15 @@ export const OrderIdentifierSchema = z
   .string()
   .trim()
   .regex(
-    /^(?:KTD-\d{4,}|[a-f\d]{24})$/i,
-    'Enter an order number such as KTD-1234 or a valid tracking ID',
+    /^(?:KTD-(?:\d{4,}|[a-f\d]{12})|[a-f\d]{24}|trk_[a-z\d_-]{43})$/i,
+    'Enter a valid order number or the private tracking ID from your confirmation',
   )
   .transform((value) =>
-    value.toUpperCase().startsWith('KTD-') ? value.toUpperCase() : value.toLowerCase(),
+    /^trk_/i.test(value)
+      ? `trk_${value.slice(4)}`
+      : value.toUpperCase().startsWith('KTD-')
+        ? value.toUpperCase()
+        : value.toLowerCase(),
   );
 
 export const OrderLookupSchema = z.object({ orderId: OrderIdentifierSchema });

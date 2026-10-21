@@ -3,9 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "./src/zod.ts",
+    "./dist/zod.js"
+  ],
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "exports": {
+    "./zod": {
+      "types": "./src/zod.ts",
+      "development": "./src/zod.ts",
+      "default": "./dist/zod.js"
+    },
     ".": {
       "types": "./src/index.ts",
       "development": "./src/index.ts",

@@ -8,7 +8,8 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { WsJwtGuard } from './guards/ws-jwt.guard.js';
 import { getJwtSecret } from './jwt.config.js';
-import type { JwtSignOptions } from '@nestjs/jwt';
+import { getRuntimeSettings } from '../config/runtime-settings.js';
+import { RecoveryMailer } from './recovery-mailer.js';
 
 @Module({
   imports: [
@@ -18,12 +19,12 @@ import type { JwtSignOptions } from '@nestjs/jwt';
       useFactory: () => ({
         secret: getJwtSecret(),
         signOptions: {
-          expiresIn: (process.env.JWT_EXPIRES_IN || '1d') as JwtSignOptions['expiresIn'],
+          expiresIn: getRuntimeSettings().JWT_EXPIRES_IN,
         },
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, RolesGuard, WsJwtGuard],
+  providers: [AuthService, JwtStrategy, RolesGuard, WsJwtGuard, RecoveryMailer],
   controllers: [AuthController],
   exports: [AuthService, RolesGuard, WsJwtGuard, JwtModule],
 })

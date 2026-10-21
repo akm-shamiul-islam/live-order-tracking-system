@@ -1,11 +1,12 @@
-import { z } from 'zod';
+import { z } from '../zod.js';
 import { UserRole } from '../enums.js';
 import { PhoneSchema } from './lookup.schema.js';
 
-const EmailSchema = z
+export const EmailSchema = z
   .string()
   .trim()
   .toLowerCase()
+  .max(254, 'Use at most 254 characters')
   .pipe(z.email({ error: 'Please provide a valid email address' }));
 
 export const LoginSchema = z.object({
@@ -16,7 +17,11 @@ export const LoginSchema = z.object({
 export type LoginDto = z.infer<typeof LoginSchema>;
 
 export const RegisterSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters'),
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Use at most 100 characters'),
   email: EmailSchema,
   password: z
     .string()
@@ -30,6 +35,20 @@ export const RegisterSchema = z.object({
 });
 
 export type RegisterDto = z.infer<typeof RegisterSchema>;
+
+export const ForgotPasswordSchema = z.object({ email: EmailSchema });
+export const ResetPasswordSchema = z
+  .object({
+    token: z
+      .string()
+      .regex(/^reset_[A-Za-z0-9_-]{43}$/, 'Open the password reset link from your email'),
+    password: RegisterSchema.shape.password,
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'Passwords do not match',
+  });
 
 export const UserSummarySchema = z.object({
   id: z.string(),

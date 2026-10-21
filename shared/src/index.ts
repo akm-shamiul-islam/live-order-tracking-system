@@ -1,5 +1,6 @@
 export * from './enums.js';
 export * from './schemas/auth.schema.js';
+export * from './schemas/user.schema.js';
 export * from './schemas/order.schema.js';
 export * from './schemas/telemetry.schema.js';
 export * from './schemas/lookup.schema.js';

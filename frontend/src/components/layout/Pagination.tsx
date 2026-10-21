@@ -1,20 +1,35 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { PAGE_SIZES, type PaginationInfo } from '@kitchentodoor/shared';
+import {
+  PAGE_SIZES,
+  MENU_PAGE_SIZES,
+  MenuPageSizeSchema,
+  PageSizeSchema,
+  type PaginationInfo,
+} from '@kitchentodoor/shared';
 import { ThemedSelect } from '../forms/ThemedSelect';
 
-const sizes = PAGE_SIZES.map((size) => ({ value: String(size), label: String(size) }));
-
-export function Pagination({
-  pagination,
-  onPageChange,
-  onPageSizeChange,
-  disabled = false,
-}: {
+type PaginationProps = {
   pagination: PaginationInfo;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
   disabled?: boolean;
-}) {
+} & (
+  | { pageSizes?: undefined; onPageSizeChange: (size: (typeof PAGE_SIZES)[number]) => void }
+  | {
+      pageSizes: typeof MENU_PAGE_SIZES;
+      onPageSizeChange: (size: (typeof MENU_PAGE_SIZES)[number]) => void;
+    }
+);
+
+export function Pagination(props: PaginationProps) {
+  const { pagination, onPageChange, disabled = false } = props;
+  const sizes = (props.pageSizes ?? PAGE_SIZES).map((size) => ({
+    value: String(size),
+    label: String(size),
+  }));
+  const changeSize = (value: string) => {
+    if (props.pageSizes) props.onPageSizeChange(MenuPageSizeSchema.parse(value));
+    else props.onPageSizeChange(PageSizeSchema.parse(value));
+  };
   const { page, pageSize, total, totalPages } = pagination;
   const pages = [...new Set([1, page - 1, page, page + 1, totalPages])]
     .filter((number) => number >= 1 && number <= totalPages)
@@ -34,7 +49,7 @@ export function Pagination({
               label="Items per page"
               value={String(pageSize)}
               options={sizes}
-              onChange={(value) => onPageSizeChange(Number(value))}
+              onChange={changeSize}
               placement="above"
               disabled={disabled}
             />
@@ -83,7 +98,7 @@ export function Pagination({
                 onClick={() => onPageChange(number)}
                 className={
                   page === number
-                    ? 'inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-xs font-bold text-white shadow-sm shadow-teal-500/20 hover:from-emerald-600 hover:to-teal-700'
+                    ? 'inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 text-xs font-bold text-white shadow-sm shadow-teal-500/20 hover:from-emerald-800 hover:to-teal-800'
                     : `${controlClass} text-xs font-semibold`
                 }
               >

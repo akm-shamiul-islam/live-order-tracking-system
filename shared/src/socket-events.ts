@@ -4,12 +4,14 @@ import { CourierLocationUpdateDto } from './schemas/telemetry.schema.js';
 import { UserSummary } from './schemas/auth.schema.js';
 
 export interface ServerToClientEvents {
+  'orders:changed': (payload: Record<string, never>) => void;
   /** Emitted when an order's status is advanced */
   'order:status_updated': (payload: {
     orderId: string;
     orderNumber: string;
     status: OrderStatus;
     updatedAt: string;
+    courierId?: string | null;
     logEntry: OrderStatusLog;
   }) => void;
 
@@ -59,7 +61,7 @@ export interface ClientToServerEvents {
     callback: (ack: { ok: boolean; error?: string }) => void,
   ) => void;
 
-  /** Customer or Admin cancels an active order */
+  /** An administrator cancels an active order */
   'order:cancel': (
     payload: { orderId: string; reason?: string },
     callback?: (ack: { ok: boolean; error?: string }) => void,

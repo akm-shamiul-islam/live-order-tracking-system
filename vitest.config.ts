@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     // Source tests must not depend on an existing or possibly stale build.
     alias: {
+      '@kitchentodoor/shared/zod': fileURLToPath(new URL('./shared/src/zod.ts', import.meta.url)),
       '@kitchentodoor/shared': fileURLToPath(new URL('./shared/src/index.ts', import.meta.url)),
     },
   },

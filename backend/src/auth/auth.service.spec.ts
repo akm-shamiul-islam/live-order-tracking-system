@@ -3,6 +3,7 @@ import { AuthService } from './auth.service.js';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { UserRole } from '@kitchentodoor/shared';
 import bcrypt from 'bcryptjs';
+import { RecoveryMailer } from './recovery-mailer.js';
 
 describe('AuthService Unit Tests', () => {
   let service: AuthService;
@@ -14,12 +15,21 @@ describe('AuthService Unit Tests', () => {
       findOne: vi.fn<any>(),
       create: vi.fn<any>(),
       findById: vi.fn<any>(),
+      updateOne: vi.fn<any>().mockResolvedValue({ modifiedCount: 1 }),
     };
     mockJwtService = {
       sign: vi.fn<any>().mockReturnValue('mock_jwt_token_xyz'),
       verify: vi.fn<any>(),
     };
-    service = new AuthService(mockUserModel, mockJwtService);
+    service = new AuthService(
+      mockUserModel,
+      mockJwtService,
+      {
+        create: vi.fn<() => Promise<unknown>>().mockResolvedValue({}),
+        updateMany: vi.fn<() => Promise<unknown>>().mockResolvedValue({}),
+      } as any,
+      {} as RecoveryMailer,
+    );
   });
 
   it('validates user password correctly with bcrypt', async () => {
@@ -70,6 +80,8 @@ describe('AuthService Unit Tests', () => {
       email: 'admin@kitchen.com',
       role: UserRole.ADMIN,
       name: 'Dispatcher',
+      ver: 0,
+      sid: expect.stringMatching(/^[a-f\d]{24}$/),
     });
   });
 
@@ -111,6 +123,13 @@ describe('AuthService Unit Tests', () => {
   });
 
   it('verifyToken decodes valid token', async () => {
+    mockUserModel.findById.mockResolvedValue({
+      _id: 'usr_888',
+      email: 'courier@kitchen.com',
+      role: UserRole.COURIER,
+      name: 'Fast Rider',
+      tokenVersion: 0,
+    });
     mockJwtService.verify.mockReturnValue({
       sub: 'usr_888',
       email: 'courier@kitchen.com',
@@ -121,6 +140,30 @@ describe('AuthService Unit Tests', () => {
     const user = await service.verifyToken('valid_token_abc');
     expect(user.id).toBe('usr_888');
     expect(user.role).toBe(UserRole.COURIER);
+  });
+
+  it('uses the current database role and rejects revoked or disabled sessions', async () => {
+    mockJwtService.verify.mockReturnValue({ sub: 'u123', role: UserRole.ADMIN, ver: 0 });
+    const user = {
+      _id: 'u123',
+      name: 'Changed role',
+      email: 'u@example.com',
+      role: UserRole.CUSTOMER,
+    };
+    mockUserModel.findById.mockResolvedValue(user);
+    expect((await service.verifyToken('old-admin-token')).role).toBe(UserRole.CUSTOMER);
+    mockUserModel.findById.mockResolvedValue({ ...user, tokenVersion: 1 });
+    await expect(service.verifyToken('revoked-token')).rejects.toThrow(UnauthorizedException);
+    mockUserModel.findById.mockResolvedValue({ ...user, disabled: true });
+    await expect(service.verifyToken('disabled-token')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('revokes existing access tokens on the server', async () => {
+    await service.revokeSessions('u123');
+    expect(mockUserModel.updateOne).toHaveBeenCalledWith(
+      { _id: 'u123' },
+      { $inc: { tokenVersion: 1 } },
+    );
   });
 
   it('verifyToken throws UnauthorizedException on invalid token', async () => {

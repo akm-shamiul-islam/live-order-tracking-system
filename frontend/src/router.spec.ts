@@ -64,12 +64,12 @@ describe('Application URLs', () => {
       history: createMemoryHistory({ initialEntries: ['/?category=unknown&page=-2&size=99'] }),
     });
     const normalized = MenuSearchSchema.parse(router.state.location.search);
-    expect(normalized).toEqual({ category: 'all', page: 1, size: 10 });
+    expect(normalized).toEqual({ category: 'all', page: 1, size: 8 });
     const canonicalUrl = router.buildLocation({ to: '/', search: normalized }).href;
     expect(canonicalUrl).toBe('/');
     router.history.replace(canonicalUrl);
     await router.load();
-    expect(router.state.matches.at(-1)?.search).toEqual({ category: 'all', page: 1, size: 10 });
+    expect(router.state.matches.at(-1)?.search).toEqual({ category: 'all', page: 1, size: 8 });
   });
 
   it('matches only the root not-found boundary for unknown pages', async () => {

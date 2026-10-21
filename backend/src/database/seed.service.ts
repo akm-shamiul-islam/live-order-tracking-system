@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { User, UserDocument } from './schemas/user.schema.js';
-import { UserRole } from '@kitchentodoor/shared';
+import { RegisterSchema, UserRole } from '@kitchentodoor/shared';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { getStaffSeedEmail, getStaffSeedPassword } from '../config/staff-seed-settings.js';
 
@@ -12,6 +12,29 @@ export class SeedService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SeedService.name);
 
   constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>) {}
+
+  async bootstrapAdministrator() {
+    if (process.env.NODE_ENV !== 'production')
+      throw new Error('Initial administrator creation requires NODE_ENV=production.');
+    const email = RegisterSchema.shape.email.safeParse(process.env.BOOTSTRAP_ADMIN_EMAIL);
+    const password = RegisterSchema.shape.password
+      .min(12, 'Use at least 12 characters')
+      .safeParse(process.env.BOOTSTRAP_ADMIN_PASSWORD);
+    if (!email.success || !password.success)
+      throw new Error(
+        'Set BOOTSTRAP_ADMIN_EMAIL and a BOOTSTRAP_ADMIN_PASSWORD of 12 characters or more (at most 72 bytes).',
+      );
+    if (await this.userModel.findOne({ role: UserRole.ADMIN, disabled: { $ne: true } }))
+      throw new Error('An active administrator already exists. Use the admin-only Users page.');
+    if (await this.userModel.findOne({ email: email.data }))
+      throw new Error('This email already belongs to an account. No role or password was changed.');
+    await this.userModel.create({
+      name: 'Kitchen Administrator',
+      email: email.data,
+      role: UserRole.ADMIN,
+      passwordHash: await bcrypt.hash(password.data, getRuntimeSettings().PASSWORD_HASH_ROUNDS),
+    });
+  }
 
   async onApplicationBootstrap() {
     if (process.env.NODE_ENV === 'production') {
@@ -36,6 +59,7 @@ export class SeedService implements OnApplicationBootstrap {
     }
     const password = getStaffSeedPassword('ADMIN');
     admin.passwordHash = await bcrypt.hash(password, getRuntimeSettings().PASSWORD_HASH_ROUNDS);
+    admin.tokenVersion = (admin.tokenVersion || 0) + 1;
     await admin.save();
     this.logger.log(
       'Development administrator password reset to the configured ADMIN_DEFAULT_PASSWORD.',

@@ -9,11 +9,13 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "auth:reset-dev-admin": "tsx --conditions=development src/database/reset-dev-admin.ts"
+    "auth:reset-dev-admin": "tsx --conditions=development src/database/reset-dev-admin.ts",
+    "auth:bootstrap-admin": "node dist/database/bootstrap-admin.js"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
     "@fastify/helmet": "^13.2.0",
+    "@fastify/static": "^10.1.6",
     "@kitchentodoor/shared": "workspace:*",
     "@nestjs/common": "^12.2.0",
     "@nestjs/config": "^12.0.1",
@@ -29,6 +31,7 @@
     "dotenv": "^18.0.8",
     "fastify": "^5.12.7",
     "mongoose": "^9.11.2",
+    "nodemailer": "^10.1.7",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
@@ -37,8 +40,14 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@nestjs/platform-express": "12.2.0",
     "@types/node": "^24.19.2",
+    "@types/nodemailer": "^8.0.2",
     "@types/passport-jwt": "^4.0.1",
+    "autocannon": "8.0.0",
+    "helmet": "8.3.0",
+    "mongodb-memory-server": "11.3.0",
+    "socket.io-client": "^4.8.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"

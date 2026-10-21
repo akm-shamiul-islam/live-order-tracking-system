@@ -8,7 +8,7 @@ const statuses = ['ALL', ...ORDER_STATUS_SEQUENCE, 'CANCELLED'].map((value) => (
   label: value.replace(/_/g, ' '),
 }));
 const actionClass =
-  'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 text-xs font-bold text-white shadow-sm shadow-teal-500/15 transition-colors hover:from-emerald-600 hover:to-teal-700';
+  'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 text-xs font-bold text-white shadow-sm shadow-teal-500/15 transition-colors hover:from-emerald-800 hover:to-teal-800';
 
 export function DispatchFilters({
   status,

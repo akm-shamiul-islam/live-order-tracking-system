@@ -1,6 +1,6 @@
-import { z } from 'zod';
+import { z } from '../zod.js';
 import { OrderStatus } from '../enums.js';
-import { PhoneSchema } from './lookup.schema.js';
+import { PhoneSchema, OrderIdentifierSchema } from './lookup.schema.js';
 
 export const OrderItemSchema = z.object({
   itemId: z.string().min(1, 'Item ID is required'),
@@ -68,11 +68,35 @@ export const OrderStatusLogSchema = z.object({
 
 export type OrderStatusLog = z.infer<typeof OrderStatusLogSchema>;
 
+export const DeliveryRequestSchema = z.object({
+  courierId: z.string(),
+  courierName: z.string(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  requestedAt: z.string(),
+});
+export type DeliveryRequest = z.infer<typeof DeliveryRequestSchema>;
+export interface AvailableDelivery {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  items: OrderItem[];
+  total: number;
+  createdAt: string;
+  request?: DeliveryRequest;
+}
+export const CancellationReasonSchema = z
+  .string()
+  .trim()
+  .min(5, 'Explain the cancellation in at least 5 characters')
+  .max(500, 'Use at most 500 characters');
+
 export const OrderDetailsSchema = z.object({
   id: z.string(),
+  trackingId: z.string().optional(),
   orderNumber: z.string(),
   customer: CustomerInfoSchema,
   courierId: z.string().nullable().optional(),
+  deliveryRequests: z.array(DeliveryRequestSchema).default([]),
   items: z.array(OrderItemSchema),
   pricing: z.object({
     subtotal: z.number(),
@@ -90,6 +114,7 @@ export const OrderDetailsSchema = z.object({
     OrderStatus.CANCELLED,
   ]),
   deliveryCoordinates: CoordinatesSchema,
+  deliveryLocationProvided: z.boolean().default(false),
   courierCoordinates: z
     .object({
       lat: z.number().nullable(),
@@ -105,18 +130,32 @@ export const OrderDetailsSchema = z.object({
 
 export type OrderDetails = z.infer<typeof OrderDetailsSchema>;
 
-export const UpdateOrderStatusSchema = z.object({
-  orderId: z.string().min(1, 'Order ID is required'),
-  status: z.enum([
-    OrderStatus.PLACED,
-    OrderStatus.CONFIRMED,
-    OrderStatus.PREPARING,
-    OrderStatus.READY_FOR_PICKUP,
-    OrderStatus.OUT_FOR_DELIVERY,
-    OrderStatus.DELIVERED,
-    OrderStatus.CANCELLED,
-  ]),
-  note: z.string().optional(),
+export const OrderStatusChangeSchema = z
+  .object({
+    status: z.enum([
+      OrderStatus.PLACED,
+      OrderStatus.CONFIRMED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.OUT_FOR_DELIVERY,
+      OrderStatus.DELIVERED,
+      OrderStatus.CANCELLED,
+    ]),
+    note: z.string().trim().max(500).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.status !== OrderStatus.CANCELLED) return;
+    const result = CancellationReasonSchema.safeParse(value.note);
+    if (!result.success)
+      context.addIssue({
+        code: 'custom',
+        path: ['note'],
+        message: result.error.issues[0]!.message,
+      });
+  });
+
+export const UpdateOrderStatusSchema = OrderStatusChangeSchema.safeExtend({
+  orderId: OrderIdentifierSchema,
 });
 
 export type UpdateOrderStatusDto = z.infer<typeof UpdateOrderStatusSchema>;

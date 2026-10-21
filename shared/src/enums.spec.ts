@@ -25,13 +25,12 @@ describe('OrderStatus State Machine', () => {
     expect(isValidStatusTransition(OrderStatus.DELIVERED, OrderStatus.PLACED)).toBe(false);
   });
 
-  it('allows cancellation only before ready for pickup', () => {
+  it('allows cancellation of every active stage and keeps terminal states final', () => {
     expect(isValidStatusTransition(OrderStatus.PLACED, OrderStatus.CANCELLED)).toBe(true);
     expect(isValidStatusTransition(OrderStatus.CONFIRMED, OrderStatus.CANCELLED)).toBe(true);
     expect(isValidStatusTransition(OrderStatus.PREPARING, OrderStatus.CANCELLED)).toBe(true);
-    expect(isValidStatusTransition(OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED)).toBe(
-      false,
-    );
+    expect(isValidStatusTransition(OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED)).toBe(true);
+    expect(isValidStatusTransition(OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED)).toBe(true);
     expect(isValidStatusTransition(OrderStatus.DELIVERED, OrderStatus.CANCELLED)).toBe(false);
   });
 });

@@ -8,18 +8,31 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards, forwardRef, Inject } from '@nestjs/common';
+import {
+  Logger,
+  UseGuards,
+  forwardRef,
+  Inject,
+  HttpException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ZodError } from 'zod';
 import { OrdersService } from './orders.service.js';
 import { AuthService } from '../auth/auth.service.js';
 import { WsJwtGuard } from '../auth/guards/ws-jwt.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { isAllowedOrigin } from '../common/cors.js';
+import { SocketRateLimiter } from '../common/socket-rate-limiter.js';
+import { getRuntimeSettings } from '../config/runtime-settings.js';
+import { clientAddress } from '../common/client-address.js';
 import {
   OrderStatus,
   UserRole,
   UpdateOrderStatusSchema,
   CourierLocationUpdateSchema,
+  OrderLookupSchema,
+  CancellationReasonSchema,
 } from '@kitchentodoor/shared';
 
 @WebSocketGateway({
@@ -30,10 +43,18 @@ import {
   },
 })
 export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  private failureMessage(error: unknown): string {
+    if (error instanceof ZodError)
+      return error.issues[0]?.message || 'Please check the submitted fields.';
+    return error instanceof HttpException
+      ? error.message
+      : 'The order service is temporarily unavailable. Please try again.';
+  }
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(OrdersGateway.name);
+  private readonly packetLimits = new SocketRateLimiter(getRuntimeSettings);
 
   constructor(
     @Inject(forwardRef(() => OrdersService))
@@ -42,6 +63,20 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async handleConnection(client: Socket) {
+    client.use((packet, next) => {
+      if (this.packetLimits.consume(client.id, clientAddress(client.request))) return next();
+      const acknowledge: unknown = packet.at(-1);
+      if (typeof acknowledge === 'function')
+        acknowledge({ ok: false, error: 'Too many updates. Wait a moment and try again.' });
+      next(new Error('SOCKET_RATE_LIMIT'));
+    });
+    client.on('error', (error: Error) => {
+      if (error.message !== 'SOCKET_RATE_LIMIT') return;
+      client.emit('error', {
+        code: 'RATE_LIMITED',
+        message: 'Too many updates. Wait a moment and try again.',
+      });
+    });
     this.logger.log(`⚡ Client connected: ${client.id}`);
 
     // Optional handshake authentication: if token is supplied, verify and attach user
@@ -49,20 +84,29 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (token) {
       try {
-        if (typeof token !== 'string') throw new Error('Invalid authentication token');
+        if (typeof token !== 'string')
+          throw new UnauthorizedException('Invalid authentication token');
         const user = await this.authService.verifyToken(token.replace(/^Bearer\s+/i, ''));
         (client as any).user = user;
 
         if (user.role === UserRole.ADMIN) {
           void client.join('admins');
-          this.logger.log(`👨‍💼 Admin joined admins room: ${client.id} (${user.email})`);
+          this.logger.log(`👨‍💼 Admin joined admins room: ${client.id}`);
         } else if (user.role === UserRole.COURIER) {
           void client.join('couriers');
           this.logger.log(`🛵 Courier joined couriers room: ${client.id}`);
         }
 
         client.emit('authenticated', { user });
-      } catch {
+      } catch (error) {
+        if (!(error instanceof UnauthorizedException)) {
+          client.emit('error', {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'The order service is temporarily unavailable. Reconnecting…',
+          });
+          client.conn.close();
+          return;
+        }
         this.logger.warn(`Unauthenticated handshake for socket: ${client.id}`);
         client.emit('error', {
           message: 'Your session has expired. Please sign in again.',
@@ -74,18 +118,35 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
+    this.packetLimits.disconnect(client.id);
     this.logger.log(`🔌 Client disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('order:join')
-  handleJoinOrder(@ConnectedSocket() client: Socket, @MessageBody() data: { orderId: string }) {
-    if (!data?.orderId) {
-      return { ok: false, error: 'Order ID is required' };
+  async handleJoinOrder(@ConnectedSocket() client: Socket, @MessageBody() data: unknown) {
+    try {
+      const { orderId } = OrderLookupSchema.parse(data);
+      const token = client.handshake?.auth?.token || client.handshake?.headers?.authorization;
+      const actor =
+        typeof token === 'string'
+          ? await this.authService.verifyToken(token.replace(/^Bearer\s+/i, ''))
+          : undefined;
+      const order = await this.ordersService.getOrderById(orderId, actor);
+      const subscribed = [...client.rooms].filter((room) => room.startsWith('order_'));
+      if (
+        !client.rooms.has(`order_${order.id}`) &&
+        subscribed.length >= getRuntimeSettings().SOCKET_ORDER_ROOMS_MAX
+      ) {
+        return { ok: false, error: 'Close an existing tracker before opening another order.' };
+      }
+      await client.join(`order_${order.id}`);
+      return { ok: true };
+    } catch {
+      return {
+        ok: false,
+        error: 'Unable to join this order. Use its private tracking link or sign in.',
+      };
     }
-    const room = `order_${data.orderId}`;
-    void client.join(room);
-    this.logger.log(`Client ${client.id} joined ${room}`);
-    return { ok: true };
   }
 
   @SubscribeMessage('ping')
@@ -120,16 +181,17 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       );
 
-      this.notifyStatusUpdated(
+      await this.notifyStatusUpdated(
         result.order.id,
         result.order.orderNumber,
         result.order.status,
         result.logEntry,
+        result.order.courierId,
       );
 
       return { ok: true, order: result.order };
-    } catch (err: any) {
-      return { ok: false, error: err?.message || 'Failed to update order status' };
+    } catch (error) {
+      return { ok: false, error: this.failureMessage(error) };
     }
   }
 
@@ -140,77 +202,135 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const validated = CourierLocationUpdateSchema.parse(payload);
 
-      await this.ordersService.updateCourierCoordinates(
+      const canonicalId = await this.ordersService.updateCourierCoordinates(
         validated.orderId,
         validated.lat,
         validated.lng,
+        (client as any).user,
+        validated.timestamp,
       );
 
-      this.notifyCourierLocation(
-        validated.orderId,
+      await this.notifyCourierLocation(
+        canonicalId,
         validated.lat,
         validated.lng,
         validated.heading,
         validated.speed,
+        validated.timestamp,
       );
 
       return { ok: true };
-    } catch (err: any) {
-      return { ok: false, error: err?.message || 'Invalid location data' };
+    } catch (error) {
+      return { ok: false, error: this.failureMessage(error) };
     }
   }
 
   @SubscribeMessage('order:cancel')
   @UseGuards(WsJwtGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async handleCancelOrder(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { orderId: string; reason?: string },
-  ) {
+  @Roles(UserRole.ADMIN, UserRole.COURIER)
+  async handleCancelOrder(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
     try {
-      if (!payload?.orderId) {
-        return { ok: false, error: 'Order ID is required' };
-      }
+      const validated = OrderLookupSchema.extend({ reason: CancellationReasonSchema }).parse(
+        payload,
+      );
 
       const user = (client as any).user;
-      const result = await this.ordersService.cancelOrder(payload.orderId, payload.reason, {
+      const result = await this.ordersService.cancelOrder(validated.orderId, validated.reason, {
         userId: user?.id,
         role: user?.role || UserRole.CUSTOMER,
         name: user?.name || 'Customer',
       });
 
-      this.notifyOrderCancelled(result.order.id, result.order.orderNumber, payload.reason);
+      await this.notifyOrderCancelled(result.order.id, result.order.orderNumber, validated.reason);
 
       return { ok: true };
-    } catch (err: any) {
-      return { ok: false, error: err?.message || 'Failed to cancel order' };
+    } catch (error) {
+      return { ok: false, error: this.failureMessage(error) };
     }
   }
 
-  // Helper broadcast methods called from Gateway or OrdersController
-  notifyStatusUpdated(orderId: string, orderNumber: string, status: OrderStatus, logEntry: any) {
+  // Recheck recipients because a role change, reassignment or logout can happen after joining.
+  private async emitAuthorized(event: string, payload: unknown, orderId?: string) {
+    const rooms = orderId
+      ? [`order_${orderId}`, 'admins', 'couriers']
+      : event === 'orders:changed'
+        ? ['admins', 'couriers']
+        : ['admins'];
+    const clients = await this.server.in(rooms).fetchSockets();
+    await Promise.all(
+      clients.map(async (client) => {
+        try {
+          const token = client.handshake.auth?.token || client.handshake.headers?.authorization;
+          const user =
+            typeof token === 'string'
+              ? await this.authService.verifyToken(token.replace(/^Bearer\s+/i, ''))
+              : undefined;
+          if (token && !user) throw new UnauthorizedException('Invalid authentication token');
+          if (user?.role !== UserRole.ADMIN) client.leave('admins');
+          if (user?.role !== UserRole.COURIER) client.leave('couriers');
+          if (!orderId) {
+            if (
+              user?.role === UserRole.ADMIN ||
+              (event === 'orders:changed' && user?.role === UserRole.COURIER)
+            )
+              client.emit(event, payload);
+            return;
+          }
+          try {
+            await this.ordersService.getOrderById(orderId, user);
+          } catch (error) {
+            if (error instanceof HttpException && [403, 404].includes(error.getStatus())) {
+              client.leave(`order_${orderId}`);
+              return;
+            }
+            throw error;
+          }
+          client.emit(event, payload);
+        } catch (error) {
+          if (!(error instanceof UnauthorizedException)) {
+            client.emit('error', {
+              code: 'SERVICE_UNAVAILABLE',
+              message: 'Live updates are temporarily unavailable. Please try again shortly.',
+            });
+            return;
+          }
+          client.emit('error', {
+            code: 'UNAUTHORIZED',
+            message: 'Your session has expired. Please sign in again.',
+          });
+          client.disconnect(true);
+        }
+      }),
+    );
+  }
+
+  async notifyStatusUpdated(
+    orderId: string,
+    orderNumber: string,
+    status: OrderStatus,
+    logEntry: any,
+    courierId?: string | null,
+  ) {
     const payload = {
       orderId,
       orderNumber,
       status,
       updatedAt: new Date().toISOString(),
       logEntry,
+      courierId,
     };
 
-    // Emit to specific order subscribers
-    this.server.to(`order_${orderId}`).emit('order:status_updated', payload);
-    // Also emit to order number room if subscribed by number
-    this.server.to(`order_${orderNumber}`).emit('order:status_updated', payload);
-    // Emit to all dispatchers / admins
-    this.server.to('admins').emit('order:status_updated', payload);
+    await this.emitAuthorized('order:status_updated', payload, orderId);
+    await this.notifyListsChanged();
   }
 
-  notifyCourierLocation(
+  async notifyCourierLocation(
     orderId: string,
     lat: number,
     lng: number,
     heading?: number,
     speed?: number,
+    timestamp = new Date().toISOString(),
   ) {
     const payload = {
       orderId,
@@ -218,21 +338,25 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       lng,
       heading,
       speed,
-      timestamp: new Date().toISOString(),
+      timestamp,
     };
 
-    this.server.to(`order_${orderId}`).emit('courier:location_updated', payload);
-    this.server.to('admins').emit('courier:location_updated', payload);
+    await this.emitAuthorized('courier:location_updated', payload, orderId);
   }
 
-  notifyOrderCreated(order: any) {
-    this.server.to('admins').emit('order:created', { order });
+  async notifyOrderCreated(order: any) {
+    await this.emitAuthorized('order:created', { order });
+    await this.notifyListsChanged();
   }
 
-  notifyOrderCancelled(orderId: string, orderNumber: string, reason?: string) {
+  async notifyListsChanged() {
+    // Invalidation contains no customer, courier, or order identifiers.
+    await this.emitAuthorized('orders:changed', {});
+  }
+
+  async notifyOrderCancelled(orderId: string, orderNumber: string, reason?: string) {
     const payload = { orderId, orderNumber, reason };
-    this.server.to(`order_${orderId}`).emit('order:cancelled', payload);
-    this.server.to(`order_${orderNumber}`).emit('order:cancelled', payload);
-    this.server.to('admins').emit('order:cancelled', payload);
+    await this.emitAuthorized('order:cancelled', payload, orderId);
+    await this.notifyListsChanged();
   }
 }

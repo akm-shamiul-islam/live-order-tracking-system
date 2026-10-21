@@ -44,6 +44,26 @@ describe('Zustand authentication persistence and tab synchronization', () => {
     expect(getSession()).toEqual({ user: null, token: null });
   });
 
+  it('avoids publishing identical profile checks while preserving role and token changes', async () => {
+    const { getSession, saveSession, subscribeSession, synchronizeStoredSession } =
+      await import('./authSession');
+    saveSession({ user, accessToken: 'current-token' });
+    const saved = getSession();
+    const listener = vi.fn<() => void>();
+    const stop = subscribeSession(listener);
+    synchronizeStoredSession();
+    saveSession({ user: { ...user }, accessToken: 'current-token' });
+    expect(getSession()).toBe(saved);
+    expect(listener).not.toHaveBeenCalled();
+    saveSession({ user: { ...user, role: 'COURIER' }, accessToken: 'current-token' });
+    expect(getSession().user?.role).toBe('COURIER');
+    expect(listener).toHaveBeenCalledTimes(1);
+    saveSession({ user, accessToken: 'rotated-token' });
+    expect(getSession().token).toBe('rotated-token');
+    expect(listener).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
   it('propagates login and logout from another browser tab', async () => {
     const { authStore, listenForSessionChanges } = await import('./authSession');
     const stop = listenForSessionChanges();

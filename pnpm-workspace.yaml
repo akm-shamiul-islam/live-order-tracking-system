@@ -4,4 +4,9 @@ packages:
   - 'shared'
 allowBuilds:
   esbuild: true
+  # The isolated test harness downloads MongoDB on demand, avoiding a large install-time download.
+  mongodb-memory-server: false
 minimumReleaseAge: 0
+overrides:
+  # Hyperid 4 removes the vulnerable UUID dependency and preserves Autocannon's ID API.
+  'autocannon>hyperid': '4.0.0'

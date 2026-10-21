@@ -7,6 +7,19 @@ import { PublicConfigController } from './public-config.controller.js';
 afterEach(() => vi.unstubAllEnvs());
 
 describe('Validated runtime settings', () => {
+  it('derives secure cookies from the validated environment and parses JWT durations as seconds', () => {
+    expect(parseRuntimeSettings({ NODE_ENV: 'production' }).AUTH_COOKIE_SECURE).toBe(true);
+    expect(parseRuntimeSettings({ NODE_ENV: 'development' }).AUTH_COOKIE_SECURE).toBe(false);
+    expect(
+      parseRuntimeSettings({ NODE_ENV: 'production', AUTH_COOKIE_SECURE: 'false' })
+        .AUTH_COOKIE_SECURE,
+    ).toBe(false);
+    expect(parseRuntimeSettings({ JWT_EXPIRES_IN: '15m' }).JWT_EXPIRES_IN).toBe(900);
+    expect(parseRuntimeSettings({ JWT_EXPIRES_IN: '120' }).JWT_EXPIRES_IN).toBe(120);
+    expect(() => parseRuntimeSettings({ JWT_EXPIRES_IN: 'not-a-duration' })).toThrow(
+      'JWT_EXPIRES_IN',
+    );
+  });
   it('accepts the actual environment template and preserves operational defaults', () => {
     const example = parse(readFileSync(new URL('../../../.env.example', import.meta.url)));
     expect(parseRuntimeSettings(example)).toMatchObject({

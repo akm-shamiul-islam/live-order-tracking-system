@@ -5,7 +5,7 @@ type Theme = 'light' | 'dark';
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     try {
-      const saved = localStorage.getItem('ktd_theme') as Theme | null;
+      const saved = localStorage.getItem('ktd_theme');
       if (saved === 'dark' || saved === 'light') return saved;
     } catch {}
     return 'light';
@@ -13,6 +13,9 @@ export function useTheme() {
 
   useEffect(() => {
     const root = document.documentElement;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#020617' : '#f8fafc');
     if (theme === 'dark') {
       root.classList.add('dark');
     } else {

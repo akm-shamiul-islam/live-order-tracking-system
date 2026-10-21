@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Spinner } from '../layout/Loading';
 import { useAuth } from '../../hooks/useAuth';
 import { useDialog } from '../../hooks/useDialog';
 import { useZodForm } from '../../hooks/useZodForm';
@@ -35,7 +36,7 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
     try {
       const result = await login(values.email, values.password);
       if (result.user.role !== UserRole.ADMIN && result.user.role !== UserRole.COURIER) {
-        logout();
+        void logout();
         setError('This sign-in is for kitchen staff and couriers. Please use your staff account.');
         return;
       }
@@ -77,7 +78,7 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 z-10 animate-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-6">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-700 dark:text-teal-400">
               <Shield className="w-5 h-5" />
             </div>
             <div>
@@ -180,8 +181,9 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="inline-flex w-full items-center justify-center gap-2 py-3 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white transition shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
+            {loading ? <Spinner /> : <Shield aria-hidden="true" className="h-4 w-4" />}
             {loading ? 'Signing In…' : 'Sign In'}
           </button>
         </form>

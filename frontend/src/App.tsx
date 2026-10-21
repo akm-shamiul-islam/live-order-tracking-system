@@ -7,6 +7,10 @@ import type { MenuItem } from './components/customer/MenuCatalog';
 import type { CartItem } from './components/customer/CartDrawer';
 import { useAuth } from './hooks/useAuth';
 import { useDesktopLayout } from './hooks/useDesktopLayout';
+import { PageSkeleton, LoadingState } from './components/layout/Loading';
+import { PageMetadata } from './components/layout/PageMetadata';
+import { Breadcrumbs } from './components/layout/Breadcrumbs';
+import { useNavigationDrawer } from './hooks/useNavigationDrawer';
 
 const CartDrawer = lazy(() =>
   import('./components/customer/CartDrawer').then((m) => ({ default: m.CartDrawer })),
@@ -17,24 +21,20 @@ const CheckoutModal = lazy(() =>
 const AdminLoginModal = lazy(() =>
   import('./components/admin/AdminLoginModal').then((m) => ({ default: m.AdminLoginModal })),
 );
-const loadingPanel = (
-  <p role="status" className="p-8 text-center text-sm text-slate-500">
-    Loading…
-  </p>
-);
+const loadingPanel = <PageSkeleton />;
 
 export function App() {
-  const { isAdmin, isCourier, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
-  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useNavigationDrawer();
   const desktop = useDesktopLayout();
   function signOut() {
-    logout();
+    void logout();
     void navigate({ to: '/' });
   }
   function closeNavigation() {
@@ -59,6 +59,7 @@ export function App() {
 
   return (
     <AppActionsContext value={{ addToCart, openStaffLogin: () => setAdminLoginOpen(true) }}>
+      <PageMetadata />
       <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
         <a
           href="#main-content"
@@ -69,8 +70,7 @@ export function App() {
         <Navbar
           cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
           onOpenCart={() => setCartOpen(true)}
-          onOpenAdminLogin={() => setAdminLoginOpen(true)}
-          isAuthenticatedAdmin={isAdmin || isCourier}
+          isAuthenticatedAdmin={isAuthenticated}
           onLogoutAdmin={signOut}
           navigationOpen={navigationOpen}
           onToggleNavigation={() => setNavigationOpen((previous) => !previous)}
@@ -79,8 +79,14 @@ export function App() {
           open={navigationOpen}
           desktop={desktop}
           onClose={closeNavigation}
-          isStaff={isAdmin || isCourier}
-          onStaffAction={isAdmin || isCourier ? signOut : () => setAdminLoginOpen(true)}
+          isStaff={isAuthenticated}
+          onStaffAction={
+            isAuthenticated
+              ? signOut
+              : () => {
+                  void navigate({ to: '/account' });
+                }
+          }
         />
         <div
           className={`app-content flex min-w-0 flex-1 flex-col ${navigationOpen ? 'navigation-is-open' : ''}`}
@@ -90,15 +96,24 @@ export function App() {
             tabIndex={-1}
             className="flex-1 min-w-0 w-full px-4 sm:px-6 lg:px-8 py-8"
           >
+            <Breadcrumbs />
             <Suspense fallback={loadingPanel}>
               <Outlet />
             </Suspense>
           </main>
-          <footer className="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-400">
+          <footer className="border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-600 dark:text-slate-300">
             <p>KitchenToDoor © 2026. Real-Time Order Lifecycle & Telemetry Platform.</p>
           </footer>
         </div>
-        <Suspense fallback={loadingPanel}>
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40">
+              <div className="glass-panel rounded-2xl">
+                <LoadingState label="Opening…" />
+              </div>
+            </div>
+          }
+        >
           {cartOpen && (
             <CartDrawer
               isOpen={cartOpen}
@@ -120,12 +135,14 @@ export function App() {
               }
               onProceedToCheckout={() => {
                 setCartOpen(false);
-                setCheckoutOpen(true);
+                if (isAuthenticated) setCheckoutOpen(true);
+                else void navigate({ to: '/account', search: { redirect: '/' } });
               }}
             />
           )}
-          {checkoutOpen && (
+          {checkoutOpen && isAuthenticated && (
             <CheckoutModal
+              key={user?.id}
               isOpen={checkoutOpen}
               onClose={() => setCheckoutOpen(false)}
               cartItems={cart}

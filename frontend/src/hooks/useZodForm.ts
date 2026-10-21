@@ -41,7 +41,7 @@ export function useZodForm<T extends Record<string, string>>(
       id: `${idPrefix}-${name}`,
       name,
       value: values[name],
-      onChange: (event: ChangeEvent<HTMLInputElement>) => {
+      onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const next = { ...values, [name]: event.target.value };
         setValues(next);
         if (errors[name]) validateField(name, next);

@@ -31,7 +31,7 @@ export function ThemedSelect({
   const [active, setActive] = useState(selected);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const outside = (event: PointerEvent) => {
       if (event.target instanceof Node && !container.current?.contains(event.target))
         setOpen(false);
@@ -148,7 +148,7 @@ export function ThemedSelect({
             >
               <span>{option.label}</span>
               {value === option.value ? (
-                <Check aria-hidden="true" className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                <Check aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-400" />
               ) : (
                 <span className="w-4" />
               )}

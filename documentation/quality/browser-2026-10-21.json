@@ -1,0 +1,18 @@
+{
+  "measuredAt": "2026-10-21T00:58:25.079Z",
+  "chrome": "Chrome/155.0.8059.84",
+  "node": "v24.18.1",
+  "checks": [
+    "Guest pages and protected drawer links require sign-in",
+    "Drawer defaults open and persists both states; breadcrumbs and menu page sizes match navigation",
+    "Expired access token refreshes through the real HttpOnly browser cookie",
+    "Customer registration, red field errors, cart continuity, checkout, location pin and owned history",
+    "Admin Users search, profile editing and courier promotion revoke the previous session",
+    "Couriers request delivery, cannot self-assign, and cannot open admin pages",
+    "Admin approval, assigned-only history, sequential courier status changes, real GPS sharing and required cancellation reason",
+    "Responsive drawers, focus containment, reduced motion, dark menu, image loading and browser runtime",
+    "Production direct URLs, API/asset 404s, strict CSP and compressed immutable assets",
+    "Vite WebSocket proxy gives one actionable outage warning and recovers after an API restart"
+  ],
+  "method": "Compiled production app, isolated synthetic MongoDB, browser-driven forms and navigation, real API/Socket.IO, and an isolated Vite server restart test. No development database or existing dev server is used."
+}

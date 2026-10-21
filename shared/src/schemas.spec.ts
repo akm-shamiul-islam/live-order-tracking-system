@@ -80,29 +80,32 @@ describe('Shared Zod Schemas Validation Tests', () => {
   describe('CourierLocationUpdateSchema', () => {
     it('validates GPS latitude and longitude within world boundaries', () => {
       const res = CourierLocationUpdateSchema.safeParse({
-        orderId: 'ord_123',
+        orderId: 'KTD-1234',
         lat: 40.7128,
         lng: -74.006,
         heading: 180,
         speed: 25.5,
+        timestamp: new Date().toISOString(),
       });
       expect(res.success).toBe(true);
     });
 
     it('rejects latitude out of bounds (> 90 or < -90)', () => {
       const res = CourierLocationUpdateSchema.safeParse({
-        orderId: 'ord_123',
+        orderId: 'KTD-1234',
         lat: 95.5,
         lng: -74.006,
+        timestamp: new Date().toISOString(),
       });
       expect(res.success).toBe(false);
     });
 
     it('rejects longitude out of bounds (> 180 or < -180)', () => {
       const res = CourierLocationUpdateSchema.safeParse({
-        orderId: 'ord_123',
+        orderId: 'KTD-1234',
         lat: 40.7128,
         lng: 195.0,
+        timestamp: new Date().toISOString(),
       });
       expect(res.success).toBe(false);
     });

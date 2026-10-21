@@ -107,7 +107,7 @@ export function CourierSimulator({
             Courier GPS Telemetry Simulator ({orderNumber})
           </h4>
         </div>
-        <span className="text-xs font-mono font-bold text-teal-600 dark:text-teal-400">
+        <span className="text-xs font-mono font-bold text-teal-700 dark:text-teal-400">
           Route Progress: {progress}%
         </span>
       </div>
@@ -141,7 +141,7 @@ export function CourierSimulator({
         <button
           onClick={runSimulation}
           disabled={simulating || progress >= 100}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
         >
           <Play className="w-3.5 h-3.5 fill-current" />
           <span>{simulating ? 'Driving...' : 'Simulate Drive'}</span>
