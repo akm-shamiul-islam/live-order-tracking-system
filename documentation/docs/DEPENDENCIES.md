@@ -158,14 +158,12 @@ The current verification results are recorded in [IMPLEMENTATION_AND_VERIFICATIO
 | `@fastify/static` 10.1.6 | [Maintainer API](https://github.com/fastify/fastify-static) | Fastify 5 compatibility, setHeaders receives FastifyReply (`header`), preCompressed assets, safe SPA fallback and immutable hashed paths. |
 | `nodemailer` 10.1.7 / `@types/nodemailer` 8.0.2 | [SMTP](https://nodemailer.com/smtp), [usage](https://nodemailer.com/usage) | SMTP transport, required STARTTLS/implicit TLS options, bounded timeouts, disabled file/URL access and awaited sendMail. Current maintained declarations compile; integration tests mock delivery. |
 | `mongodb-memory-server` 11.3.0 | [API](https://typegoose.github.io/mongodb-memory-server/docs/api/classes/mongo-memory-server/) | Isolated fixtures, persistent stop/restart with start(true), cleanup and on-demand binary download. No development database mutations. |
-| `autocannon` 8.0.0 | [Maintainer API](https://github.com/mcollina/autocannon) | Programmatic closed-loop load, warmup/repetitions, status/error preflight and latency/throughput reporting. |
-| `@nestjs/platform-express` 12.2.0 / `helmet` 8.3.0 | [Nest adapters](https://docs.nestjs.com/faq/http-adapter), [Helmet](https://helmetjs.github.io/) | Benchmark-only Express comparison with the same AppModule, MongoDB, guards, settings and equivalent security headers. |
 | `lighthouse` 13.5.0 | [Maintainer API](https://github.com/GoogleChrome/lighthouse) | Compiled production app, isolated real browser/authentication, cold-cache mobile/desktop measurements and sanitized saved summaries. |
 | Backend `socket.io-client` 4.8.4 | [TypeScript](https://socket.io/docs/v4/typescript/) | Public io/Socket imports replace ambient declarations; transports/on/once compile and real socket tests execute. |
 
-### Benchmark dependency security fix
+### Transitive dependency security fix
 
-Autocannon 8 declares Hyperid 3, which included vulnerable UUID 8. The selective workspace override `autocannon>hyperid: 4.0.0` uses the latest upstream Hyperid release. Its [v4 release](https://github.com/mcollina/hyperid/releases/tag/v4.0.0) removes UUID while retaining the documented generator/decode API. This removes [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq), instead of forcing an incompatible UUID export format. The override is separate from the 57 direct package inventory. Full benchmark execution verifies the tool on Node 24; `pnpm audit --json` reports zero known advisories.
+Autocannon 8 declares Hyperid 3, which included vulnerable UUID 8. The selective workspace override `autocannon>hyperid: 4.0.0` uses the latest upstream Hyperid release. Its [v4 release](https://github.com/mcollina/hyperid/releases/tag/v4.0.0) removes UUID while retaining the documented generator/decode API. This removes [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq), instead of forcing an incompatible UUID export format. The override is separate from the 57 direct package inventory. The recorded `pnpm audit --json` check reports zero known advisories.
 
 ### CSP and current persistence options
 

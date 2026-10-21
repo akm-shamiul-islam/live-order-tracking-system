@@ -34,7 +34,7 @@ Fastify serves the production SPA, API and sockets, with direct-route fallback, 
 
 The current inventory covers 57 distinct direct packages across 67 manifest declarations. React/React DOM are 19.3.1, Tailwind CSS 4.3.3, Zustand 5.0.15, TanStack Router 1.170.45, Query 5.104.5, Zod 4.6.7, Motion 14.4.0, NestJS 12.2.0, Fastify 5.12.7, Mongoose 9.11.2 and Socket.IO 4.8.4. Supported runtime is Node 24. The npm checker selects compatible Node 24 declarations; other direct packages target npm latest stable.
 
-[DEPENDENCIES.md](DEPENDENCIES.md) records the complete inventory and official migration/API evidence. Mongoose updates use returnDocument: after, MongoDB uses journal write concern, refined Zod schemas use safeExtend, and Motion uses its current LazyMotion/react-m API. A selective benchmark-only Hyperid 4 override removes the vulnerable UUID dependency. The known upstream Vite+ alias peer warning remains; standalone Vite/Vitest/Oxc scripts are used.
+[DEPENDENCIES.md](DEPENDENCIES.md) records the complete inventory and official migration/API evidence. Mongoose updates use returnDocument: after, MongoDB uses journal write concern, refined Zod schemas use safeExtend, and Motion uses its current LazyMotion/react-m API. A selective Hyperid 4 override removes the vulnerable UUID dependency. The known upstream Vite+ alias peer warning remains; standalone Vite/Vitest/Oxc scripts are used.
 
 ## Verification evidence
 
@@ -46,7 +46,6 @@ The current inventory covers 57 distinct direct packages across 67 manifest decl
 | MongoDB/HTTP/socket integration | 23 passed against isolated MongoDB |
 | Browser workflows | 12 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
 | Lighthouse | [Eight-case summary](../quality/lighthouse-2026-10-21.json); see QUALITY.md |
-| Throughput | Historical reference: 18 clean-revision runs at `83353a9` with zero errors; not rerun for this follow-up. [Results](BENCHMARKS.md) and [raw JSON](../benchmarks/throughput-2026-10-21.json) |
 | Registry/security/lint gates | 57 direct packages / 67 declarations current; 0 known advisories; lint 0 errors, 119 warnings |
 
 [QUALITY.md](QUALITY.md) explains commands, isolation, measurement settings and limitations. Test databases, synthetic accounts, browser profiles, proxy ports and API processes are separate from existing development services. Run resource-heavy checks sequentially; concurrent runners caused local fixture timeouts and were rerun independently.

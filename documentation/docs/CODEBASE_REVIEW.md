@@ -21,11 +21,11 @@ Updated 2026-10-21 (Asia/Tokyo). This document tracks implementation and verific
 | Environment settings | Limits, windows, pagination caps, GPS timing, estimates, work factor, pricing, database retry/timeouts, sessions, mail and hosting are validated and documented. |
 | Navigation/dispatch design | Shareable TanStack URLs, breadcrumbs, role-filtered animated drawer open by default with a saved preference, full-width history, dark category hovers, themed status filter, action icons, menu page sizes 8/16/32/60, other lists 10/25/50/100, date above time, centered requested headers/cells and equal-height Track/Advance. |
 | Loading and food | Route/table skeletons and action spinners; 27 menu items across seven categories, local real photos, ingredient descriptions and realistic USD demo prices. |
-| Packages and current APIs | Every direct package is checked against npm, with Node types matching Node 24. Current official APIs are reviewed. Benchmark-only Hyperid 4 removes the vulnerable UUID dependency; the security audit is clear. |
+| Packages and current APIs | Every direct package is checked against npm, with Node types matching Node 24. Current official APIs are reviewed. The Hyperid 4 override removes the vulnerable UUID dependency; the security audit is clear. |
 | Account lifecycle | Registration/sign-in/profile/recovery pages, one-time reset, rotating HttpOnly refresh and server revocation. SMTP is implemented and mocked in tests; actual delivery requires mail setup. |
 | Production application | Built shared exports, Fastify SPA hosting, compressed assets, CSP, initial-admin CLI, health/readiness and admin metrics. Database stop/restart recovery is tested against isolated MongoDB. |
 
-Commands, saved browser/Lighthouse summaries and limitations are in [IMPLEMENTATION_AND_VERIFICATION_REPORT.md](IMPLEMENTATION_AND_VERIFICATION_REPORT.md) and [QUALITY.md](QUALITY.md). HTTP measurements are described in [BENCHMARKS.md](BENCHMARKS.md).
+Commands, saved browser/Lighthouse summaries and limitations are in [IMPLEMENTATION_AND_VERIFICATION_REPORT.md](IMPLEMENTATION_AND_VERIFICATION_REPORT.md) and [QUALITY.md](QUALITY.md).
 
 ## Review of the committed baseline
 
@@ -64,7 +64,7 @@ The follow-up also removes obsolete checkout phone persistence and fills missing
 | Backups, restore drills and alerts | Health/metrics and an operations runbook are provided. No cloud backup schedule, production restore drill, alert destination or retention policy is configured without infrastructure choices. |
 | Multiple API instances | Run one API process. Access/assignment coordination, rate budgets and connection counts are process-local. Transactions/shared coordination, shared limit storage and Socket.IO fanout/adapter are required before horizontal scaling or overlapping API deployments. Configure implemented TRUSTED_PROXY_IPS for the actual proxy topology. |
 | Guaranteed event delivery and older browsers | Socket events are best effort; polling/reconnects reconcile persisted state. A durable outbox is needed for replay guarantees. Browsers without Web Locks have only in-tab cookie coordination; cross-tab race protection requires Web Locks. |
-| Production capacity | Local adapter measurements are reference results, not sustained production capacity or WebSocket/write-load certification. Repeat with target TLS/proxy/database topology. |
+| Production capacity | Validate capacity against the target TLS/proxy/database topology with representative traffic before production rollout. |
 
 The former seven gaps therefore have separate outcomes: privacy, atomic audit, assignment, account lifecycle and application hosting have implementation and automated checks; payment/geocoding and deployment operations still require the choices above. Lighthouse scores alone do not establish production readiness or zero security risk.
 

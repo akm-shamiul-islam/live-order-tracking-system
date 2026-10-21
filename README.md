@@ -56,7 +56,7 @@ Prices are realistic USD demonstration amounts. Ordering does not collect paymen
 | Contracts                               | Zod **4.6.7**                                                                                                 |
 | Quality tools                           | Vitest **5.0.5**, Lighthouse **13.5.0**, Oxlint **1.89.0**, Oxfmt **0.74.0**                                  |
 | Git gates                               | Husky **9.1.7**, lint-staged **17.6.0**                                                                       |
-| Isolated integration / throughput tools | mongodb-memory-server **11.3.0**, Autocannon **8.0.0**, Nest Express adapter **12.2.0**                       |
+| Isolated integration tools              | mongodb-memory-server **11.3.0**                                                                            |
 
 The manifests specify ranges; pnpm-lock.yaml records exact versions. `pnpm deps:check` checks every direct package against npm. Node declarations follow the supported Node 24 runtime. Current scripts invoke the standalone Vite, Vitest, TypeScript and Oxc tools. Vite+ has a known upstream alias peer warning; application builds and standalone test commands remain verified.
 
@@ -150,32 +150,15 @@ pnpm test:integration
 pnpm build
 pnpm test:browser
 pnpm audit:lighthouse
-pnpm benchmark:throughput
 pnpm deps:check
 pnpm audit
 pnpm lint
 ```
 
-Integration/browser/measurement commands create isolated synthetic databases and stop their own processes; they do not use development orders. The first integration run may download a MongoDB binary. Browser checks require Chrome; see [quality commands](documentation/docs/QUALITY.md).
+Integration, browser and Lighthouse commands create isolated synthetic databases and stop their own processes; they do not use development orders. The first integration run may download a MongoDB binary. Browser checks require Chrome; see [quality commands](documentation/docs/QUALITY.md).
 
 - **pre-commit:** lint/fix and format staged JS/TS files through lint-staged.
 - **pre-push:** workspace typechecking and maintained source tests.
-
-## HTTP throughput reference
-
-Measured **2026-10-21** on Intel(R) Core(TM) i7-8665U CPU @ 1.90GHz; 8 logical CPUs, 15.81 GiB RAM, Windows 11 Pro (x64). Source revision: `83353a9` (clean working tree).
-
-25 concurrent connections, pipelining 1, three 10-second recorded runs per adapter/workload, each after a 3-second warmup. Same compiled application/security checks and isolated MongoDB with 100 synthetic orders; HTTP on loopback without TLS. All 18 recorded runs completed with zero errors, timeouts or non-2xx responses. Values below are medians of run throughput and run p99 latency.
-
-| Workload                                | Fastify req/s | Express req/s | Fastify p99 (ms) | Express p99 (ms) |
-| --------------------------------------- | ------------: | ------------: | ---------------: | ---------------: |
-| Public configuration                    |      1,095.41 |      1,210.60 |               51 |               67 |
-| Private order with MongoDB              |        141.20 |        153.31 |              298 |              233 |
-| Authenticated dispatch page (10 orders) |         67.50 |         70.41 |              919 |              659 |
-
-**Express had higher median throughput in this run.** These shared-laptop GET results do not establish universal adapter superiority or production capacity. Node v24.18.1, pnpm 12.14.0, NestJS 12.2.0, Fastify 5.12.7, Express 5.3.0, MongoDB 8.2.6 and Autocannon 8.0.0.
-
-Reproduce with `pnpm build` then `pnpm benchmark:throughput`. [Methodology and full latency results](documentation/docs/BENCHMARKS.md) and [raw measurements](documentation/benchmarks/throughput-2026-10-21.json) record every run and the test conditions.
 
 ## Workspace
 
@@ -194,5 +177,5 @@ frontend/src/
   lib/           API, Zustand session, settings and sockets
   router.tsx     Typed page URLs and access layouts
 shared/src/      Catalog, prices, roles, Zod and socket contracts
-scripts/         Isolated browser, Lighthouse and benchmark tools
+scripts/         Isolated browser and Lighthouse tools
 ```

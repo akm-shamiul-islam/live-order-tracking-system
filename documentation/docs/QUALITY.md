@@ -10,13 +10,12 @@ pnpm test:integration
 pnpm build
 pnpm test:browser
 pnpm audit:lighthouse
-pnpm benchmark:throughput
 pnpm deps:check
 pnpm audit
 pnpm lint
 ```
 
-Run integration, browser, Lighthouse and throughput commands sequentially. Concurrent compilers, lint workers and MongoDB fixtures can exhaust a development machine and distort timings or cause connection timeouts.
+Run integration, browser and Lighthouse commands sequentially. Concurrent compilers, lint workers and MongoDB fixtures can exhaust a development machine and distort timings or cause connection timeouts.
 
 ## Source and integration tests
 
@@ -66,4 +65,4 @@ Measured 2026-10-21T01:57:31.910Z with Chrome/155.0.8059.84 / Lighthouse 13.5.0.
 - API responses use no-store. Hashed static assets use immutable caching; HTML is not cached permanently.
 - Server guards enforce owner/role/assignment checks independently of hidden navigation. Shared validation, rate/connection/payload limits, secure recovery/session handling and journaled atomic order writes are covered by tests.
 
-[Throughput methodology](BENCHMARKS.md) is separate from browser rendering measurements. Live deployment, provider configuration and operating requirements are listed in [OPERATIONS.md](OPERATIONS.md).
+Live deployment, provider configuration and operating requirements are listed in [OPERATIONS.md](OPERATIONS.md).
