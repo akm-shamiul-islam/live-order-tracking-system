@@ -225,6 +225,102 @@ try {
   pass(
     'Drawer defaults open and persists both states; breadcrumbs and menu page sizes match navigation',
   );
+
+  await evaluate(`(()=>{
+    window.ktdNativePageTransition=document.startViewTransition;
+    window.ktdPageTransitions=[];
+    window.ktdPageHeader=document.querySelector('header');
+    window.ktdPageDrawer=document.querySelector('.navigation-sidebar');
+    document.startViewTransition=function(...args){
+      const transition=window.ktdNativePageTransition.apply(this,args);
+      const result={animations:[],finished:false};
+      window.ktdPageTransitions.push(result);
+      transition.ready.then(()=>{
+        result.animations=document.getAnimations()
+          .filter(animation=>animation.animationName?.startsWith('page-fade-'))
+          .map(animation=>({name:animation.animationName,duration:animation.effect.getTiming().duration}));
+      },error=>{result.skipped=error.message});
+      transition.finished.then(()=>{result.finished=true},()=>{result.finished=true});
+      return transition;
+    };
+  })()`);
+  await openNavigation();
+  await click('#site-navigation a[href="/account"]');
+  await waitText('Welcome Back');
+  await waitFor(
+    () =>
+      evaluate(
+        'window.ktdPageTransitions.some(result=>result.animations.some(animation=>animation.name==="page-fade-in"&&animation.duration>0)&&result.animations.some(animation=>animation.name==="page-fade-out"&&animation.duration>0))',
+      ),
+    'Native page enter and exit animations',
+  );
+  assert.equal(
+    await evaluate(
+      'window.ktdPageHeader===document.querySelector("header")&&window.ktdPageDrawer===document.querySelector(".navigation-sidebar")',
+    ),
+    true,
+  );
+  const waitForPageTransitions = () =>
+    waitFor(
+      () => evaluate('window.ktdPageTransitions.every(result=>result.finished)'),
+      'Page transitions finish',
+    );
+  await waitForPageTransitions();
+  await click('#site-navigation a[href="/"]');
+  await waitText('Made fresh.');
+  await waitForPageTransitions();
+  await evaluate('history.back()');
+  await waitText('Welcome Back');
+  await waitForPageTransitions();
+  await evaluate('history.forward()');
+  await waitText('Made fresh.');
+  await waitForPageTransitions();
+  await evaluate('window.ktdPageTransitions=[]');
+  await select('Items per page', '16');
+  await waitFor(
+    () => evaluate('document.querySelectorAll("main article").length===16'),
+    'Menu filter update',
+  );
+  assert.equal(await evaluate('window.ktdPageTransitions.length'), 0);
+  await select('Items per page', '8');
+  await waitFor(
+    () => evaluate('document.querySelectorAll("main article").length===8'),
+    'Default menu page size',
+  );
+  await page.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+  });
+  await click('#site-navigation a[href="/account"]');
+  await waitText('Welcome Back');
+  await waitForPageTransitions();
+  assert.equal(
+    await evaluate(
+      'window.ktdPageTransitions.some(result=>result.animations.some(animation=>animation.duration>0))',
+    ),
+    false,
+  );
+  await evaluate('document.startViewTransition=undefined');
+  await click('#site-navigation a[href="/"]');
+  await waitText('Made fresh.');
+  await evaluate(`(()=>{
+    document.startViewTransition=window.ktdNativePageTransition;
+    delete window.ktdNativePageTransition;
+    delete window.ktdPageTransitions;
+    delete window.ktdPageHeader;
+    delete window.ktdPageDrawer;
+  })()`);
+  await page.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+  });
+  await click('[aria-label="Close navigation drawer"]');
+  await waitFor(
+    () => evaluate('document.querySelector(".app-content").getAnimations().length===0'),
+    'Closed navigation after transition checks',
+  );
+  pass(
+    'Drawer pages crossfade with a stable shell; history, filters, reduced motion and unsupported browsers remain usable',
+  );
+
   await click('button[aria-label^="Add "]');
   await click('header button[aria-label^="View cart"]');
   await waitFor(() => evaluate('Boolean(document.querySelector("dialog[open]"))'), 'Cart dialog');

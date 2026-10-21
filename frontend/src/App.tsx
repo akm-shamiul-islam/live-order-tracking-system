@@ -96,7 +96,7 @@ export function App() {
           <main
             id="main-content"
             tabIndex={-1}
-            className="flex-1 min-w-0 w-full px-4 sm:px-6 lg:px-8 py-8"
+            className="route-page flex-1 min-w-0 w-full px-4 sm:px-6 lg:px-8 py-8"
           >
             <Breadcrumbs />
             <Suspense fallback={loadingPanel}>

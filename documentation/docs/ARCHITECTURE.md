@@ -38,6 +38,19 @@ flowchart LR
 
 An authenticated 401 triggers one refresh attempt and one retry. A single in-tab promise coalesces rotation; one Web Lock coordinates login, registration, rotation, password reset and logout across tabs. An in-tab queue is the fallback when Web Locks are unavailable. Superseded authentication responses cannot restore a signed-out session or replace a newer sign-in. Logout clears local state before and after server revocation, and displays pending/failure feedback with a retry action. Network/503 errors preserve saved access state and the refresh cookie. Socket.IO and optional map animation load after the first paint opportunity; live queries reconcile after connection and continue polling on interruption. Sockets reconnect when the token changes. Breadcrumbs use real parent links and aria-current. Menu sizes are 8/16/32/60; other list sizes remain 10/25/50/100.
 
+## Page transitions
+
+TanStack Router's [defaultViewTransition option](https://tanstack.com/router/latest/docs/api/router/RouterOptionsType#defaultviewtransition-property) wraps the actual route commit in the browser View Transition API. Its types callback enables `page-navigation` only when the pathname changes and reduced motion is off. Drawer links use [intent preloading](https://tanstack.com/router/latest/docs/guide/preloading) for hover, focus and touch. React state subscriptions alone did not activate React's ViewTransition boundary in the verified router integration, so the router owns the snapshot lifecycle.
+
+The main element is the single named `page-content` participant. Its outgoing snapshot fades for 140 ms and its incoming snapshot for 220 ms. Opacity-only animations and fixed snapshot geometry avoid stretching text between pages with different heights. The root snapshot stays live, keeping the header and drawer steady; the overlay does not capture pointer events. This adds no animation dependency or artificial navigation delay.
+
+| Navigation or update | Presentation |
+| --- | --- |
+| Drawer destinations, account pages, tracking links | Page fade after route commit; existing route skeletons handle loading. |
+| Browser Back/Forward | Same fade for pathname changes on browsers supporting transition types. |
+| Filters, search, pagination and live data | Immediate updates with current component/form state preserved. |
+| Direct entry, reduced motion or unsupported transition APIs/types | Normal rendering; reduced-motion CSS also disables snapshot animations. |
+
 ## Authentication and user management
 
 - Registration accepts an optional delivery address, persisted on the user document and returned in the authenticated profile for registration, login, refresh and `/auth/me`. Existing users without an address remain valid. Zustand persists and synchronizes it with the rest of the profile, including address-only updates. Addresses are omitted from JWT claims and the courier directory.

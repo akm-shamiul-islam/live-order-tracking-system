@@ -162,6 +162,17 @@ export const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   scrollRestoration: true,
+  defaultViewTransition: {
+    types: ({ fromLocation, toLocation }) => {
+      if (
+        !fromLocation ||
+        fromLocation.pathname === toLocation.pathname ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      )
+        return false;
+      return ['page-navigation'];
+    },
+  },
   defaultPendingComponent: PageSkeleton,
   defaultErrorComponent: ({ reset }) => (
     <section role="alert" className="glass-panel rounded-2xl p-8 text-center">

@@ -107,7 +107,7 @@ If a checkout response is lost, retry the same checkout. The app reuses its retr
 | `/dispatch`                         | Admin dispatch station                                  |
 | `/users`                            | Admin user management                                   |
 
-Filters and pagination are stored in URLs. Direct page loads, refresh and browser Back/Forward are supported. The menu defaults to 8 items; other lists default to 10. The drawer reserves space on desktop and uses a closable overlay on mobile. Its open/closed preference survives refresh through localStorage. My Orders and Available Deliveries use the full available content width.
+Filters and pagination are stored in URLs. Direct page loads, refresh and browser Back/Forward are supported. The menu defaults to 8 items; other lists default to 10. The drawer reserves space on desktop and uses a closable overlay on mobile. Its open/closed preference survives refresh through localStorage. Pages use a short fade transition, with reduced-motion support. Drawer destinations preload on hover or keyboard focus. My Orders and Available Deliveries use the full available content width.
 
 ### Local staff login
 

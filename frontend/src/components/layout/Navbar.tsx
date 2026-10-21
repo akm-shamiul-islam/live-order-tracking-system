@@ -268,6 +268,7 @@ export function NavigationDrawer({
                   <Link
                     key={to}
                     to={to}
+                    preload="intent"
                     activeOptions={{ exact: to === '/', includeSearch: false }}
                     onClick={() => {
                       if (!desktop) onClose();

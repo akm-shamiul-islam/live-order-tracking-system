@@ -1,10 +1,11 @@
 {
-  "measuredAt": "2026-10-21T04:20:26.866Z",
+  "measuredAt": "2026-10-21T04:41:04.675Z",
   "chrome": "Chrome/155.0.8059.84",
   "node": "v24.18.1",
   "checks": [
     "Guest pages and protected drawer links require sign-in",
     "Drawer defaults open and persists both states; breadcrumbs and menu page sizes match navigation",
+    "Drawer pages crossfade with a stable shell; history, filters, reduced motion and unsupported browsers remain usable",
     "A lost checkout response can be retried without creating a duplicate order",
     "Registration saves an optional address; checkout prefills contact details, accepts edits and clears stale map pins",
     "Expired access token refreshes through the real HttpOnly browser cookie",

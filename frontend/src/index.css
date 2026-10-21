@@ -96,6 +96,54 @@ body {
 .app-content {
   transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* The router snapshots page changes; the header and drawer remain live. */
+.route-page {
+  view-transition-name: page-content;
+}
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-group(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-group(page-content) {
+  animation: none;
+}
+::view-transition-old(page-content),
+::view-transition-new(page-content) {
+  animation: none;
+  mix-blend-mode: normal;
+  object-fit: none;
+  object-position: top left;
+}
+:root:active-view-transition-type(page-navigation)::view-transition-new(page-content) {
+  animation: page-fade-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+:root:active-view-transition-type(page-navigation)::view-transition-old(page-content) {
+  animation: page-fade-out 140ms ease-in both;
+}
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes page-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 .navigation-sidebar {
   position: fixed;
   z-index: 30;
@@ -171,6 +219,11 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
   .app-content,
   .navigation-sidebar,
   .navigation-dialog {

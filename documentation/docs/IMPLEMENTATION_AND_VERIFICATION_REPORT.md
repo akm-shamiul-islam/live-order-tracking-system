@@ -16,6 +16,8 @@ Updated 2026-10-21 (Asia/Tokyo). This report records repository implementation a
 
 TanStack Router provides copyable URLs, direct-route loading, browser history and URL filters/pagination. Role-specific navigation is an animated responsive drawer, open by default with open/closed state in localStorage. It reserves content width on desktop and uses a closable modal on mobile. Breadcrumbs provide linked parent pages and an accessible current-page marker.
 
+Drawer navigation uses router-managed native page fades (140 ms exit, 220 ms entry), with intent preloading on hover/focus. The header and drawer remain mounted and steady. Same-page filters/live updates stay immediate, reduced motion disables animation, and unsupported browser APIs/types retain normal navigation. Real Chrome checks verify both snapshot animations and these fallback paths; [ARCHITECTURE.md](ARCHITECTURE.md#page-transitions) records the API choice and navigation map.
+
 The menu uses 8/16/32/60 items per page, default 8. Other lists retain 10/25/50/100. Order history and Available Deliveries use full available content width, including when the desktop drawer opens or closes. Dispatch has centered headers and the requested centered data columns, date above time in YYYY/MM/DD and HH:MM:SS, aligned Track/Advance actions, themed dropdown/filter/search controls and consistent icons. Zod field errors use red borders, red text below fields and focus on the first error. Loading states cover initial content, lazy routes, tables and network actions.
 
 The shared catalog includes 27 dishes in seven categories with realistic USD demo prices and local licensed food photos. Responsive WebP, self-hosted fonts, fixed image dimensions, deferred live/animation loading and reduced-motion handling improve rendering. Contrast issues identified in the measured history, dispatch and tracking pages have been corrected. Identical profile checks no longer trigger full authenticated rerenders. Locale date formatters are reused across rows/live updates, offscreen menu cards use rendering containment, and staff controls are split from customer tracking.
@@ -46,7 +48,7 @@ Saved-address validation and persistence follow the current [Zod string/default 
 | Production build | Passed; compressed frontend assets and runnable backend/shared exports |
 | Source tests | 202 passed across 20 files |
 | MongoDB/HTTP/socket integration | 25 passed against isolated MongoDB |
-| Browser workflows | 13 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
+| Browser workflows | 14 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
 | Lighthouse | [Eight-case summary](../quality/lighthouse-2026-10-21.json) and [registration/courier follow-up](../quality/lighthouse-registration-courier-2026-10-21.json); see QUALITY.md |
 | Registry/security/lint gates | 57 direct packages / 67 declarations current; 0 known advisories; lint 0 errors, 119 warnings |
 
