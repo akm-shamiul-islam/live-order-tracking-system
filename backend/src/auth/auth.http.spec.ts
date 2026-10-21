@@ -16,6 +16,7 @@ import { User } from '../database/schemas/user.schema.js';
 import { OrdersController } from '../orders/orders.controller.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { OrdersGateway } from '../orders/orders.gateway.js';
+import { ReceiptService } from '../receipts/receipt.service.js';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { httpRateLimiterProvider } from '../common/rate-limit.js';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
@@ -76,6 +77,14 @@ const userModel = {
       },
     },
     { provide: OrdersGateway, useValue: {} },
+    {
+      provide: ReceiptService,
+      useValue: {
+        create: vi
+          .fn<ReceiptService['create']>()
+          .mockResolvedValue({ orderNumber: 'KTD-TEST', pdf: new Uint8Array() }),
+      },
+    },
   ],
 })
 class HttpTestModule {}
