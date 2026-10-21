@@ -80,8 +80,8 @@ Open **http://localhost:5173**. The API defaults to port 5000. Use `pnpm dev:fro
 
 ## Accounts and ordering
 
-1. Open **My Account → Create an Account**. New accounts are normal customers; registration cannot choose admin/courier privileges.
-2. Add food to the bag and continue to checkout. Sign-in preserves the cart during navigation. Enter the delivery address; an optional current-location pin can be attached if you are at that address.
+1. Open **My Account → Create an Account**. You can save an optional delivery address during registration. New accounts are normal customers; registration cannot choose admin/courier privileges.
+2. Add food to the bag and continue to checkout. Sign-in preserves the cart during navigation. Checkout fills in your saved name, phone number and address. Edit any details for this delivery and click **Deliver**; these edits do not change your registered defaults. A delivery address is required. You can attach a current-location pin if you are at that address; editing the address clears the pin.
 3. **My Orders** shows only orders owned by the signed-in customer. Open an order for items, totals, address, status, cancellation reason and live updates.
 4. Admins see new orders in **Dispatch Station**. **Users → Edit** changes profiles and roles using a themed dropdown. Email/access changes sign the affected user out; they sign in again with their current details.
 5. Couriers use **Available Deliveries → Request Delivery**. Admins approve/decline from an order's delivery controls. Once assigned, the order moves to that courier's **My Deliveries** and disappears from other available lists.
@@ -107,7 +107,7 @@ If a checkout response is lost, retry the same checkout. The app reuses its retr
 | `/dispatch`                         | Admin dispatch station                                  |
 | `/users`                            | Admin user management                                   |
 
-Filters and pagination are stored in URLs. Direct page loads, refresh and browser Back/Forward are supported. The menu defaults to 8 items; other lists default to 10. The drawer reserves space on desktop and uses a closable overlay on mobile. Its open/closed preference survives refresh through localStorage. My Orders uses the full available content width.
+Filters and pagination are stored in URLs. Direct page loads, refresh and browser Back/Forward are supported. The menu defaults to 8 items; other lists default to 10. The drawer reserves space on desktop and uses a closable overlay on mobile. Its open/closed preference survives refresh through localStorage. My Orders and Available Deliveries use the full available content width.
 
 ### Local staff login
 

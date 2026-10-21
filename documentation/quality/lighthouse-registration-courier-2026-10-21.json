@@ -1,0 +1,188 @@
+{
+  "measuredAt": "2026-10-21T04:21:41.326Z",
+  "chrome": "Chrome/155.0.8059.84",
+  "lighthouse": "13.5.0",
+  "method": "Compiled production app and compressed local assets, isolated synthetic MongoDB, Chrome for Testing, cold HTTP cache per navigation, drawer dismissed using its persisted preference. Mobile Lighthouse simulation; desktop 40ms RTT/10Mbps/1x CPU.",
+  "limitations": [
+    "Private pages deliberately use noindex; their crawlability warning is expected.",
+    "Local HTTP cannot establish the deployed site’s TLS, HSTS, infrastructure security or real-world field performance.",
+    "Lighthouse automated accessibility checks do not replace keyboard and assistive-technology testing or a security review."
+  ],
+  "results": [
+    {
+      "page": "account-mobile",
+      "private": true,
+      "scores": {
+        "performance": 82,
+        "accessibility": 100,
+        "best-practices": 100,
+        "seo": 60
+      },
+      "metrics": {
+        "first-contentful-paint": 2284.820625,
+        "largest-contentful-paint": 2992.28475,
+        "total-blocking-time": 421.03587500000003,
+        "cumulative-layout-shift": 0,
+        "speed-index": 2284.820625
+      },
+      "issues": [
+        {
+          "id": "first-contentful-paint",
+          "title": "First Contentful Paint",
+          "score": 0.75,
+          "displayValue": "2.3 s"
+        },
+        {
+          "id": "largest-contentful-paint",
+          "title": "Largest Contentful Paint",
+          "score": 0.78,
+          "displayValue": "3.0 s"
+        },
+        {
+          "id": "speed-index",
+          "title": "Speed Index",
+          "score": 0.99,
+          "displayValue": "2.3 s"
+        },
+        {
+          "id": "total-blocking-time",
+          "title": "Total Blocking Time",
+          "score": 0.66,
+          "displayValue": "420 ms"
+        },
+        {
+          "id": "max-potential-fid",
+          "title": "Max Potential First Input Delay",
+          "score": 0.46,
+          "displayValue": "260 ms"
+        },
+        {
+          "id": "interactive",
+          "title": "Time to Interactive",
+          "score": 0.95,
+          "displayValue": "3.1 s"
+        },
+        {
+          "id": "mainthread-work-breakdown",
+          "title": "Minimize main-thread work",
+          "score": 0,
+          "displayValue": "2.2 s",
+          "selectors": []
+        },
+        {
+          "id": "unused-javascript",
+          "title": "Reduce unused JavaScript",
+          "score": 0,
+          "displayValue": "Est savings of 39 KiB",
+          "selectors": []
+        },
+        {
+          "id": "is-crawlable",
+          "title": "Page is blocked from indexing",
+          "score": 0,
+          "selectors": []
+        },
+        {
+          "id": "network-dependency-tree-insight",
+          "title": "Network dependency tree",
+          "score": 0,
+          "selectors": []
+        },
+        {
+          "id": "render-blocking-insight",
+          "title": "Render-blocking requests",
+          "score": 0.5,
+          "selectors": []
+        }
+      ]
+    },
+    {
+      "page": "courier-mobile",
+      "private": true,
+      "scores": {
+        "performance": 82,
+        "accessibility": 100,
+        "best-practices": 100,
+        "seo": 60
+      },
+      "metrics": {
+        "first-contentful-paint": 1894.4797,
+        "largest-contentful-paint": 3134.4593999999997,
+        "total-blocking-time": 423,
+        "cumulative-layout-shift": 0,
+        "speed-index": 1915.7046865884238
+      },
+      "issues": [
+        {
+          "id": "first-contentful-paint",
+          "title": "First Contentful Paint",
+          "score": 0.87,
+          "displayValue": "1.9 s"
+        },
+        {
+          "id": "largest-contentful-paint",
+          "title": "Largest Contentful Paint",
+          "score": 0.74,
+          "displayValue": "3.1 s"
+        },
+        {
+          "id": "total-blocking-time",
+          "title": "Total Blocking Time",
+          "score": 0.65,
+          "displayValue": "420 ms"
+        },
+        {
+          "id": "max-potential-fid",
+          "title": "Max Potential First Input Delay",
+          "score": 0.65,
+          "displayValue": "200 ms"
+        },
+        {
+          "id": "interactive",
+          "title": "Time to Interactive",
+          "score": 0.9,
+          "displayValue": "3.7 s"
+        },
+        {
+          "id": "mainthread-work-breakdown",
+          "title": "Minimize main-thread work",
+          "score": 0,
+          "displayValue": "2.1 s",
+          "selectors": []
+        },
+        {
+          "id": "unused-javascript",
+          "title": "Reduce unused JavaScript",
+          "score": 0,
+          "displayValue": "Est savings of 31 KiB",
+          "selectors": []
+        },
+        {
+          "id": "is-crawlable",
+          "title": "Page is blocked from indexing",
+          "score": 0,
+          "selectors": []
+        },
+        {
+          "id": "bf-cache",
+          "title": "Page prevented back/forward cache restoration",
+          "score": 0,
+          "displayValue": "3 failure reasons",
+          "selectors": []
+        },
+        {
+          "id": "network-dependency-tree-insight",
+          "title": "Network dependency tree",
+          "score": 0,
+          "selectors": []
+        },
+        {
+          "id": "render-blocking-insight",
+          "title": "Render-blocking requests",
+          "score": 0.5,
+          "selectors": []
+        }
+      ]
+    }
+  ]
+}

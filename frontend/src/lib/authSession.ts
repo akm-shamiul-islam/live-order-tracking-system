@@ -51,6 +51,7 @@ function updateSession(next: AuthSession) {
       current.user.name === next.user.name &&
       current.user.email === next.user.email &&
       current.user.phone === next.user.phone &&
+      current.user.address === next.user.address &&
       current.user.role === next.user.role,
     );
   if (sameUser && current.token === next.token) return;

@@ -1,5 +1,17 @@
 import { z } from '../zod.js';
 
+// Match HTML maxlength and Mongoose's string limit, including UTF-16 surrogate pairs.
+const addressText = z
+  .string()
+  .trim()
+  .refine((value) => value.length <= 500, 'Use at most 500 characters');
+const addressMessage = 'Enter a delivery address (at least 5 characters)';
+
+export const DeliveryAddressSchema = addressText.min(5, addressMessage);
+export const OptionalDeliveryAddressSchema = addressText
+  .refine((value) => value.length === 0 || Array.from(value).length >= 5, addressMessage)
+  .optional();
+
 export const PhoneSchema = z
   .string()
   .trim()

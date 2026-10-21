@@ -1,6 +1,6 @@
 import { z } from '../zod.js';
 import { UserRole } from '../enums.js';
-import { PhoneSchema } from './lookup.schema.js';
+import { OptionalDeliveryAddressSchema, PhoneSchema } from './lookup.schema.js';
 
 export const EmailSchema = z
   .string()
@@ -31,6 +31,7 @@ export const RegisterSchema = z.object({
       'Password must be at most 72 bytes',
     ),
   phone: PhoneSchema,
+  address: OptionalDeliveryAddressSchema,
   role: z.literal(UserRole.CUSTOMER).default(UserRole.CUSTOMER),
 });
 
@@ -56,6 +57,7 @@ export const UserSummarySchema = z.object({
   email: z.email(),
   role: z.enum([UserRole.CUSTOMER, UserRole.COURIER, UserRole.ADMIN]),
   phone: z.string().optional(),
+  address: z.string().optional(),
 });
 
 export type UserSummary = z.infer<typeof UserSummarySchema>;

@@ -226,6 +226,95 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     expect(await userModel.countDocuments({ email: payload.email })).toBe(1);
   });
 
+  it('persists registration addresses through login and refresh while checkout edits apply only to the order', async () => {
+    const savedAddress = '45 Registration Avenue, Apt 2\nTest City 10001';
+    const payload = {
+      name: 'Address Customer',
+      email: 'address-customer@example.test',
+      phone: '555-1234567',
+      password: 'Address-password123!',
+      address: `  ${savedAddress}\n `,
+    };
+    const registered = await app.inject({ method: 'POST', url: '/api/auth/register', payload });
+    expect(registered.statusCode).toBe(201);
+    expect(registered.json().user).toMatchObject({
+      address: savedAddress,
+      role: UserRole.CUSTOMER,
+    });
+    const registeredHeaders = { authorization: `Bearer ${registered.json().accessToken}` };
+    expect(
+      (await app.inject({ url: '/api/auth/me', headers: registeredHeaders })).json().address,
+    ).toBe(savedAddress);
+    const loggedIn = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: payload.email, password: payload.password },
+    });
+    expect(loggedIn.statusCode).toBe(200);
+    expect(loggedIn.json().user.address).toBe(savedAddress);
+    const refreshed = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      headers: { cookie: String(loggedIn.headers['set-cookie']).split(';')[0]! },
+    });
+    expect(refreshed.statusCode).toBe(200);
+    expect(refreshed.json().user.address).toBe(savedAddress);
+    const headers = { authorization: `Bearer ${refreshed.json().accessToken}` };
+    const delivery = {
+      name: 'Delivery Recipient',
+      phone: '555-7654321',
+      address: '99 Edited Delivery Street\nTest City 20002',
+    };
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers,
+      payload: { ...dto, customer: delivery, deliveryAddress: delivery.address },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().order.customer).toEqual(delivery);
+    const storedOrder = await orderModel.findById(created.json().order.id).lean();
+    expect(storedOrder?.customer.address).toBe(delivery.address);
+    const storedUser = await userModel.findById(registered.json().user.id).lean();
+    expect(storedUser).toMatchObject({
+      name: payload.name,
+      phone: payload.phone,
+      address: savedAddress,
+    });
+    const profile = await app.inject({ url: '/api/auth/me', headers });
+    expect(profile.json()).toMatchObject({
+      name: payload.name,
+      phone: payload.phone,
+      address: savedAddress,
+    });
+    const available = await app.inject({ url: '/api/orders/available', headers: auth('courier1') });
+    expect(available.statusCode).toBe(200);
+    expect(available.body).not.toContain(savedAddress);
+    expect(available.body).not.toContain('Edited Delivery Street');
+  });
+
+  it('rejects invalid optional registration addresses before creating an account', async () => {
+    const email = 'invalid-address@example.test';
+    for (const address of ['1234', 'a'.repeat(501), '😀'.repeat(251)]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: {
+          name: 'Invalid Address Customer',
+          email,
+          phone: '555-1234567',
+          password: 'Address-password123!',
+          address,
+        },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().errors).toEqual([
+        expect.objectContaining({ field: 'address', message: expect.any(String) }),
+      ]);
+    }
+    expect(await userModel.exists({ email })).toBeNull();
+  });
+
   it('creates one order for concurrent checkout retries and scopes retry keys to the customer', async () => {
     const key = randomUUID();
     const headers = { ...auth('customer1'), 'idempotency-key': key };

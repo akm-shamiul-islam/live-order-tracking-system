@@ -77,6 +77,30 @@ describe('Zustand authentication persistence and tab synchronization', () => {
     stop();
   });
 
+  it('restores saved delivery addresses and publishes address-only profile changes across tabs', async () => {
+    const original = { ...user, address: '123 Saved Address' };
+    localStorage.setItem('ktd_token', 'saved-token');
+    localStorage.setItem('ktd_user', JSON.stringify(original));
+    const { getSession, saveSession, subscribeSession, listenForSessionChanges } =
+      await import('./authSession');
+    expect(getSession().user?.address).toBe(original.address);
+    const listener = vi.fn<() => void>();
+    const stopSubscription = subscribeSession(listener);
+    const stopStorage = listenForSessionChanges();
+    const updated = { ...original, address: '456 Updated Address' };
+    saveSession({ user: updated, accessToken: 'saved-token' });
+    expect(getSession().user?.address).toBe(updated.address);
+    expect(listener).toHaveBeenCalledTimes(1);
+    saveSession({ user: { ...updated }, accessToken: 'saved-token' });
+    expect(listener).toHaveBeenCalledTimes(1);
+    localStorage.setItem('ktd_user', JSON.stringify({ ...updated, address: '789 Other Tab' }));
+    storageEvent('ktd_user');
+    expect(getSession().user?.address).toBe('789 Other Tab');
+    expect(listener).toHaveBeenCalledTimes(2);
+    stopStorage();
+    stopSubscription();
+  });
+
   it('ignores unrelated storage changes and releases the storage listener', async () => {
     const { getSession, saveSession, listenForSessionChanges } = await import('./authSession');
     saveSession({ user, accessToken: 'current-token' });

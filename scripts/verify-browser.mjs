@@ -76,6 +76,10 @@ try {
       `Boolean(document.querySelector('main')?.textContent.includes(${JSON.stringify(text)}))`,
     );
   const waitText = (text) => waitFor(() => has(text), text);
+  const usesFullContentWidth = () =>
+    evaluate(
+      '(()=>{const main=document.querySelector("main");const content=main.querySelector(":scope > div");const css=getComputedStyle(main);return Math.abs(content.getBoundingClientRect().width-(main.clientWidth-parseFloat(css.paddingLeft)-parseFloat(css.paddingRight)))<2})()',
+    );
   async function goto(path, text) {
     await page.send('Page.navigate', { url: app.base + path });
     if (text) await waitText(text);
@@ -243,14 +247,36 @@ try {
   );
   const email = 'browser-customer@example.test';
   const nextEmail = 'browser-courier@example.test';
+  const savedAddress = '45 Registration Avenue, Apt 2\nTest City 10001';
   for (const [field, value] of Object.entries({
     name: 'Browser Customer',
     email,
     phone: '555-1234567',
+    address: '1234',
     password: app.password,
     confirmPassword: app.password,
   }))
     await input(`#register-${field}`, value);
+  await clickText('Create Account');
+  await waitFor(
+    () =>
+      evaluate(
+        'document.querySelector("#register-address").getAttribute("aria-invalid") === "true"',
+      ),
+    'Registration address field validation',
+  );
+  assert.equal(await evaluate('document.activeElement?.id'), 'register-address');
+  assert.equal(await evaluate('document.querySelector("#register-address").required'), false);
+  await waitFor(
+    () =>
+      evaluate(
+        'getComputedStyle(document.querySelector("#register-address")).borderTopColor === "rgb(244, 63, 94)"',
+      ),
+    'Red registration address border',
+  );
+  await input('#register-address', savedAddress);
+  await evaluate('scrollTo({top:0,behavior:"instant"})');
+  await screenshot('registration-desktop');
   await clickText('Create Account');
   await waitFor(async () => (await session()).user?.role === 'CUSTOMER', 'Default customer role');
   await waitFor(() => evaluate('location.pathname === "/"'), 'Checkout return location');
@@ -264,6 +290,11 @@ try {
     await evaluate('document.querySelector("#checkout-name").value'),
     'Browser Customer',
   );
+  assert.equal(await evaluate('document.querySelector("#checkout-phone").value'), '555-1234567');
+  assert.equal(await evaluate('document.querySelector("#checkout-address").value'), savedAddress);
+  await screenshot('checkout-saved-address');
+  await input('#checkout-name', 'Delivery Recipient');
+  await input('#checkout-phone', '555-7654321');
   await input('#checkout-address', '123 Browser Test Street');
   await page.send('Browser.grantPermissions', { permissions: ['geolocation'], origin: app.base });
   await page.send('Emulation.setGeolocationOverride', {
@@ -279,9 +310,47 @@ try {
       ),
     'Customer location pin',
   );
+  const deliveryAddress = '99 Edited Delivery Street\nTest City 20002';
+  await input('#checkout-address', deliveryAddress);
+  assert.equal(
+    await evaluate(
+      'document.querySelector("dialog[open]").textContent.includes("Map pin attached")',
+    ),
+    false,
+  );
+  // A late location response must not restore a pin for an address that was edited.
+  await evaluate(`(()=>{
+    const geo=navigator.geolocation;
+    window.ktdOriginalLocation=geo.getCurrentPosition;
+    geo.getCurrentPosition=(success)=>{window.ktdPendingLocation=success};
+  })()`);
+  await clickText('Use My Current Location');
+  await waitFor(
+    () => evaluate('typeof window.ktdPendingLocation === "function"'),
+    'Pending location request',
+  );
+  await input('#checkout-address', `${deliveryAddress} `);
+  await evaluate(`(()=>{
+    navigator.geolocation.getCurrentPosition=window.ktdOriginalLocation;
+    window.ktdPendingLocation({coords:{latitude:40.713,longitude:-74.005}});
+    delete window.ktdOriginalLocation;
+    delete window.ktdPendingLocation;
+  })()`);
+  assert.equal(
+    await evaluate(
+      'document.querySelector("dialog[open]").textContent.includes("Map pin attached")',
+    ),
+    false,
+  );
+  await clickText('Use My Current Location');
+  await waitFor(
+    () =>
+      evaluate('document.querySelector("dialog[open]").textContent.includes("Map pin attached")'),
+    'Location pin reattached to the updated address',
+  );
   // Drop the response after the API has committed, then retry the same checkout.
   await dropNext('/api/orders', 'Response');
-  await clickText('Place Order');
+  await clickText('Deliver');
   await waitFor(
     () =>
       evaluate(
@@ -289,7 +358,7 @@ try {
       ),
     'Lost checkout response feedback',
   );
-  await clickText('Place Order');
+  await clickText('Deliver');
   await waitText('Order Details');
   const customer = await session();
   const own = await api('/orders/my-orders?page=1&limit=100', { token: customer.token });
@@ -297,17 +366,25 @@ try {
   assert.equal(own.body.orders.length, 1);
   pass('A lost checkout response can be retried without creating a duplicate order');
   const order = own.body.orders[0];
+  assert.deepEqual(order.customer, {
+    name: 'Delivery Recipient',
+    phone: '555-7654321',
+    address: deliveryAddress,
+  });
+  const savedProfile = await api('/auth/me', { token: customer.token });
+  assert.equal(savedProfile.status, 200);
+  assert.equal(savedProfile.body.address, savedAddress);
+  assert.equal(savedProfile.body.name, 'Browser Customer');
+  assert.equal(savedProfile.body.phone, '555-1234567');
+  pass(
+    'Registration saves an optional address; checkout prefills contact details, accepts edits and clears stale map pins',
+  );
   assert.equal(order.deliveryLocationProvided, true);
   assert.equal(await has(order.orderNumber), true);
   assert.equal(await has('Truffle Smoke Burger'), true);
   await goto('/orders', 'My Order History');
   await waitText(order.orderNumber);
-  assert.equal(
-    await evaluate(
-      '(()=>{const main=document.querySelector("main");const content=main.querySelector(":scope > div");const css=getComputedStyle(main);return Math.abs(content.getBoundingClientRect().width-(main.clientWidth-parseFloat(css.paddingLeft)-parseFloat(css.paddingRight)))<2})()',
-    ),
-    true,
-  );
+  assert.equal(await usesFullContentWidth(), true);
   assert.equal(
     await evaluate(
       'document.querySelector(\'nav[aria-label="Breadcrumb"] [aria-current="page"]\').textContent.trim()',
@@ -402,7 +479,12 @@ try {
   await login(nextEmail, app.password);
   await waitText('Available Deliveries');
   await waitText(order.orderNumber);
+  assert.equal(await usesFullContentWidth(), true);
   await openNavigation();
+  await waitFor(
+    usesFullContentWidth,
+    'Available Deliveries uses the remaining width with its drawer open',
+  );
   const links = await evaluate(
     '[...document.querySelectorAll("#site-navigation a")].map(element=>element.getAttribute("href"))',
   );
@@ -413,6 +495,12 @@ try {
       !links.includes('/dispatch'),
   );
   await click('[aria-label="Close navigation drawer"]');
+  await waitFor(usesFullContentWidth, 'Available Deliveries expands when its drawer closes');
+  await waitFor(
+    () => evaluate('document.querySelector(".app-content").getAnimations().length === 0'),
+    'Desktop drawer finishes closing',
+  );
+  await screenshot('courier-desktop');
   await evaluate(
     `(()=>{const card=[...document.querySelectorAll('article')].find(element=>element.textContent.includes(${JSON.stringify(order.orderNumber)}));card.querySelector('button').click()})()`,
   );
@@ -502,6 +590,7 @@ try {
     features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
   });
   await goto('/courier', 'Available Deliveries');
+  assert.equal(await usesFullContentWidth(), true);
   await openNavigation();
   await waitFor(
     () => evaluate('Boolean(document.querySelector("dialog.navigation-dialog[open]"))'),

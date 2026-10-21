@@ -32,6 +32,41 @@ describe('API requests and shared authentication', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  it('sends the optional registration address and keeps it in the persisted profile', async () => {
+    const address = '45 Registration Avenue, Apt 2\nTest City 10001';
+    const registered = {
+      accessToken: 'registered-token',
+      user: {
+        id: 'customer-1',
+        name: 'New Customer',
+        email: 'customer@example.test',
+        phone: '555-1234',
+        role: 'CUSTOMER',
+        address,
+      },
+    };
+    fetchMock.mockResolvedValueOnce(Response.json(registered));
+    await api.auth.register(
+      'New Customer',
+      'customer@example.test',
+      'Password123!',
+      '555-1234',
+      address,
+    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/auth/register');
+    const registrationBody = fetchMock.mock.calls[0]?.[1]?.body;
+    if (typeof registrationBody !== 'string') throw new Error('Expected a JSON registration body');
+    expect(JSON.parse(registrationBody)).toEqual({
+      name: 'New Customer',
+      email: 'customer@example.test',
+      password: 'Password123!',
+      phone: '555-1234',
+      address,
+    });
+    expect(session.getSession().user?.address).toBe(address);
+    expect(JSON.parse(localStorage.getItem('ktd_user')!).address).toBe(address);
+  });
+
   it('notifies all authentication subscribers on login and logout', async () => {
     const first = vi.fn<() => void>();
     const second = vi.fn<() => void>();

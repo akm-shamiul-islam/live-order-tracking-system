@@ -65,6 +65,7 @@ export class AuthService {
         passwordHash,
         role: UserRole.CUSTOMER,
         phone: registerDto.phone,
+        address: registerDto.address || undefined,
       });
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 11000)
@@ -82,6 +83,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       phone: user.phone,
+      address: user.address,
     };
   }
 
@@ -163,13 +165,7 @@ export class AuthService {
   async findById(id: string): Promise<UserSummary | null> {
     const user = await this.userModel.findById(id);
     if (!user || user.disabled) return null;
-    return {
-      id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: user.phone,
-    };
+    return this.summary(user);
   }
 
   async validateSession(payload: {
@@ -194,13 +190,7 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Your session has expired. Please sign in again.');
     }
-    return {
-      id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: user.phone,
-    };
+    return this.summary(user);
   }
 
   async revokeSessions(userId: string): Promise<void> {

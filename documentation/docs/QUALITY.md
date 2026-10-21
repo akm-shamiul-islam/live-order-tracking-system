@@ -19,13 +19,13 @@ Run integration, browser and Lighthouse commands sequentially. Concurrent compil
 
 ## Source and integration tests
 
-The source suite covers contracts, authentication through Nest HTTP, sessions, recovery, configuration, request errors, navigation and permissions. It also exercises late sign-in/refresh/logout races, retry keys surviving a lost response/reload, stale live events/HTTP snapshots and stable polling references. Integration tests use a separate mongodb-memory-server instance, actual HTTP and Socket.IO clients. They cover customer ownership, same-phone isolation, assignment contention, concurrent role/access changes, current authorization during passive broadcasts, cancellation, GPS freshness, refresh rotation/reuse, reset invalidation after account changes, auxiliary session cleanup failures, concurrent checkout retries, notification adapter failures, socket Origin/payload/flood limits and database stop/restart recovery with refresh-cookie preservation.
+The source suite covers contracts, authentication through Nest HTTP, sessions, recovery, configuration, request errors, navigation and permissions. It also exercises optional address validation, saved-address tab synchronization, late sign-in/refresh/logout races, retry keys surviving a lost response/reload, stale live events/HTTP snapshots and stable polling references. Integration tests use a separate mongodb-memory-server instance, actual HTTP and Socket.IO clients. They cover saved addresses through registration/login/refresh, order-specific checkout edits without changing registered defaults, customer ownership, same-phone isolation, assignment contention, concurrent role/access changes, current authorization during passive broadcasts, cancellation, GPS freshness, refresh rotation/reuse, reset invalidation after account changes, auxiliary session cleanup failures, concurrent checkout retries, notification adapter failures, socket Origin/payload/flood limits and database stop/restart recovery with refresh-cookie preservation.
 
 These commands do not mutate the development database. The first integration run may download a MongoDB binary into the temporary cache. Current verification totals are maintained in [the implementation report](IMPLEMENTATION_AND_VERIFICATION_REPORT.md).
 
 ## Browser workflow checks
 
-`pnpm test:browser` launches its own browser profile, isolated MongoDB and compiled API. It drives registration, login, expired-access refresh through the real HttpOnly cookie, cart/checkout, customer history, admin user editing, courier requests/approval, assigned status updates, cancellation and consent-based GPS. Navigation checks include role-specific menus, direct URLs, persistent open/closed drawers, breadcrumbs, menu page sizes, full-width history, responsive layouts, focus containment, dark mode and reduced-motion preferences.
+`pnpm test:browser` launches its own browser profile, isolated MongoDB and compiled API. It drives registration with optional address validation, saved contact/address checkout prefill, edited delivery details, location-pin invalidation (including a delayed GPS callback), login, expired-access refresh through the real HttpOnly cookie, cart/checkout, customer history, admin user editing, courier requests/approval, assigned status updates, cancellation and consent-based GPS. Navigation checks include role-specific menus, direct URLs, persistent open/closed drawers, breadcrumbs, menu page sizes, full-width history and Available Deliveries with the drawer open/closed, responsive layouts, focus containment, dark mode and reduced-motion preferences.
 
 It also drops a checkout response after the server commits, retries checkout and checks that only one order exists. A failed sign-out clears local access, displays a warning and successfully retries server revocation. SPA/API/asset responses, CSP, Brotli/caching and an isolated Vite proxy during API interruption/restart are verified. Browser exceptions fail the check. Summary JSON is saved under documentation/quality; screenshots and detailed diagnostics stay in a temporary directory printed by the command. No password, access token or private test URL is written into committed summaries. Cleanup recognizes both normal exit codes and signal termination so it does not await an already exited child indefinitely.
 
@@ -55,6 +55,17 @@ Measured 2026-10-21T01:57:31.910Z with Chrome/155.0.8059.84 / Lighthouse 13.5.0.
 | courier-mobile | 82 | 100 | 100 | 60 | 2.91 | 492 |
 
 [Full summary](../quality/lighthouse-2026-10-21.json). All eight scenarios scored 100 for automated accessibility and best practices. Public menu SEO is 100; private SEO 60 reflects intentional noindex. Mobile performance is 82–91 and desktop performance is 99–100 in this local run. Remaining diagnostics include startup/unused JavaScript, some image sizing/compression opportunities, small desktop table layout shifts and active-socket back/forward-cache restrictions. These are recorded rather than claimed to be absent; deployed field measurements and further startup optimization remain useful. Run-to-run laptop timing variation is not evidence that a particular code change caused the score difference.
+
+### Registration and courier follow-up
+
+After adding the saved address and widening Available Deliveries, a targeted run measured 2026-10-21T04:21:41.326Z used the same Chrome/Lighthouse versions and mobile settings. The earlier eight-page report remains available above.
+
+| Page scenario | Performance | Accessibility | Best practices | SEO | LCP (s) | TBT (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| account-mobile | 82 | 100 | 100 | 60 | 2.99 | 421 |
+| courier-mobile | 82 | 100 | 100 | 60 | 3.13 | 423 |
+
+[Targeted summary](../quality/lighthouse-registration-courier-2026-10-21.json). Neither page has an automated accessibility or best-practices failure. Both retain zero measured layout shift, intentional private-page noindex and startup JavaScript/render-blocking diagnostics. Browser workflows separately verify registration field errors, checkout prefill/edits and courier width with desktop/mobile drawers.
 
 ## Performance and security implementation
 

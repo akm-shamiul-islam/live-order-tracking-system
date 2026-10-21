@@ -1,6 +1,6 @@
 import { z } from '../zod.js';
 import { OrderStatus } from '../enums.js';
-import { PhoneSchema, OrderIdentifierSchema } from './lookup.schema.js';
+import { DeliveryAddressSchema, PhoneSchema, OrderIdentifierSchema } from './lookup.schema.js';
 
 export const OrderItemSchema = z.object({
   itemId: z.string().min(1, 'Item ID is required'),
@@ -19,7 +19,7 @@ export type OrderItem = z.infer<typeof OrderItemSchema>;
 export const CustomerInfoSchema = z.object({
   name: z.string().trim().min(2, 'Enter your full name (at least 2 characters)'),
   phone: PhoneSchema,
-  address: z.string().trim().min(5, 'Enter a delivery address (at least 5 characters)'),
+  address: DeliveryAddressSchema,
 });
 
 export type CustomerInfo = z.infer<typeof CustomerInfoSchema>;
@@ -37,7 +37,7 @@ export const CreateOrderSchema = z.object({
     .array(OrderItemSchema)
     .min(1, 'Order must contain at least one item')
     .max(50, 'Choose at most 50 items'),
-  deliveryAddress: z.string().trim().min(5, 'Delivery address is required'),
+  deliveryAddress: DeliveryAddressSchema,
   deliveryCoordinates: CoordinatesSchema.optional(),
   note: z.string().optional(),
 });

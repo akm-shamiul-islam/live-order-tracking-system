@@ -30,7 +30,7 @@ import { safeReturnTo, roleHome, canOpenPage } from '../lib/access';
 import type { AuthResponse } from '@kitchentodoor/shared';
 
 const RegisterFormSchema = RegisterSchema.omit({ role: true })
-  .extend({ confirmPassword: z.string() })
+  .extend({ address: RegisterSchema.shape.address.default(''), confirmPassword: z.string() })
   .refine((value) => value.password === value.confirmPassword, {
     path: ['confirmPassword'],
     message: 'Passwords do not match',
@@ -179,7 +179,7 @@ function RegisterForm() {
   const search = useSearch({ from: '/account' });
   const form = useZodForm(
     RegisterFormSchema,
-    { name: '', email: '', phone: '', password: '', confirmPassword: '' },
+    { name: '', email: '', phone: '', address: '', password: '', confirmPassword: '' },
     'register',
   );
   const [pending, setPending] = useState(false);
@@ -199,7 +199,13 @@ function RegisterForm() {
         setError(null);
         try {
           complete(
-            await api.auth.register(values.name, values.email, values.password, values.phone),
+            await api.auth.register(
+              values.name,
+              values.email,
+              values.password,
+              values.phone,
+              values.address,
+            ),
           );
         } catch (cause) {
           if (cause instanceof ApiError)
@@ -244,6 +250,25 @@ function RegisterForm() {
         field={form.field('phone')}
         error={form.errors.phone}
       />
+      <div className="space-y-2">
+        <label htmlFor="register-address" className="block text-sm font-semibold">
+          Delivery address (optional)
+        </label>
+        <textarea
+          {...form.field('address')}
+          rows={3}
+          autoComplete="street-address"
+          maxLength={500}
+          disabled={pending}
+          aria-describedby={`register-address-help${form.errors.address ? ' register-address-error' : ''}`}
+          placeholder="Street, apartment, city and postal code"
+          className="w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        />
+        <p id="register-address-help" className="text-xs text-slate-600 dark:text-slate-300">
+          Saved for checkout. You can change it for any delivery.
+        </p>
+        <FieldError id="register-address-error" message={form.errors.address} />
+      </div>
       <AccountField
         label="Password"
         type="password"

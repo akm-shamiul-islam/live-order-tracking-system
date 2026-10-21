@@ -24,7 +24,12 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
   const { user } = useAuth();
   const form = useZodForm(
     CheckoutFormSchema,
-    { name: user?.name || '', phone: user?.phone || '', address: '', note: '' },
+    {
+      name: user?.name || '',
+      phone: user?.phone || '',
+      address: user?.address || '',
+      note: '',
+    },
     'checkout',
   );
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +38,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
   const [coordinates, setCoordinates] = useState<Coordinates>();
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string>();
+  const locationRequest = useRef(0);
   const dialogRef = useDialog(isOpen);
   const settings = usePublicSettings();
 
@@ -41,6 +47,13 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
   const total = settings.data
     ? calculatePricing(cartItems, settings.data.pricing).total
     : undefined;
+
+  const clearLocation = () => {
+    ++locationRequest.current;
+    setCoordinates(undefined);
+    setLocating(false);
+    setLocationError(undefined);
+  };
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -126,7 +139,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               Kitchen Delivery Details
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Enter your details to place your order and start tracking
+              Your saved details are filled in. Edit them for this delivery.
             </p>
           </div>
           <button
@@ -208,14 +221,19 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             >
               Delivery Address (Doorstep)
             </label>
-            <input
-              type="text"
+            <textarea
               {...form.field('address')}
+              onChange={(event) => {
+                form.field('address').onChange(event);
+                clearLocation();
+              }}
+              rows={3}
               autoComplete="street-address"
+              maxLength={500}
               disabled={loading}
               required
               placeholder="e.g. 742 Evergreen Terrace, Apt 4B"
-              className="w-full px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
+              className="w-full resize-y px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
             <FieldError id="checkout-address-error" message={form.errors.address} />
             <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">
@@ -226,6 +244,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
               type="button"
               disabled={loading || locating}
               onClick={() => {
+                const requestId = ++locationRequest.current;
                 setLocationError(undefined);
                 if (!navigator.geolocation || !window.isSecureContext) {
                   setLocationError(
@@ -236,6 +255,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
                 setLocating(true);
                 navigator.geolocation.getCurrentPosition(
                   (position) => {
+                    if (requestId !== locationRequest.current) return;
                     setCoordinates({
                       lat: position.coords.latitude,
                       lng: position.coords.longitude,
@@ -243,6 +263,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
                     setLocating(false);
                   },
                   (cause) => {
+                    if (requestId !== locationRequest.current) return;
                     setLocationError(
                       cause.code === 1
                         ? 'Location permission was denied. You can continue using your written address.'
@@ -272,7 +293,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => setCoordinates(undefined)}
+                  onClick={clearLocation}
                   className="inline-flex items-center gap-1 font-bold underline"
                 >
                   <MapPinX aria-hidden="true" className="h-3.5 w-3.5" /> Remove Pin
@@ -319,7 +340,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             >
               <CheckCircle2 className="w-4 h-4" />
               {loading && <Spinner />}
-              <span>{loading ? 'Placing Order…' : 'Place Order'}</span>
+              <span>{loading ? 'Placing Order…' : 'Deliver'}</span>
             </button>
           </div>
         </form>

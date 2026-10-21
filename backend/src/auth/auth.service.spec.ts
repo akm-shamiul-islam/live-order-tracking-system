@@ -100,12 +100,16 @@ describe('AuthService Unit Tests', () => {
       password: 'mypassword123',
       role: UserRole.CUSTOMER,
       phone: '555-9876',
+      address: '123 Saved Street',
     });
 
     expect(result.accessToken).toBe('mock_jwt_token_xyz');
     expect(result.user.name).toBe('Sam Customer');
     expect(result.user.role).toBe(UserRole.CUSTOMER);
-    expect(mockUserModel.create).toHaveBeenCalled();
+    expect(result.user.address).toBe('123 Saved Street');
+    expect(mockUserModel.create).toHaveBeenCalledWith(
+      expect.objectContaining({ address: '123 Saved Street' }),
+    );
   });
 
   it('register throws ConflictException if email is already taken', async () => {

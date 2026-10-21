@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   LoginSchema,
   RegisterSchema,
+  DeliveryAddressSchema,
   UpdateOrderStatusSchema,
   CourierLocationUpdateSchema,
   OrderStatus,
@@ -36,6 +37,53 @@ describe('Shared Zod Schemas Validation Tests', () => {
   });
 
   describe('RegisterSchema', () => {
+    const customer = {
+      name: 'Jane Doe',
+      email: 'jane@example.com',
+      password: 'strongPassword!123',
+      phone: '555-123-4567',
+    };
+
+    it('allows registration without an address or with a blank address', () => {
+      expect(RegisterSchema.parse(customer).address).toBeUndefined();
+      expect(RegisterSchema.parse({ ...customer, address: '   ' }).address).toBe('');
+    });
+
+    it('trims a saved address while retaining apartment and city lines', () => {
+      const address = '45 Registration Avenue, Apt 2\nTest City 10001';
+      expect(RegisterSchema.parse({ ...customer, address: `  ${address}\n ` }).address).toBe(
+        address,
+      );
+    });
+
+    it.each(['1234', 'a'.repeat(501), '😀'.repeat(251), 12345, null])(
+      'rejects an invalid supplied registration address: %j',
+      (address) => {
+        const result = RegisterSchema.safeParse({ ...customer, address });
+        expect(result).toMatchObject({
+          success: false,
+          error: { issues: [expect.objectContaining({ path: ['address'] })] },
+        });
+      },
+    );
+
+    it('requires a delivery address at checkout with the same length limits', () => {
+      expect(DeliveryAddressSchema.safeParse('').success).toBe(false);
+      expect(DeliveryAddressSchema.safeParse('1234').success).toBe(false);
+      expect(DeliveryAddressSchema.safeParse('a'.repeat(501)).success).toBe(false);
+      expect(DeliveryAddressSchema.parse('  123 Test Street  ')).toBe('123 Test Street');
+      for (const address of [
+        '1234',
+        '😀'.repeat(4),
+        '😀'.repeat(5),
+        'a'.repeat(500),
+        'a'.repeat(501),
+      ])
+        expect(RegisterSchema.safeParse({ ...customer, address }).success).toBe(
+          DeliveryAddressSchema.safeParse(address).success,
+        );
+    });
+
     it('accepts valid customer registration', () => {
       const res = RegisterSchema.safeParse({
         name: 'Jane Doe',

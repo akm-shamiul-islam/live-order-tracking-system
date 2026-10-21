@@ -4,7 +4,7 @@ Updated 2026-10-21 (Asia/Tokyo). This report records repository implementation a
 
 ## Implemented workflows
 
-- Registration creates a normal customer. Login, account recovery, rotating HttpOnly refresh, revocation, tab synchronization and current-role checks are implemented. The default development login template quotes passwords containing #; explicit development admin recovery handles existing hashes.
+- Registration creates a normal customer and accepts an optional multiline delivery address. The saved name, phone and address prefill checkout and survive login/refresh. Customers edit details for the current delivery and click Deliver; their registered defaults remain unchanged. Address edits clear attached pins and ignore pending GPS callbacks for the previous address. Login, account recovery, rotating HttpOnly refresh, revocation, tab synchronization and current-role checks are implemented. The default development login template quotes passwords containing #; explicit development admin recovery handles existing hashes.
 - Customers place server-priced orders and see only their own history/tracking. Matching phone numbers or possession of a tracking link cannot bypass account authorization.
 - Admin-only Users supports search, pagination and themed editing of names, emails, phone numbers, roles and access. Stale edits are rejected; sensitive changes invalidate affected sessions. Self-demotion/disable and removing a courier with active work are rejected.
 - Couriers request redacted available deliveries. Admin approval atomically selects one assignment and rejects competing requests. Other couriers lose availability and private read/room access. My Deliveries contains the caller's assigned orders.
@@ -16,7 +16,7 @@ Updated 2026-10-21 (Asia/Tokyo). This report records repository implementation a
 
 TanStack Router provides copyable URLs, direct-route loading, browser history and URL filters/pagination. Role-specific navigation is an animated responsive drawer, open by default with open/closed state in localStorage. It reserves content width on desktop and uses a closable modal on mobile. Breadcrumbs provide linked parent pages and an accessible current-page marker.
 
-The menu uses 8/16/32/60 items per page, default 8. Other lists retain 10/25/50/100. Order history uses full available content width. Dispatch has centered headers and the requested centered data columns, date above time in YYYY/MM/DD and HH:MM:SS, aligned Track/Advance actions, themed dropdown/filter/search controls and consistent icons. Zod field errors use red borders, red text below fields and focus on the first error. Loading states cover initial content, lazy routes, tables and network actions.
+The menu uses 8/16/32/60 items per page, default 8. Other lists retain 10/25/50/100. Order history and Available Deliveries use full available content width, including when the desktop drawer opens or closes. Dispatch has centered headers and the requested centered data columns, date above time in YYYY/MM/DD and HH:MM:SS, aligned Track/Advance actions, themed dropdown/filter/search controls and consistent icons. Zod field errors use red borders, red text below fields and focus on the first error. Loading states cover initial content, lazy routes, tables and network actions.
 
 The shared catalog includes 27 dishes in seven categories with realistic USD demo prices and local licensed food photos. Responsive WebP, self-hosted fonts, fixed image dimensions, deferred live/animation loading and reduced-motion handling improve rendering. Contrast issues identified in the measured history, dispatch and tracking pages have been corrected. Identical profile checks no longer trigger full authenticated rerenders. Locale date formatters are reused across rows/live updates, offscreen menu cards use rendering containment, and staff controls are split from customer tracking.
 
@@ -36,16 +36,18 @@ The current inventory covers 57 distinct direct packages across 67 manifest decl
 
 [DEPENDENCIES.md](DEPENDENCIES.md) records the complete inventory and official migration/API evidence. Mongoose updates use returnDocument: after, MongoDB uses journal write concern, refined Zod schemas use safeExtend, and Motion uses its current LazyMotion/react-m API. A selective Hyperid 4 override removes the vulnerable UUID dependency. The known upstream Vite+ alias peer warning remains; standalone Vite/Vitest/Oxc scripts are used.
 
+Saved-address validation and persistence follow the current [Zod string/default APIs](https://zod.dev/api), [Mongoose string schema options](https://mongoosejs.com/docs/schematypes.html#string) and [HTML address autofill guidance](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill). Shared address validation counts UTF-16 units for the maximum to match browser and database limits, including surrogate pairs.
+
 ## Verification evidence
 
 | Check | Result |
 | --- | --- |
 | Workspace typecheck | Passed, including orders.integration.ts socket types |
 | Production build | Passed; compressed frontend assets and runnable backend/shared exports |
-| Source tests | 192 passed across 20 files |
-| MongoDB/HTTP/socket integration | 23 passed against isolated MongoDB |
-| Browser workflows | 12 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
-| Lighthouse | [Eight-case summary](../quality/lighthouse-2026-10-21.json); see QUALITY.md |
+| Source tests | 202 passed across 20 files |
+| MongoDB/HTTP/socket integration | 25 passed against isolated MongoDB |
+| Browser workflows | 13 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
+| Lighthouse | [Eight-case summary](../quality/lighthouse-2026-10-21.json) and [registration/courier follow-up](../quality/lighthouse-registration-courier-2026-10-21.json); see QUALITY.md |
 | Registry/security/lint gates | 57 direct packages / 67 declarations current; 0 known advisories; lint 0 errors, 119 warnings |
 
 [QUALITY.md](QUALITY.md) explains commands, isolation, measurement settings and limitations. Test databases, synthetic accounts, browser profiles, proxy ports and API processes are separate from existing development services. Run resource-heavy checks sequentially; concurrent runners caused local fixture timeouts and were rerun independently.

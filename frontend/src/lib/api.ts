@@ -277,8 +277,15 @@ export const api = {
       email: string,
       pass: string,
       phone: string,
+      address?: string,
     ): Promise<AuthResponse> {
-      return authenticate('register', { name, email, password: pass, phone });
+      return authenticate('register', {
+        name,
+        email,
+        password: pass,
+        phone,
+        ...(address ? { address } : {}),
+      });
     },
 
     async getMe(): Promise<UserSummary> {

@@ -51,6 +51,9 @@ export class User {
 
   @Prop({ type: String, required: false, trim: true })
   phone?: string;
+
+  @Prop({ type: String, required: false, trim: true, maxLength: 500 })
+  address?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -40,6 +40,8 @@ An authenticated 401 triggers one refresh attempt and one retry. A single in-tab
 
 ## Authentication and user management
 
+- Registration accepts an optional delivery address, persisted on the user document and returned in the authenticated profile for registration, login, refresh and `/auth/me`. Existing users without an address remain valid. Zustand persists and synchronizes it with the rest of the profile, including address-only updates. Addresses are omitted from JWT claims and the courier directory.
+- Checkout initializes editable name, phone and address fields from that profile. Submitting **Deliver** stores the edited details on the owned order without changing registered defaults. Nonblank saved addresses and required checkout addresses share validation; the 500 UTF-16-unit cap matches HTML `maxlength` and Mongoose. Address edits clear an attached location pin and invalidate pending geolocation callbacks.
 - bcryptjs 3.0.3 hashes passwords with a configurable work factor, default 12.
 - Access JWTs default to 15 minutes. Each private request/event checks the current user, disabled flag, token version and session, instead of trusting an old role claim.
 - Opaque refresh secrets rotate through an HttpOnly, SameSite=Strict cookie scoped to `/api/auth`; only hashes are stored. Recognized token reuse revokes its session. Sessions have absolute expiry and a MongoDB TTL index.
