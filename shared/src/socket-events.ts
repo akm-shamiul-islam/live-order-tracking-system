@@ -1,7 +1,7 @@
 import { OrderStatus } from './enums.js';
-import { OrderDetails, OrderStatusLog } from './schemas/order.schema.js';
-import { CourierLocationUpdateDto } from './schemas/telemetry.schema.js';
-import { UserSummary } from './schemas/auth.schema.js';
+import type { OrderDetails, OrderStatusLog } from './schemas/order.schema.js';
+import type { CourierLocationUpdateDto } from './schemas/telemetry.schema.js';
+import type { UserSummary } from './schemas/auth.schema.js';
 
 export interface ServerToClientEvents {
   'orders:changed': (payload: Record<string, never>) => void;

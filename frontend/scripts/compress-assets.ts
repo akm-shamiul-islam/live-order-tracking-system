@@ -6,7 +6,7 @@ import { gzip, brotliCompress } from 'node:zlib';
 const gzipAsync = promisify(gzip);
 const brotliAsync = promisify(brotliCompress);
 const root = resolve(import.meta.dirname, '../dist');
-async function compress(directory) {
+async function compress(directory: string): Promise<void> {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) await compress(path);

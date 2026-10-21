@@ -4,15 +4,42 @@ import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep, basename } from 'node:path';
+import type { ProtocolMapping } from 'devtools-protocol/types/protocol-mapping.js';
+import { parseJson, responseJson } from './json.ts';
 
-export async function connectCdp(url) {
+interface PendingCommand {
+  resolve: (result: unknown) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+interface CdpMessage {
+  id?: number;
+  error?: { message: string };
+  result?: unknown;
+  method?: string;
+  params?: unknown;
+}
+
+interface BrowserVersion {
+  Browser: string;
+  webSocketDebuggerUrl: string;
+}
+
+interface BrowserTarget {
+  id: string;
+  webSocketDebuggerUrl: string;
+}
+
+export async function connectCdp(url: string) {
   const ws = new WebSocket(url);
-  const pending = new Map();
-  const listeners = new Map();
+  const pending = new Map<number, PendingCommand>();
+  const listeners = new Map<string, ((params: unknown) => void)[]>();
   let id = 0;
   await once(ws, 'open');
   ws.addEventListener('message', (event) => {
-    const message = JSON.parse(event.data);
+    if (typeof event.data !== 'string') return;
+    const message = parseJson<CdpMessage>(event.data);
     if (message.id) {
       const task = pending.get(message.id);
       if (!task) return;
@@ -20,24 +47,37 @@ export async function connectCdp(url) {
       clearTimeout(task.timer);
       if (message.error) task.reject(new Error(message.error.message));
       else task.resolve(message.result);
-    } else for (const listener of listeners.get(message.method) || []) listener(message.params);
+    } else if (message.method)
+      for (const listener of listeners.get(message.method) || []) listener(message.params);
   });
-  const send = (method, params = {}) =>
+  const send = <Method extends keyof ProtocolMapping.Commands>(
+    method: Method,
+    ...args: ProtocolMapping.Commands[Method]['paramsType']
+  ): Promise<ProtocolMapping.Commands[Method]['returnType']> =>
     new Promise((resolveResult, reject) => {
       const next = ++id;
       const timer = setTimeout(() => {
         pending.delete(next);
         reject(new Error(`CDP timed out: ${method}`));
       }, 20_000);
-      pending.set(next, { resolve: resolveResult, reject, timer });
-      ws.send(JSON.stringify({ id: next, method, params }));
+      pending.set(next, {
+        resolve: (result) =>
+          resolveResult(result as ProtocolMapping.Commands[Method]['returnType']),
+        reject,
+        timer,
+      });
+      ws.send(JSON.stringify({ id: next, method, params: args[0] ?? {} }));
     });
   return {
     send,
-    on(method, listener) {
-      listeners.set(method, [...(listeners.get(method) || []), listener]);
+    on<Method extends keyof ProtocolMapping.Events>(
+      method: Method,
+      listener: (params: ProtocolMapping.Events[Method][0]) => void,
+    ) {
+      const dispatch = (params: unknown) => listener(params as ProtocolMapping.Events[Method][0]);
+      listeners.set(method, [...(listeners.get(method) || []), dispatch]);
     },
-    async evaluate(expression) {
+    async evaluate<T = unknown>(expression: string): Promise<T> {
       const result = await send('Runtime.evaluate', {
         expression,
         returnByValue: true,
@@ -47,7 +87,8 @@ export async function connectCdp(url) {
         throw new Error(
           result.exceptionDetails.exception?.description || result.exceptionDetails.text,
         );
-      return result.result.value;
+      const value: unknown = result.result.value;
+      return value as T;
     },
     close() {
       for (const task of pending.values()) {
@@ -60,7 +101,7 @@ export async function connectCdp(url) {
   };
 }
 
-async function chromePath() {
+async function chromePath(): Promise<string> {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
   const installed = [
     join(process.env.PROGRAMFILES || '', 'Google/Chrome/Application/chrome.exe'),
@@ -103,7 +144,7 @@ export async function launchBrowser() {
     ],
     { windowsHide: true, stdio: 'ignore' },
   );
-  let port;
+  let port: number | undefined;
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
       port = Number((await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]);
@@ -118,11 +159,11 @@ export async function launchBrowser() {
     throw new Error('Chrome startup timed out.');
   }
   const endpoint = `http://127.0.0.1:${port}`;
-  const version = await (await fetch(`${endpoint}/json/version`)).json();
-  async function page(url) {
-    const target = await (
-      await fetch(`${endpoint}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' })
-    ).json();
+  const version = await responseJson<BrowserVersion>(await fetch(`${endpoint}/json/version`));
+  async function page(url: string) {
+    const target = await responseJson<BrowserTarget>(
+      await fetch(`${endpoint}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' }),
+    );
     const cdp = await connectCdp(target.webSocketDebuggerUrl);
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
@@ -154,7 +195,14 @@ export async function launchBrowser() {
   return { port, version: version.Browser, page, close };
 }
 
-export async function waitFor(check, message = 'Browser condition', timeout = 15_000) {
+export type Browser = Awaited<ReturnType<typeof launchBrowser>>;
+export type BrowserPage = Awaited<ReturnType<Browser['page']>>;
+
+export async function waitFor(
+  check: () => unknown,
+  message = 'Browser condition',
+  timeout = 15_000,
+): Promise<void> {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     if (await check()) return;

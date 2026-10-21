@@ -12,8 +12,14 @@ import { Model, Types } from 'mongoose';
 import { randomBytes, createHash } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
-import { User, UserDocument } from '../database/schemas/user.schema.js';
-import { LoginDto, RegisterDto, AuthResponse, UserSummary, UserRole } from '@kitchentodoor/shared';
+import { User, type UserDocument } from '../database/schemas/user.schema.js';
+import {
+  type LoginDto,
+  type RegisterDto,
+  type AuthResponse,
+  type UserSummary,
+  UserRole,
+} from '@kitchentodoor/shared';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { AuthSession, type AuthSessionDocument } from '../database/schemas/auth-session.schema.js';
 import { RecoveryMailer } from './recovery-mailer.js';

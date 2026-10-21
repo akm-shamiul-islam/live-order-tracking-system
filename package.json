@@ -18,14 +18,19 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "deps:check": "node scripts/check-dependencies.mjs",
-    "benchmark:throughput": "node scripts/benchmark-throughput.mjs",
-    "audit:lighthouse": "node scripts/audit-lighthouse.mjs",
-    "test:browser": "node scripts/verify-browser.mjs",
-    "typecheck": "pnpm -r typecheck",
+    "deps:check": "node scripts/check-dependencies.ts",
+    "benchmark:throughput": "node scripts/benchmark-throughput.ts",
+    "audit:lighthouse": "node scripts/audit-lighthouse.ts",
+    "test:browser": "node scripts/verify-browser.ts",
+    "source:check": "node scripts/check-source-language.ts",
+    "typecheck:tools": "tsc -p tsconfig.tools.json",
+    "typecheck": "pnpm source:check && pnpm -r typecheck && pnpm typecheck:tools",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@types/autocannon": "^7.12.7",
+    "@types/node": "^24.19.2",
+    "devtools-protocol": "0.0.1723477",
     "husky": "^9.1.7",
     "lighthouse": "^13.5.0",
     "lint-staged": "^17.6.0",
@@ -38,7 +43,7 @@
     "vitest": "^5.0.5"
   },
   "lint-staged": {
-    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
+    "*.{ts,tsx,mts,cts}": [
       "oxlint --fix",
       "oxfmt"
     ]

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, transformWithOxc } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { existsSync, readFileSync } from 'node:fs';
@@ -42,12 +42,14 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       {
         name: 'vite-plugin-theme-init',
-        transformIndexHtml(html) {
-          const code = readFileSync(new URL('./public/theme.js', import.meta.url), 'utf8');
-          return html.replace(
-            '<script src="/theme.js"></script>',
-            `<script id="theme-init">${code}</script>`,
-          );
+        async transformIndexHtml(html) {
+          const source = readFileSync(new URL('./src/theme.ts', import.meta.url), 'utf8');
+          const { code } = await transformWithOxc(source, 'theme.ts', {
+            lang: 'ts',
+            sourceType: 'script',
+            sourcemap: false,
+          });
+          return html.replace('<!-- theme-init -->', `<script id="theme-init">${code}</script>`);
         },
       },
     ],

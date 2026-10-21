@@ -1,27 +1,39 @@
-import { createRequire } from 'node:module';
-import { fork } from 'node:child_process';
+import 'reflect-metadata';
+import { fork, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:net';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { JwtService } from '@nestjs/jwt';
+import { isRuntimeMessage, type RuntimeAdapter, type RuntimeReady } from './runtime-contracts.ts';
 
-const require = createRequire(new URL('../../backend/package.json', import.meta.url));
-const { MongoMemoryServer } = require('mongodb-memory-server');
+export { io, type Socket } from 'socket.io-client';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
 export async function unusedPort() {
   const listener = createServer();
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     listener.once('error', reject);
     listener.listen(0, '127.0.0.1', resolve);
   });
-  const port = listener.address().port;
-  await new Promise((resolve, reject) =>
+  const address = listener.address();
+  if (!address || typeof address === 'string')
+    throw new Error('No isolated TCP port was assigned.');
+  const port = address.port;
+  await new Promise<void>((resolve, reject) =>
     listener.close((error) => (error ? reject(error) : resolve())),
   );
   return port;
+}
+
+interface RuntimeOptions {
+  count?: number;
+  rateLimit?: number;
+  serveFrontend?: boolean;
+  extraOrigins?: string[];
 }
 
 export async function createIsolatedRuntime({
@@ -29,25 +41,24 @@ export async function createIsolatedRuntime({
   rateLimit = 1_000_000,
   serveFrontend = false,
   extraOrigins = [],
-} = {}) {
+}: RuntimeOptions = {}) {
   const mongo = await MongoMemoryServer.create({
     binary: { downloadDir: join(tmpdir(), 'ktd-mongo-binaries') },
   });
   const password = `Test-${randomBytes(20).toString('hex')}!`;
   const jwtSecret = randomBytes(32).toString('hex');
-  function expireAccessToken(token) {
-    const { JwtService } = require('@nestjs/jwt');
+  function expireAccessToken(token: string) {
     const jwt = new JwtService({ secret: jwtSecret });
-    const { iat: _iat, exp: _exp, ...claims } = jwt.verify(token);
+    const { iat: _iat, exp: _exp, ...claims } = jwt.verify<Record<string, unknown>>(token);
     return jwt.sign(claims, { expiresIn: -1 });
   }
-  const children = [];
-  const running = new Map();
-  let fixture;
-  async function start(adapter = 'fastify', options = {}) {
+  const children: ChildProcess[] = [];
+  const running = new Map<string, ChildProcess>();
+  let fixture: RuntimeReady | undefined;
+  async function start(adapter: RuntimeAdapter = 'fastify', options: { port?: number } = {}) {
     const port = options.port ?? (await unusedPort());
     const origin = `http://127.0.0.1:${port}`;
-    const child = fork(join(root, 'backend/scripts/isolated-server.mjs'), [], {
+    const child = fork(join(root, 'backend/scripts/isolated-server.ts'), [], {
       cwd: root,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -82,13 +93,13 @@ export async function createIsolatedRuntime({
     });
     children.push(child);
     let logs = '';
-    child.stdout.on('data', (data) => {
+    child.stdout?.on('data', (data: Buffer) => {
       logs = (logs + data).slice(-2000);
     });
-    child.stderr.on('data', (data) => {
+    child.stderr?.on('data', (data: Buffer) => {
       logs = (logs + data).slice(-2000);
     });
-    const ready = await new Promise((resolve, reject) => {
+    const ready = await new Promise<RuntimeReady>((resolve, reject) => {
       const timeout = setTimeout(
         () => reject(new Error(`Isolated ${adapter} startup timed out.`)),
         60_000,
@@ -101,7 +112,8 @@ export async function createIsolatedRuntime({
         clearTimeout(timeout);
         reject(new Error(`Isolated ${adapter} exited (${code}). ${logs}`));
       });
-      child.on('message', (message) => {
+      child.on('message', (message: unknown) => {
+        if (!isRuntimeMessage(message)) return;
         if (message.type === 'ready') {
           clearTimeout(timeout);
           resolve(message);
@@ -116,14 +128,14 @@ export async function createIsolatedRuntime({
     running.set(ready.base, child);
     return { ...ready, password };
   }
-  async function stopChild(child) {
+  async function stopChild(child: ChildProcess) {
     if (child.exitCode !== null || child.signalCode !== null) return;
     const exited = once(child, 'exit');
     if (child.connected) child.send({ type: 'stop' });
     const timer = setTimeout(() => child.kill(), 5000);
     await exited.finally(() => clearTimeout(timer));
   }
-  async function stop(base) {
+  async function stop(base: string) {
     const child = running.get(base);
     if (!child) throw new Error('Only this harness’s own server may be stopped.');
     await stopChild(child);

@@ -1,6 +1,14 @@
 # Architecture
 
-KitchenToDoor is a pnpm workspace with a React application, a NestJS/Fastify API and shared TypeScript/Zod contracts. Supported runtime: Node 24 and pnpm 12.14.0. Current versions include React 19.3.1, Tailwind CSS 4.3.3, Zustand 5.0.15, TanStack Router 1.170.45, Query 5.104.5, Zod 4.6.7, Motion 14.4.0, NestJS 12.2.0, Fastify 5.12.7, Mongoose 9.11.2 and Socket.IO 4.8.4. See [DEPENDENCIES.md](DEPENDENCIES.md) for the complete inventory.
+KitchenToDoor is a pnpm workspace with a React application, a NestJS/Fastify API and shared TypeScript/Zod contracts. Supported runtime: Node 24 and pnpm 12.14.0. Current versions include React 19.3.1, Tailwind CSS 4.3.3, Zustand 5.0.15, TanStack Router 1.170.45, Query 5.104.5, Zod 4.6.7, Motion 14.5.0, NestJS 12.2.0, Fastify 5.12.7, Mongoose 9.11.2 and Socket.IO 4.8.4. See [DEPENDENCIES.md](DEPENDENCIES.md) for the complete inventory.
+
+## TypeScript source and tooling
+
+Maintained application, test and tooling code uses `.ts`/`.tsx`. `tsconfig.tools.json` adds strict, no-emit checks for root tools, backend fixtures, frontend compression and test configuration. Explicit type-only imports keep runtime imports separate from erased declarations. `pnpm source:check` rejects maintained `.js`, `.mjs`, `.cjs` and `.jsx` files; ignored build output and dependencies are outside this source policy.
+
+Tool entry points use erasable TypeScript and run through [Node 24's native type stripping](https://nodejs.org/docs/latest-v24.x/api/typescript.html), stable from 24.12. Node does not typecheck them; the separate compiler gate does. The isolated server still loads compiled Nest modules so decorator metadata and production behavior match the built API. The backend owns fixture dependencies, and typed IPC messages describe its readiness/failure responses. Browser commands and events use Chromium's maintained DevTools Protocol declarations.
+
+The early initializer is authored in `frontend/src/theme.ts`. Vite's current [transformWithOxc API](https://vite.dev/guide/api-javascript.html#transformwithoxc) compiles and embeds it in development and production HTML. The API derives the allowed SHA-256 hash from that exact built script. Application builds emit JavaScript for the browser and Node; NodeNext `.js` import specifiers refer to these compiled outputs.
 
 ## Accounts and workspaces
 
@@ -40,7 +48,9 @@ An authenticated 401 triggers one refresh attempt and one retry. A single in-tab
 
 ## Page transitions
 
-TanStack Router's [defaultViewTransition option](https://tanstack.com/router/latest/docs/api/router/RouterOptionsType#defaultviewtransition-property) wraps the actual route commit in the browser View Transition API. Its types callback enables `page-navigation` only when the pathname changes and reduced motion is off. Drawer links use [intent preloading](https://tanstack.com/router/latest/docs/guide/preloading) for hover, focus and touch. React state subscriptions alone did not activate React's ViewTransition boundary in the verified router integration, so the router owns the snapshot lifecycle.
+TanStack Router invokes its `startViewTransition` commit hook for the actual route update. The local TypeScript adapter enables native `page-navigation` transitions only when the pathname changes, transition types are supported and reduced motion is off. Drawer links use [intent preloading](https://tanstack.com/router/latest/docs/guide/preloading) for hover, focus and touch. React state subscriptions alone did not activate React's ViewTransition boundary in the verified integration, so the router owns the snapshot lifecycle.
+
+The installed [RouterCore implementation](https://github.com/TanStack/router/blob/main/packages/router-core/src/router.ts) returns `updateCallbackDone` without observing `ready`. Native `ready` rejects when rapid navigation skips a pending animation, as specified by the [View Transition lifecycle](https://www.w3.org/TR/css-view-transitions-1/#viewtransition). The local adapter handles that animation rejection and still returns the original update promise to the router. Actual page-update failures propagate; unexpected snapshot failures produce a warning. It respects explicit navigation opt-out and leaves the native document API unchanged. Compiler, unit and real browser checks cover this integration point when dependencies change.
 
 The main element is the single named `page-content` participant. Its outgoing snapshot fades for 140 ms and its incoming snapshot for 220 ms. Opacity-only animations and fixed snapshot geometry avoid stretching text between pages with different heights. The root snapshot stays live, keeping the header and drawer steady; the overlay does not capture pointer events. This adds no animation dependency or artificial navigation delay.
 

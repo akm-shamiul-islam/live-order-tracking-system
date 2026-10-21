@@ -3,11 +3,15 @@ import { execFileSync } from 'node:child_process';
 import { cpus, totalmem, version as osVersion, release, arch } from 'node:os';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { createIsolatedRuntime } from './lib/isolated-runtime.mjs';
+import { createIsolatedRuntime } from '../backend/scripts/isolated-runtime.ts';
+import type { RuntimeAdapter } from '../backend/scripts/runtime-contracts.ts';
+import type { OrderDetails } from '../shared/src/index.ts';
+import type Autocannon from 'autocannon';
+import { packageVersion, responseJson } from './lib/json.ts';
 
 const require = createRequire(new URL('../backend/package.json', import.meta.url));
-const autocannon = require('autocannon');
-const numberOption = (name, fallback) => {
+const autocannon = require('autocannon') as typeof Autocannon;
+const numberOption = (name: string, fallback: number): number => {
   const value = Number(process.env[name] || fallback);
   if (!Number.isSafeInteger(value) || value < 1)
     throw new Error(`${name} must be a positive integer.`);
@@ -27,15 +31,40 @@ const runtime = await createIsolatedRuntime({
   count: settings.fixtureOrders,
   rateLimit: settings.rateLimit,
 });
-const median = (values) => {
+const median = (values: number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  const upper = sorted[middle];
+  if (upper === undefined) throw new Error('Cannot summarize an empty measurement.');
+  if (sorted.length % 2) return upper;
+  const lower = sorted[middle - 1];
+  if (lower === undefined) throw new Error('The measurement median is incomplete.');
+  return (lower + upper) / 2;
 };
-const runs = [];
+interface Measurement {
+  workload: string;
+  adapter: RuntimeAdapter;
+  repetition: number;
+  requestsPerSecond: number;
+  latencyP50Ms: number;
+  latencyP99Ms: number;
+  bytesPerSecond: number;
+  completed: number;
+  errors: number;
+  timeouts: number;
+  non2xx: number;
+  durationSeconds: number;
+}
+interface WorkloadBody {
+  pricing?: { deliveryFee: number; taxRate: number };
+  order?: OrderDetails;
+  orders?: OrderDetails[];
+  pagination?: { total: number };
+}
+const runs: Measurement[] = [];
 
-function measure(url, headers, duration) {
-  return new Promise((resolveResult, reject) =>
+function measure(url: string, headers: Record<string, string>, duration: number) {
+  return new Promise<Autocannon.Result>((resolveResult, reject) =>
     autocannon(
       {
         url,
@@ -65,7 +94,12 @@ try {
   const fastify = await runtime.start('fastify');
   const express = await runtime.start('express');
   const servers = { fastify, express };
-  const workloads = [
+  const workloads: {
+    name: string;
+    path: string;
+    protected: boolean;
+    valid: (body: WorkloadBody) => boolean;
+  }[] = [
     {
       name: 'Public configuration',
       path: '/api/config',
@@ -89,16 +123,19 @@ try {
     },
   ];
   for (const workload of workloads) {
-    const headers = workload.protected ? { Authorization: `Bearer ${fastify.token}` } : {};
+    const headers: Record<string, string> = workload.protected
+      ? { Authorization: `Bearer ${fastify.token}` }
+      : {};
     for (const [adapter, server] of Object.entries(servers)) {
       const response = await fetch(server.base + workload.path, { headers });
-      const body = await response.json();
+      const body = await responseJson<WorkloadBody>(response);
       if (response.status !== 200 || !workload.valid(body))
         throw new Error(`${adapter} preflight failed for ${workload.name}.`);
     }
     for (let iteration = 1; iteration <= settings.repeats; iteration++) {
       // Alternate the first adapter to reduce ordering, warmup and thermal bias.
-      const order = iteration % 2 ? ['fastify', 'express'] : ['express', 'fastify'];
+      const order: RuntimeAdapter[] =
+        iteration % 2 ? ['fastify', 'express'] : ['express', 'fastify'];
       for (const adapter of order) {
         const url = servers[adapter].base + workload.path;
         console.log(`${workload.name}: ${adapter}, repetition ${iteration}/${settings.repeats}`);
@@ -122,19 +159,26 @@ try {
     }
   }
   const summaries = workloads.map(({ name }) => {
-    const result = { workload: name };
-    for (const adapter of ['fastify', 'express']) {
+    const summarize = (adapter: RuntimeAdapter) => {
       const samples = runs.filter((run) => run.workload === name && run.adapter === adapter);
-      result[adapter] = {
+      return {
         medianRequestsPerSecond: median(samples.map((run) => run.requestsPerSecond)),
         medianLatencyP50Ms: median(samples.map((run) => run.latencyP50Ms)),
         medianLatencyP99Ms: median(samples.map((run) => run.latencyP99Ms)),
       };
-    }
-    result.fastifyRelativeToExpress = Number(
-      (result.fastify.medianRequestsPerSecond / result.express.medianRequestsPerSecond).toFixed(3),
-    );
-    return result;
+    };
+    const fastifySummary = summarize('fastify');
+    const expressSummary = summarize('express');
+    return {
+      workload: name,
+      fastify: fastifySummary,
+      express: expressSummary,
+      fastifyRelativeToExpress: Number(
+        (fastifySummary.medianRequestsPerSecond / expressSummary.medianRequestsPerSecond).toFixed(
+          3,
+        ),
+      ),
+    };
   });
   const report = {
     measuredAt: new Date().toISOString(),
@@ -154,7 +198,7 @@ try {
       node: process.version,
       pnpm: process.env.npm_config_user_agent?.match(/^pnpm\/([\d.]+)/)?.[1] || null,
       ...fastify.versions,
-      autocannon: require('autocannon/package.json').version,
+      autocannon: packageVersion(require, 'autocannon'),
     },
     settings,
     summaries,

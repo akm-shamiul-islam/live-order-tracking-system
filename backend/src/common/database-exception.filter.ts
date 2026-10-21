@@ -1,4 +1,4 @@
-import { ArgumentsHost, Catch, Inject, type ExceptionFilter } from '@nestjs/common';
+import { type ArgumentsHost, Catch, Inject, type ExceptionFilter } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import mongoose, { mongo } from 'mongoose';
 

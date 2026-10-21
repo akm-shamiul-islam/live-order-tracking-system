@@ -1,4 +1,4 @@
-// Vite embeds this initializer; the API permits its exact SHA-256 hash in CSP.
+// Vite compiles and embeds this initializer; the API permits its exact SHA-256 hash in CSP.
 try {
   const dark = localStorage.getItem('ktd_theme') === 'dark';
   document.documentElement.classList.toggle('dark', dark);

@@ -1,16 +1,40 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createIsolatedRuntime, unusedPort } from './lib/isolated-runtime.mjs';
-import { launchBrowser, waitFor } from './lib/browser.mjs';
+import {
+  createIsolatedRuntime,
+  unusedPort,
+  io,
+  type Socket,
+} from '../backend/scripts/isolated-runtime.ts';
+import { launchBrowser, waitFor, type Browser, type BrowserPage } from './lib/browser.ts';
+import type {
+  AuthResponse,
+  ClientToServerEvents,
+  OrderDetails,
+  ServerToClientEvents,
+  UserSummary,
+} from '../shared/src/index.ts';
+import { responseJson } from './lib/json.ts';
 
-const backendRequire = createRequire(new URL('../backend/package.json', import.meta.url));
+interface ApiOptions {
+  token?: string | null;
+  method?: 'GET' | 'POST' | 'PATCH';
+  body?: unknown;
+}
+
+interface BrowserSession {
+  token: string | null;
+  user: UserSummary | null;
+}
+
+type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+
 const frontendRequire = createRequire(new URL('../frontend/package.json', import.meta.url));
-const { io } = backendRequire('socket.io-client');
 const proxyPort = await unusedPort();
 const proxyOrigin = `http://127.0.0.1:${proxyPort}`;
 const runtime = await createIsolatedRuntime({
@@ -18,19 +42,19 @@ const runtime = await createIsolatedRuntime({
   serveFrontend: true,
   extraOrigins: [proxyOrigin],
 });
-const checks = [];
-let browser;
-let page;
-let vite;
-const sockets = [];
+const checks: string[] = [];
+let browser: Browser | undefined;
+let cleanupPage: BrowserPage | undefined;
+let vite: ChildProcess | undefined;
+const sockets: AppSocket[] = [];
 const directory = await mkdtemp(join(tmpdir(), 'ktd-browser-check-'));
-const pass = (name) => {
+const pass = (name: string) => {
   checks.push(name);
   console.log(`PASS ${name}`);
 };
 try {
   let app = await runtime.start();
-  async function api(path, { token, method = 'GET', body } = {}) {
+  async function api<T = unknown>(path: string, { token, method = 'GET', body }: ApiOptions = {}) {
     const response = await fetch(app.base + '/api' + path, {
       method,
       headers: {
@@ -39,20 +63,24 @@ try {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, body: await responseJson<T>(response) };
   }
   browser = await launchBrowser();
-  page = await browser.page(app.base + '/orders');
-  const exceptions = [];
-  page.on('Runtime.exceptionThrown', (event) => exceptions.push(event.exceptionDetails.text));
+  const page = await browser.page(app.base + '/orders');
+  cleanupPage = page;
+  const exceptions: string[] = [];
+  page.on('Runtime.exceptionThrown', (event) => {
+    const details = event.exceptionDetails;
+    exceptions.push(details.exception?.description || details.text);
+  });
   await page.send('Emulation.setDeviceMetricsOverride', {
     width: 1440,
     height: 1000,
     deviceScaleFactor: 1,
     mobile: false,
   });
-  const evaluate = (expression) => page.evaluate(expression);
-  const interceptionFailures = [];
+  const evaluate = <T = unknown>(expression: string) => page.evaluate<T>(expression);
+  const interceptionFailures: string[] = [];
   let failNextRequest = false;
   page.on('Fetch.requestPaused', (event) => {
     void (async () => {
@@ -63,28 +91,30 @@ try {
       failNextRequest = false;
       await page.send('Fetch.failRequest', { requestId: event.requestId, errorReason: 'Failed' });
       await page.send('Fetch.disable');
-    })().catch((error) => interceptionFailures.push(error.message));
+    })().catch((error: unknown) =>
+      interceptionFailures.push(error instanceof Error ? error.message : String(error)),
+    );
   });
-  async function dropNext(path, requestStage) {
+  async function dropNext(path: string, requestStage: 'Request' | 'Response') {
     failNextRequest = true;
     await page.send('Fetch.enable', {
       patterns: [{ urlPattern: app.base + path, requestStage }],
     });
   }
-  const has = (text) =>
-    evaluate(
+  const has = (text: string) =>
+    evaluate<boolean>(
       `Boolean(document.querySelector('main')?.textContent.includes(${JSON.stringify(text)}))`,
     );
-  const waitText = (text) => waitFor(() => has(text), text);
+  const waitText = (text: string) => waitFor(() => has(text), text);
   const usesFullContentWidth = () =>
     evaluate(
       '(()=>{const main=document.querySelector("main");const content=main.querySelector(":scope > div");const css=getComputedStyle(main);return Math.abs(content.getBoundingClientRect().width-(main.clientWidth-parseFloat(css.paddingLeft)-parseFloat(css.paddingRight)))<2})()',
     );
-  async function goto(path, text) {
+  async function goto(path: string, text?: string) {
     await page.send('Page.navigate', { url: app.base + path });
     if (text) await waitText(text);
   }
-  async function click(selector) {
+  async function click(selector: string) {
     await waitFor(
       () =>
         evaluate(
@@ -94,7 +124,7 @@ try {
     );
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
   }
-  async function clickText(text, selector = 'button') {
+  async function clickText(text: string, selector = 'button') {
     await waitFor(
       () =>
         evaluate(
@@ -114,16 +144,16 @@ try {
     )
       await click('header button[aria-controls="site-navigation"]');
   }
-  async function input(selector, value) {
+  async function input(selector: string, value: string) {
     await evaluate(
       `(()=>{const element=document.querySelector(${JSON.stringify(selector)});if(!element)throw Error('Field not found');const prototype=element.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(prototype,'value').set.call(element,${JSON.stringify(value)});element.dispatchEvent(new Event('input',{bubbles:true}));})()`,
     );
   }
-  async function select(label, value) {
+  async function select(label: string, value: string) {
     await click(`button[role="combobox"][aria-label="${label}"]`);
     await clickText(value, '[role="option"]');
   }
-  async function screenshot(name) {
+  async function screenshot(name: string) {
     const result = await page.send('Page.captureScreenshot', {
       format: 'png',
       captureBeyondViewport: false,
@@ -131,7 +161,7 @@ try {
     await writeFile(join(directory, `${name}.png`), Buffer.from(result.data, 'base64'));
   }
   const session = () =>
-    evaluate(
+    evaluate<BrowserSession>(
       `({token:localStorage.getItem('ktd_token'),user:JSON.parse(localStorage.getItem('ktd_user')||'null')})`,
     );
   async function logout() {
@@ -143,7 +173,7 @@ try {
       'Server session revocation',
     );
   }
-  async function login(email, password) {
+  async function login(email: string, password: string) {
     await goto('/account', 'Welcome Back');
     await input('#customer-login-email', email);
     await input('#customer-login-password', password);
@@ -321,6 +351,17 @@ try {
     'Drawer pages crossfade with a stable shell; history, filters, reduced motion and unsupported browsers remain usable',
   );
 
+  // Do not wait for snapshot animations between these page changes. The app
+  // must handle interrupted native transitions without suppressing real errors.
+  await openNavigation();
+  await click('#site-navigation a[href="/account"]');
+  await waitText('Welcome Back');
+  await clickText('Create an Account', 'main a');
+  await waitText('Create Your Account');
+  await click('#site-navigation a[href="/"]');
+  await waitText('Made fresh.');
+  await click('[aria-label="Close navigation drawer"]');
+
   await click('button[aria-label^="Add "]');
   await click('header button[aria-label^="View cart"]');
   await waitFor(() => evaluate('Boolean(document.querySelector("dialog[open]"))'), 'Cart dialog');
@@ -392,7 +433,11 @@ try {
   await input('#checkout-name', 'Delivery Recipient');
   await input('#checkout-phone', '555-7654321');
   await input('#checkout-address', '123 Browser Test Street');
-  await page.send('Browser.grantPermissions', { permissions: ['geolocation'], origin: app.base });
+  await page.send('Browser.setPermission', {
+    permission: { name: 'geolocation' },
+    setting: 'granted',
+    origin: app.base,
+  });
   await page.send('Emulation.setGeolocationOverride', {
     latitude: 40.713,
     longitude: -74.005,
@@ -457,17 +502,21 @@ try {
   await clickText('Deliver');
   await waitText('Order Details');
   const customer = await session();
-  const own = await api('/orders/my-orders?page=1&limit=100', { token: customer.token });
+  assert(customer.token, 'Checkout requires a signed-in customer');
+  const own = await api<{ orders: OrderDetails[] }>('/orders/my-orders?page=1&limit=100', {
+    token: customer.token,
+  });
   assert.equal(own.status, 200);
   assert.equal(own.body.orders.length, 1);
   pass('A lost checkout response can be retried without creating a duplicate order');
   const order = own.body.orders[0];
+  assert(order, 'Checkout must create the customer order');
   assert.deepEqual(order.customer, {
     name: 'Delivery Recipient',
     phone: '555-7654321',
     address: deliveryAddress,
   });
-  const savedProfile = await api('/auth/me', { token: customer.token });
+  const savedProfile = await api<UserSummary>('/auth/me', { token: customer.token });
   assert.equal(savedProfile.status, 200);
   assert.equal(savedProfile.body.address, savedAddress);
   assert.equal(savedProfile.body.name, 'Browser Customer');
@@ -496,7 +545,9 @@ try {
     return Boolean(current.token && current.token !== expired);
   }, 'Rotated session after access expiry');
   pass('Expired access token refreshes through the real HttpOnly browser cookie');
-  const fullWidth = await evaluate('document.querySelector("main").getBoundingClientRect().width');
+  const fullWidth = await evaluate<number>(
+    'document.querySelector("main").getBoundingClientRect().width',
+  );
   await openNavigation();
   assert.equal(
     await evaluate(`Boolean(document.querySelector('#site-navigation a[href="/users"]'))`),
@@ -504,17 +555,17 @@ try {
   );
   await waitFor(
     async () =>
-      (await evaluate('document.querySelector("main").getBoundingClientRect().width')) <
+      (await evaluate<number>('document.querySelector("main").getBoundingClientRect().width')) <
       fullWidth - 250,
     'Desktop drawer reserves content width',
   );
-  const narrowWidth = await evaluate(
+  const narrowWidth = await evaluate<number>(
     'document.querySelector("main").getBoundingClientRect().width',
   );
   await click('[aria-label="Close navigation drawer"]');
   await waitFor(
     async () =>
-      (await evaluate('document.querySelector("main").getBoundingClientRect().width')) >
+      (await evaluate<number>('document.querySelector("main").getBoundingClientRect().width')) >
       narrowWidth + 200,
     'Desktop drawer restores content width',
   );
@@ -581,7 +632,7 @@ try {
     usesFullContentWidth,
     'Available Deliveries uses the remaining width with its drawer open',
   );
-  const links = await evaluate(
+  const links = await evaluate<string[]>(
     '[...document.querySelectorAll("#site-navigation a")].map(element=>element.getAttribute("href"))',
   );
   assert(
@@ -634,8 +685,10 @@ try {
   await clickText('Start Sharing');
   await waitText('Sharing is on.');
   const courier = await session();
-  const located = await api(`/orders/${order.id}`, { token: courier.token });
-  assert.equal(located.body.order.courierCoordinates.lat, 40.713);
+  const located = await api<{ order: OrderDetails }>(`/orders/${order.id}`, {
+    token: courier.token,
+  });
+  assert.equal(located.body.order.courierCoordinates?.lat, 40.713);
   await clickText('Stop Sharing');
   await waitText('Location sharing is off.');
   await select('Order status', 'CANCELLED');
@@ -713,6 +766,12 @@ try {
   await goto('/', 'Made fresh.');
   if (await evaluate('!document.documentElement.classList.contains("dark")'))
     await click('button[aria-label="Switch to dark mode"]');
+  await goto('/', 'Made fresh.');
+  assert.equal(await evaluate('document.documentElement.classList.contains("dark")'), true);
+  assert.equal(
+    await evaluate('document.querySelector("meta[name=theme-color]").content'),
+    '#020617',
+  );
   assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
   assert.equal(
     await evaluate(
@@ -728,21 +787,23 @@ try {
 
   const documentResponse = await fetch(app.base + '/users', { headers: { Accept: 'text/html' } });
   assert.equal(documentResponse.status, 200);
-  assert.match(documentResponse.headers.get('content-security-policy'), /script-src 'self'/);
-  assert(!documentResponse.headers.get('content-security-policy').includes('unsafe-eval'));
+  const csp = documentResponse.headers.get('content-security-policy');
+  assert(csp, 'Production responses must include the content security policy');
+  assert.match(csp, /script-src 'self'/);
+  assert(!csp.includes('unsafe-eval'));
   assert.equal(
     (await fetch(app.base + '/api/unknown', { headers: { Accept: 'text/html' } })).status,
     404,
   );
   assert.equal((await fetch(app.base + '/missing.js')).status, 404);
   const html = await (await fetch(app.base)).text();
-  const asset = html
-    .match(/src="([^"]+\.js)"/g)
+  const asset = (html.match(/src="([^"]+\.js)"/g) ?? [])
     .map((value) => value.slice(5, -1))
     .find((value) => value.startsWith('/assets/'));
+  assert(asset, 'Production HTML must reference a built script');
   const compressed = await fetch(app.base + asset, { headers: { 'Accept-Encoding': 'br' } });
   assert.equal(compressed.headers.get('content-encoding'), 'br');
-  assert.match(compressed.headers.get('cache-control'), /immutable/);
+  assert.match(compressed.headers.get('cache-control') ?? '', /immutable/);
   pass('Production direct URLs, API/asset 404s, strict CSP and compressed immutable assets');
 
   let viteLog = '';
@@ -757,10 +818,11 @@ try {
       env: { ...process.env, API_PROXY_TARGET: app.base },
     },
   );
-  vite.stdout.on('data', (data) => {
+  if (!vite.stdout || !vite.stderr) throw new Error('Vite output pipes were not created.');
+  vite.stdout.on('data', (data: Buffer) => {
     viteLog = (viteLog + data).slice(-10_000);
   });
-  vite.stderr.on('data', (data) => {
+  vite.stderr.on('data', (data: Buffer) => {
     viteLog = (viteLog + data).slice(-10_000);
   });
   await waitFor(async () => {
@@ -770,20 +832,23 @@ try {
       return false;
     }
   }, 'Private Vite proxy');
-  const proxyLogin = await api('/auth/login', {
+  const developmentHtml = await (await fetch(proxyOrigin)).text();
+  assert.match(developmentHtml, /<script id="theme-init">/);
+  assert(!developmentHtml.includes('<!-- theme-init -->'));
+  const proxyLogin = await api<AuthResponse>('/auth/login', {
     method: 'POST',
     body: { email: 'dispatcher@example.test', password: app.password },
   });
   const proxyToken = proxyLogin.body.accessToken;
   async function connect(expectFailure = false) {
-    const socket = io(proxyOrigin, {
+    const socket: AppSocket = io(proxyOrigin, {
       transports: ['websocket'],
       reconnection: false,
       auth: { token: proxyToken },
       extraHeaders: { Origin: proxyOrigin },
     });
     sockets.push(socket);
-    await new Promise((resolveReady, reject) => {
+    await new Promise<void>((resolveReady, reject) => {
       const timer = setTimeout(() => reject(new Error('Private proxy socket timed out')), 6000);
       socket.once('authenticated', () => {
         clearTimeout(timer);
@@ -836,8 +901,8 @@ try {
   );
   console.log(`Saved ${checks.length} browser checks. Screenshots: ${directory}`);
 } catch (error) {
-  if (page) {
-    const capture = await page
+  if (cleanupPage) {
+    const capture = await cleanupPage
       .send('Page.captureScreenshot', { format: 'png' })
       .catch(() => undefined);
     if (capture)
@@ -852,7 +917,7 @@ try {
     vite.kill();
     await exited;
   }
-  await page?.dispose().catch(() => undefined);
+  await cleanupPage?.dispose().catch(() => undefined);
   await browser?.close();
   await runtime.close();
 }

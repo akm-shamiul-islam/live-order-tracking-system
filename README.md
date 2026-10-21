@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/Zustand-v5.0.15-443E38?style=for-the-badge" alt="Zustand" />
   <img src="https://img.shields.io/badge/Vite-v8.3.4_(Rolldown)-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-v4.3.3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/Motion-v14.4.0-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Motion" />
+  <img src="https://img.shields.io/badge/Motion-v14.5.0-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Motion" />
   <img src="https://img.shields.io/badge/Vitest-v5.0.5-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
   <img src="https://img.shields.io/badge/Zod-v4.6.7-3E67B1?style=for-the-badge&logo=zod&logoColor=white" alt="Zod" />
   <img src="https://img.shields.io/badge/Oxlint-v1.89.0-DEA584?style=for-the-badge&logo=rust&logoColor=white" alt="Oxlint" />
@@ -39,30 +39,30 @@ Prices are realistic USD demonstration amounts. Ordering does not collect paymen
 
 ## Technology stack
 
-| Area                                    | Packages / current versions                                                                                   |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Runtime / package manager               | Node **24.x** (verified 24.18.1), pnpm **12.14.0**                                                            |
-| Language                                | TypeScript **7.0.2**                                                                                          |
-| API                                     | NestJS **12.2.0**, Fastify **5.12.7**                                                                         |
-| Database                                | Mongoose **9.11.2**, @nestjs/mongoose **12.0.0**                                                              |
-| Realtime                                | Socket.IO / socket.io-client **4.8.4**                                                                        |
-| Authentication                          | bcryptjs **3.0.3**, @nestjs/jwt **12.0.3**, passport-jwt **4.0.1**                                            |
-| Security / hosting                      | @fastify/helmet **13.2.0**, @fastify/cors **11.3.1**, @fastify/static **10.1.6**, @nestjs/throttler **6.7.1** |
-| Recovery mail                           | Nodemailer **10.1.7**; SMTP configuration required                                                            |
-| UI                                      | React / React DOM **19.3.1**, Zustand **5.0.15**                                                              |
-| Navigation / server state               | TanStack Router **1.170.45**, Query **5.104.5**                                                               |
-| Styling / animation                     | Tailwind CSS + Vite plugin **4.3.3**, Motion **14.4.0**, Lucide **1.60.0**                                    |
-| Build tools                             | Vite **8.3.4**, React plugin **6.1.2**; Vite+ **1.3.0** installed                                             |
-| Contracts                               | Zod **4.6.7**                                                                                                 |
-| Quality tools                           | Vitest **5.0.5**, Lighthouse **13.5.0**, Oxlint **1.89.0**, Oxfmt **0.74.0**                                  |
-| Git gates                               | Husky **9.1.7**, lint-staged **17.6.0**                                                                       |
-| Isolated integration tools              | mongodb-memory-server **11.3.0**                                                                            |
+| Area                       | Packages / current versions                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Runtime / package manager  | Node **24.x** (verified 24.18.1), pnpm **12.14.0**                                                            |
+| Language                   | TypeScript **7.0.2**                                                                                          |
+| API                        | NestJS **12.2.0**, Fastify **5.12.7**                                                                         |
+| Database                   | Mongoose **9.11.2**, @nestjs/mongoose **12.0.0**                                                              |
+| Realtime                   | Socket.IO / socket.io-client **4.8.4**                                                                        |
+| Authentication             | bcryptjs **3.0.3**, @nestjs/jwt **12.0.3**, passport-jwt **4.0.1**                                            |
+| Security / hosting         | @fastify/helmet **13.2.0**, @fastify/cors **11.3.1**, @fastify/static **10.1.6**, @nestjs/throttler **6.7.1** |
+| Recovery mail              | Nodemailer **10.1.7**; SMTP configuration required                                                            |
+| UI                         | React / React DOM **19.3.1**, Zustand **5.0.15**                                                              |
+| Navigation / server state  | TanStack Router **1.170.45**, Query **5.104.5**                                                               |
+| Styling / animation        | Tailwind CSS + Vite plugin **4.3.3**, Motion **14.5.0**, Lucide **1.60.0**                                    |
+| Build tools                | Vite **8.3.4**, React plugin **6.1.2**; Vite+ **1.3.0** installed                                             |
+| Contracts                  | Zod **4.6.7**                                                                                                 |
+| Quality tools              | Vitest **5.0.5**, Lighthouse **13.5.0**, Oxlint **1.89.0**, Oxfmt **0.74.0**                                  |
+| Git gates                  | Husky **9.1.7**, lint-staged **17.6.0**                                                                       |
+| Isolated integration tools | mongodb-memory-server **11.3.0**                                                                              |
 
 The manifests specify ranges; pnpm-lock.yaml records exact versions. `pnpm deps:check` checks every direct package against npm. Node declarations follow the supported Node 24 runtime. Current scripts invoke the standalone Vite, Vitest, TypeScript and Oxc tools. Vite+ has a known upstream alias peer warning; application builds and standalone test commands remain verified.
 
 ## Quick start
 
-Requirements: Node 24, pnpm 12.14.0 and a reachable local MongoDB or MongoDB Atlas database.
+Requirements: Node 24.12 or newer within the 24.x line, pnpm 12.14.0 and a reachable local MongoDB or MongoDB Atlas database.
 
 ```bash
 cp .env.example .env
@@ -143,6 +143,8 @@ On a fresh production database, configure separate BOOTSTRAP_ADMIN_EMAIL/PASSWOR
 
 ## Commands and quality gates
 
+All maintained application and tooling code uses TypeScript/TSX. Node 24 runs the tooling's `.ts` entry points directly. `pnpm typecheck` checks all workspaces, strictly checks the tooling and rejects maintained JavaScript files. Production builds generate JavaScript for browsers and Node.
+
 ```bash
 pnpm typecheck
 pnpm test
@@ -157,8 +159,8 @@ pnpm lint
 
 Integration, browser and Lighthouse commands create isolated synthetic databases and stop their own processes; they do not use development orders. The first integration run may download a MongoDB binary. Browser checks require Chrome; see [quality commands](documentation/docs/QUALITY.md).
 
-- **pre-commit:** lint/fix and format staged JS/TS files through lint-staged.
-- **pre-push:** workspace typechecking and maintained source tests.
+- **pre-commit:** lint/fix and format staged TypeScript files through lint-staged.
+- **pre-push:** TypeScript source policy, workspace/tooling typechecking and maintained source tests.
 
 ## Workspace
 
@@ -177,5 +179,5 @@ frontend/src/
   lib/           API, Zustand session, settings and sockets
   router.tsx     Typed page URLs and access layouts
 shared/src/      Catalog, prices, roles, Zod and socket contracts
-scripts/         Isolated browser and Lighthouse tools
+scripts/         TypeScript browser, Lighthouse and maintenance tools
 ```

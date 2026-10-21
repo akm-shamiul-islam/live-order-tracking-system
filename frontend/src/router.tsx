@@ -21,6 +21,7 @@ import { z } from '@kitchentodoor/shared/zod';
 import { PageSkeleton } from './components/layout/Loading';
 import { MenuPage } from './pages/MenuPage';
 import { RefreshCw } from 'lucide-react';
+import { startPageTransition } from './lib/pageTransition';
 
 function NotFoundPage() {
   return (
@@ -162,17 +163,6 @@ export const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   scrollRestoration: true,
-  defaultViewTransition: {
-    types: ({ fromLocation, toLocation }) => {
-      if (
-        !fromLocation ||
-        fromLocation.pathname === toLocation.pathname ||
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      )
-        return false;
-      return ['page-navigation'];
-    },
-  },
   defaultPendingComponent: PageSkeleton,
   defaultErrorComponent: ({ reset }) => (
     <section role="alert" className="glass-panel rounded-2xl p-8 text-center">
@@ -188,6 +178,20 @@ export const router = createRouter({
     </section>
   ),
 });
+
+// RouterCore calls this hook for the actual route commit. Its default native
+// adapter does not observe ready, which rejects when rapid navigation skips it.
+router.startViewTransition = (update) => {
+  const disabled = router.shouldViewTransition === false;
+  router.shouldViewTransition = undefined;
+  return disabled
+    ? update()
+    : startPageTransition(
+        update,
+        router.state.resolvedLocation?.pathname,
+        router.latestLocation.pathname,
+      );
+};
 
 declare module '@tanstack/react-router' {
   interface Register {

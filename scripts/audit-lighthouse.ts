@@ -3,12 +3,34 @@ import { createRequire } from 'node:module';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { createIsolatedRuntime } from './lib/isolated-runtime.mjs';
-import { launchBrowser, waitFor } from './lib/browser.mjs';
+import { createIsolatedRuntime } from '../backend/scripts/isolated-runtime.ts';
+import { launchBrowser, waitFor, type Browser } from './lib/browser.ts';
+import { packageVersion } from './lib/json.ts';
 const require = createRequire(import.meta.url);
 
 const runtime = await createIsolatedRuntime({ count: 12, serveFrontend: true });
-let browser;
+let browser: Browser | undefined;
+
+function selectorsIn(item: unknown): string[] {
+  if (!item || typeof item !== 'object') return [];
+  if (
+    'node' in item &&
+    item.node &&
+    typeof item.node === 'object' &&
+    'selector' in item.node &&
+    typeof item.node.selector === 'string'
+  )
+    return [item.node.selector];
+  if (
+    'subItems' in item &&
+    item.subItems &&
+    typeof item.subItems === 'object' &&
+    'items' in item.subItems &&
+    Array.isArray(item.subItems.items)
+  )
+    return item.subItems.items.flatMap((child: unknown) => selectorsIn(child));
+  return [];
+}
 try {
   const app = await runtime.start();
   browser = await launchBrowser();
@@ -39,8 +61,9 @@ try {
   ];
   const directory = await mkdtemp(join(tmpdir(), 'ktd-lighthouse-reports-'));
   const results = [];
-  const selectedCases = process.env.LIGHTHOUSE_PAGES
-    ? cases.filter((test) => process.env.LIGHTHOUSE_PAGES.split(',').includes(test.name))
+  const requestedPages = process.env.LIGHTHOUSE_PAGES?.split(',');
+  const selectedCases = requestedPages
+    ? cases.filter((test) => requestedPages.includes(test.name))
     : cases;
   for (const test of selectedCases) {
     if (test.account) {
@@ -52,7 +75,7 @@ try {
     await seed.send('Network.enable');
     await seed.send('Network.clearBrowserCache');
     console.log(`Auditing ${test.name} with ${browser.version}…`);
-    const flags = {
+    const flags: NonNullable<Parameters<typeof lighthouse>[1]> = {
       port: browser.port,
       logLevel: 'error',
       onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
@@ -79,16 +102,21 @@ try {
         },
       });
     let report = await lighthouse(app.base + test.path, flags);
+    if (!report) throw new Error(`Lighthouse returned no report for ${test.name}.`);
     if (report.lhr.runtimeError?.code === 'NO_NAVSTART') {
       console.log(
         'Chrome omitted navigation timing from the trace; retrying trace collection once.',
       );
       await seed.send('Network.clearBrowserCache');
       report = await lighthouse(app.base + test.path, flags);
+      if (!report) throw new Error(`Lighthouse returned no report for ${test.name}.`);
     }
     if (report.lhr.runtimeError) throw new Error(report.lhr.runtimeError.message);
-    await writeFile(join(directory, `${test.name}.json`), report.report[0]);
-    await writeFile(join(directory, `${test.name}.html`), report.report[1]);
+    const [jsonReport, htmlReport] = Array.isArray(report.report) ? report.report : [];
+    if (!jsonReport || !htmlReport)
+      throw new Error(`Lighthouse did not generate both reports for ${test.name}.`);
+    await writeFile(join(directory, `${test.name}.json`), jsonReport);
+    await writeFile(join(directory, `${test.name}.html`), htmlReport);
     const issues = Object.values(report.lhr.audits)
       .filter(
         (audit) =>
@@ -99,13 +127,10 @@ try {
         title: audit.title,
         score: audit.score,
         displayValue: audit.displayValue,
-        selectors: audit.details?.items
-          ?.flatMap((item) =>
-            item.node?.selector
-              ? [item.node.selector]
-              : item.subItems?.items?.map((sub) => sub.node?.selector).filter(Boolean) || [],
-          )
-          .slice(0, 12),
+        selectors:
+          audit.details && 'items' in audit.details && Array.isArray(audit.details.items)
+            ? audit.details.items.flatMap((item: unknown) => selectorsIn(item)).slice(0, 12)
+            : undefined,
       }));
     const result = {
       page: test.name,
@@ -113,7 +138,7 @@ try {
       scores: Object.fromEntries(
         Object.entries(report.lhr.categories).map(([key, value]) => [
           key,
-          Math.round(value.score * 100),
+          value.score === null ? null : Math.round(value.score * 100),
         ]),
       ),
       metrics: Object.fromEntries(
@@ -143,7 +168,7 @@ try {
       {
         measuredAt,
         chrome: browser.version,
-        lighthouse: require('lighthouse/package.json').version,
+        lighthouse: packageVersion(require, 'lighthouse'),
         method:
           'Compiled production app and compressed local assets, isolated synthetic MongoDB, Chrome for Testing, cold HTTP cache per navigation, drawer dismissed using its persisted preference. Mobile Lighthouse simulation; desktop 40ms RTT/10Mbps/1x CPU.',
         limitations: [

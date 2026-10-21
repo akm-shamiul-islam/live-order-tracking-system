@@ -2,6 +2,33 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseJson, responseJson } from './lib/json.ts';
+
+interface Manifest {
+  engines?: { node?: string };
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  version?: string;
+}
+interface Occurrence {
+  file: string;
+  section: 'dependencies' | 'devDependencies';
+  specifier: string;
+  installed: string | null;
+}
+interface RegistryPackage {
+  version: string;
+  deprecated?: string;
+}
+interface PackageResult {
+  name: string;
+  latest: string;
+  target: string;
+  policy: string | null;
+  deprecated: string | null;
+  current: boolean;
+  occurrences: Occurrence[];
+}
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const files = [
@@ -10,13 +37,13 @@ const files = [
   'frontend/package.json',
   'shared/package.json',
 ];
-const packages = new Map();
-const rootManifest = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+const packages = new Map<string, Occurrence[]>();
+const rootManifest = parseJson<Manifest>(await readFile(resolve(root, 'package.json'), 'utf8'));
 const nodeTypesMajor = /^(\d+)\.x$/.exec(rootManifest.engines?.node ?? '')?.[1];
 
 for (const file of files) {
-  const manifest = JSON.parse(await readFile(resolve(root, file), 'utf8'));
-  for (const section of ['dependencies', 'devDependencies']) {
+  const manifest = parseJson<Manifest>(await readFile(resolve(root, file), 'utf8'));
+  for (const section of ['dependencies', 'devDependencies'] as const) {
     for (const [name, specifier] of Object.entries(manifest[section] ?? {})) {
       if (specifier.startsWith('workspace:')) continue;
       const paths = [
@@ -24,7 +51,9 @@ for (const file of files) {
         resolve(root, 'node_modules', name, 'package.json'),
       ];
       const path = paths.find((candidate) => existsSync(candidate));
-      const installed = path ? JSON.parse(await readFile(path, 'utf8')).version : null;
+      const installed = path
+        ? (parseJson<Manifest>(await readFile(path, 'utf8')).version ?? null)
+        : null;
       const occurrences = packages.get(name) ?? [];
       occurrences.push({ file, section, specifier, installed });
       packages.set(name, occurrences);
@@ -33,20 +62,21 @@ for (const file of files) {
 }
 
 const names = [...packages.keys()].sort((a, b) => a.localeCompare(b));
-const results = [];
+const results: PackageResult[] = [];
 let next = 0;
 await Promise.all(
   Array.from({ length: 6 }, async () => {
     while (next < names.length) {
       const name = names[next++];
+      if (!name) continue;
       const response = await fetch(
         `https://registry.npmjs.org/${encodeURIComponent(name)}/latest`,
         { signal: AbortSignal.timeout(30_000) },
       );
       if (!response.ok) throw new Error(`npm lookup failed for ${name}: HTTP ${response.status}`);
-      const metadata = await response.json();
+      const metadata = await responseJson<RegistryPackage>(response);
       let target = metadata;
-      let policy = null;
+      let policy: string | null = null;
       if (name === '@types/node' && nodeTypesMajor) {
         const versionsResponse = await fetch(
           `https://registry.npmjs.org/${encodeURIComponent(name)}`,
@@ -58,7 +88,9 @@ await Promise.all(
         if (!versionsResponse.ok) {
           throw new Error(`npm version lookup failed for ${name}: HTTP ${versionsResponse.status}`);
         }
-        const { versions } = await versionsResponse.json();
+        const { versions } = await responseJson<{ versions: Record<string, RegistryPackage> }>(
+          versionsResponse,
+        );
         const compatible = Object.keys(versions)
           .filter(
             (version) =>
@@ -67,10 +99,13 @@ await Promise.all(
           .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
         const version = compatible.at(-1);
         if (!version) throw new Error(`No stable ${name} release matches Node ${nodeTypesMajor}`);
-        target = versions[version];
+        const compatibleTarget = versions[version];
+        if (!compatibleTarget) throw new Error(`Missing registry metadata for ${name}@${version}`);
+        target = compatibleTarget;
         policy = `Match Node ${nodeTypesMajor} from the root engines.node setting`;
       }
       const occurrences = packages.get(name);
+      if (!occurrences) throw new Error(`Missing manifest declarations for ${name}`);
       const current =
         !target.deprecated &&
         occurrences.every(

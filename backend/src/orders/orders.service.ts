@@ -12,19 +12,19 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { createHash, randomBytes } from 'node:crypto';
 import { getRuntimeSettings, getPricingSettings } from '../config/runtime-settings.js';
-import { Order, OrderDocument } from '../database/schemas/order.schema.js';
+import { Order, type OrderDocument } from '../database/schemas/order.schema.js';
 import { User, type UserDocument } from '../database/schemas/user.schema.js';
 import { AccountAccessCoordinator } from '../common/account-access-coordinator.js';
 import {
   OrderStatusLog,
-  OrderStatusLogDocument,
+  type OrderStatusLogDocument,
   type OrderStatusLogRecord,
 } from '../database/schemas/order-status-log.schema.js';
 import {
-  CreateOrderDto,
-  OrderDetails,
+  type CreateOrderDto,
+  type OrderDetails,
   OrderStatus,
-  OrderStatusLog as IOrderStatusLog,
+  type OrderStatusLog as IOrderStatusLog,
   isValidStatusTransition,
   UserRole,
   MENU_ITEMS,

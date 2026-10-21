@@ -1,6 +1,6 @@
 # Verification commands
 
-Run commands from the workspace root with Node 24 and pnpm 12.14.0. Build before browser checks or measurements.
+Run commands from the workspace root with Node 24.12+ within the 24.x line and pnpm 12.14.0. Build before browser checks or measurements.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -17,6 +17,12 @@ pnpm lint
 
 Run integration, browser and Lighthouse commands sequentially. Concurrent compilers, lint workers and MongoDB fixtures can exhaust a development machine and distort timings or cause connection timeouts.
 
+## TypeScript source and tooling checks
+
+`pnpm typecheck` includes `pnpm source:check`, workspace checks and `pnpm typecheck:tools`. The source check inspects existing Git-tracked and unignored files and rejects authored JavaScript extensions. Generated/ignored build output and dependencies remain outside the check. The tools configuration strictly checks `.ts` scripts, including browser transport, isolated fixture IPC and script options. Type checking uses `noImplicitAny` and `noUncheckedIndexedAccess` inherited from the base configuration.
+
+Tool commands run their TypeScript entry points with Node's native type stripping. No application, maintenance or theme initializer source needs a handwritten JavaScript file. Browser workflow and Lighthouse runs execute the converted scripts against the real built application; frontend builds also execute the TypeScript asset compressor.
+
 ## Source and integration tests
 
 The source suite covers contracts, authentication through Nest HTTP, sessions, recovery, configuration, request errors, navigation and permissions. It also exercises optional address validation, saved-address tab synchronization, late sign-in/refresh/logout races, retry keys surviving a lost response/reload, stale live events/HTTP snapshots and stable polling references. Integration tests use a separate mongodb-memory-server instance, actual HTTP and Socket.IO clients. They cover saved addresses through registration/login/refresh, order-specific checkout edits without changing registered defaults, customer ownership, same-phone isolation, assignment contention, concurrent role/access changes, current authorization during passive broadcasts, cancellation, GPS freshness, refresh rotation/reuse, reset invalidation after account changes, auxiliary session cleanup failures, concurrent checkout retries, notification adapter failures, socket Origin/payload/flood limits and database stop/restart recovery with refresh-cookie preservation.
@@ -27,7 +33,7 @@ These commands do not mutate the development database. The first integration run
 
 `pnpm test:browser` launches its own browser profile, isolated MongoDB and compiled API. It drives registration with optional address validation, saved contact/address checkout prefill, edited delivery details, location-pin invalidation (including a delayed GPS callback), login, expired-access refresh through the real HttpOnly cookie, cart/checkout, customer history, admin user editing, courier requests/approval, assigned status updates, cancellation and consent-based GPS. Navigation checks include role-specific menus, direct URLs, persistent open/closed drawers, breadcrumbs, menu page sizes, full-width history and Available Deliveries with the drawer open/closed, responsive layouts, focus containment, dark mode and reduced-motion preferences.
 
-The navigation check observes real native snapshot animations, verifies that both page fades run, and confirms the header/drawer DOM stays mounted. It exercises Back/Forward, skips animations for same-page filters, respects reduced motion and simulates an unavailable browser transition API. Existing width checks continue to measure the actual history/courier content.
+The navigation check observes real native snapshot animations, verifies that both page fades run, and confirms the header/drawer DOM stays mounted. It exercises Back/Forward and rapid account-page changes, skips animations for same-page filters, respects reduced motion and simulates an unavailable browser transition API. Unit checks verify skipped snapshots are handled while actual page-update failures still propagate. Existing width checks continue to measure the actual history/courier content.
 
 It also drops a checkout response after the server commits, retries checkout and checks that only one order exists. A failed sign-out clears local access, displays a warning and successfully retries server revocation. SPA/API/asset responses, CSP, Brotli/caching and an isolated Vite proxy during API interruption/restart are verified. Browser exceptions fail the check. Summary JSON is saved under documentation/quality; screenshots and detailed diagnostics stay in a temporary directory printed by the command. No password, access token or private test URL is written into committed summaries. Cleanup recognizes both normal exit codes and signal termination so it does not await an already exited child indefinitely.
 
@@ -69,12 +75,23 @@ After adding the saved address and widening Available Deliveries, a targeted run
 
 [Targeted summary](../quality/lighthouse-registration-courier-2026-10-21.json). Neither page has an automated accessibility or best-practices failure. Both retain zero measured layout shift, intentional private-page noindex and startup JavaScript/render-blocking diagnostics. Browser workflows separately verify registration field errors, checkout prefill/edits and courier width with desktop/mobile drawers.
 
+### TypeScript tooling and theme follow-up
+
+Measured 2026-10-21T06:10:09.390Z after converting the tooling/theme source, updating Motion to 14.5.0 and handling skipped navigation snapshots. The same Chrome/Lighthouse versions and cold-cache mobile settings were used; earlier reports remain available above.
+
+| Page scenario | Performance | Accessibility | Best practices | SEO | LCP (s) | TBT (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| menu-mobile | 81 | 100 | 100 | 100 | 3.28 | 390 |
+| account-mobile | 85 | 100 | 100 | 60 | 3.00 | 334 |
+
+[TypeScript follow-up summary](../quality/lighthouse-typescript-2026-10-21.json). Both pages retain zero measured layout shift and no automated accessibility/best-practices failures. Private-page SEO retains intentional noindex. Startup JavaScript, render-blocking resources and menu image-delivery diagnostics remain; these local performance scores do not establish the cause of a run-to-run change. Browser checks also confirm the compiled initializer restores dark mode after a direct reload and that the development HTML embeds it.
+
 ## Performance and security implementation
 
 - Menu images use responsive local WebP variants, fixed dimensions and lazy loading; the hero is prioritized. Offscreen cards use content-visibility: auto with intrinsic sizing, preserving accessibility and rendering on scroll. See [browser guidance](https://web.dev/articles/content-visibility).
 - Identical session checks preserve Zustand references; [locale formatters are reused](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toLocaleString) across list rows and live updates. Customer tracking loads staff controls only when needed.
 - Self-hosted fonts have licenses. Tracking animation and Socket.IO load after the initial UI can paint; HTTP polling/reconnection reconciles missed events.
-- The early theme script is embedded at build time to prevent a theme flash without an extra blocking request. The API derives its exact SHA-256 CSP hash from the built HTML; unsafe-eval is not allowed. Rebuild frontend and backend together.
+- The early theme initializer is authored in TypeScript, compiled with Vite's Oxc API and embedded at build time to prevent a theme flash without an extra blocking request. The API derives its exact SHA-256 CSP hash from the built HTML; unsafe-eval is not allowed. Rebuild frontend and backend together.
 - API responses use no-store. Hashed static assets use immutable caching; HTML is not cached permanently.
 - Server guards enforce owner/role/assignment checks independently of hidden navigation. Shared validation, rate/connection/payload limits, secure recovery/session handling and journaled atomic order writes are covered by tests.
 
