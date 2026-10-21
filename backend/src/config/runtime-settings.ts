@@ -41,6 +41,20 @@ export const RuntimeSettingsSchema = z
     REGISTER_RATE_LIMIT_MAX: positiveInteger(5),
     REFRESH_RATE_LIMIT_MAX: positiveInteger(30),
     RESET_RATE_LIMIT_MAX: positiveInteger(5),
+    RECEIPT_RATE_LIMIT_MAX: positiveInteger(10),
+    RECEIPT_TIME_ZONE: z
+      .string()
+      .trim()
+      .min(1)
+      .default('UTC')
+      .refine((timeZone) => {
+        try {
+          new Intl.DateTimeFormat('en', { timeZone });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'Use a valid IANA time zone'),
     AUTH_SESSION_TTL_MS: positiveInteger(604_800_000),
     JWT_EXPIRES_IN: tokenLifetime,
     AUTH_REFRESH_HISTORY_MAX: positiveInteger(1000),

@@ -2,19 +2,31 @@ import { useCopy } from '../../lib/i18n';
 import { formatDateTime } from '../../lib/dateTime';
 import type { OrderDetails } from '@kitchentodoor/shared';
 import { ReceiptText } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { ReceiptDownloadButton } from '../customer/ReceiptDownloadButton';
 
 export function OrderSummary({ order }: { order: OrderDetails }) {
   const c = useCopy();
+  const { isCourier } = useAuth();
 
   return (
     <section className="glass-panel rounded-2xl p-5 sm:p-6" aria-labelledby="order-summary-title">
-      <h2
-        id="order-summary-title"
-        className="font-display flex items-center gap-2 text-lg font-bold"
-      >
-        <ReceiptText aria-hidden="true" className="h-5 w-5 text-teal-700 dark:text-teal-300" />
-        {c('Order Details')}{' '}
-      </h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h2
+          id="order-summary-title"
+          className="font-display flex items-center gap-2 text-lg font-bold"
+        >
+          <ReceiptText aria-hidden="true" className="h-5 w-5 text-teal-700 dark:text-teal-300" />
+          {c('Order Details')}{' '}
+        </h2>
+        {!isCourier && (
+          <ReceiptDownloadButton
+            orderId={order.id}
+            orderNumber={order.orderNumber}
+            variant="button"
+          />
+        )}
+      </div>
       <div className="mt-5 grid gap-6 md:grid-cols-2">
         <div>
           <ul className="space-y-3">

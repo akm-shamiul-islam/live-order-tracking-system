@@ -27,12 +27,13 @@
 
 KitchenToDoor connects customer ordering, kitchen dispatch and courier delivery in one application.
 
-- **Customer accounts:** register as a normal user, order from 27 dishes in seven categories, and view only your own order history and tracking.
+- **Customer accounts:** register as a normal user, order from 27 dishes in seven categories, view only your own order history and tracking, and download bilingual order receipt PDFs.
 - **Admin workspace:** manage all dispatch orders, review delivery requests, assign couriers, and edit names, emails, phone numbers, roles and account access from Users.
 - **Courier workspace:** request an available delivery, wait for admin approval, then manage assigned deliveries and share device GPS with consent.
 - **Order updates:** sequential statuses, cancellation with a required explanation, atomic audit history and authenticated Socket.IO updates.
 - **Friendly navigation:** shareable URLs, breadcrumbs, a role-aware drawer that opens by default and remembers its state, themed filters, menu page sizes of 8/16/32/60 (other lists: 10/25/50/100), responsive dark/light themes and inline Zod field errors.
 - **Loading feedback:** initial/route/table skeletons and spinners for network actions. Food photos and fonts are hosted locally.
+- **Order receipts:** PDFCN's Forme renderer generates downloadable English/Japanese receipts from server-authorized order snapshots, with embedded Noto Sans JP fonts and saved pricing.
 - **Appearance and language:** smooth light/dark and EN/JA changes, themed keyboard-accessible tooltips and compact icon actions. Language is remembered on this device and saved to signed-in accounts.
 - **Shared login state:** Zustand persists the user/access token, synchronizes tabs and works with rotating HttpOnly refresh cookies. Backend checks enforce permissions.
 
@@ -40,25 +41,27 @@ Prices are realistic USD demonstration amounts. Ordering does not collect paymen
 
 ## Technology stack
 
-| Area                       | Packages / current versions                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Runtime / package manager  | Node **24.x** (verified 24.18.1), pnpm **12.14.0**                                                            |
-| Language                   | TypeScript **7.0.2**                                                                                          |
-| API                        | NestJS **12.2.0**, Fastify **5.12.7**                                                                         |
-| Database                   | Mongoose **9.11.2**, @nestjs/mongoose **12.0.0**                                                              |
-| Realtime                   | Socket.IO / socket.io-client **4.8.4**                                                                        |
-| Authentication             | bcryptjs **3.0.3**, @nestjs/jwt **12.0.3**, passport-jwt **4.0.1**                                            |
-| Security / hosting         | @fastify/helmet **13.2.0**, @fastify/cors **11.3.1**, @fastify/static **10.1.6**, @nestjs/throttler **6.7.1** |
-| Recovery mail              | Nodemailer **10.1.7**; SMTP configuration required                                                            |
-| UI                         | React / React DOM **19.3.1**, Zustand **5.0.15**                                                              |
-| Navigation / server state  | TanStack Router **1.170.45**, Query **5.104.5**                                                               |
-| Localization / tooltips    | i18next **26.5.4**, react-i18next **17.1.0**, Floating UI React **0.27.20**                                   |
-| Styling / animation        | Tailwind CSS + Vite plugin **4.3.3**, Motion **14.5.0**, Lucide **1.61.0**                                    |
-| Build tools                | Vite **8.3.5**, React plugin **6.1.2**; Vite+ **1.3.0** installed                                             |
-| Contracts                  | Zod **4.6.7**                                                                                                 |
-| Quality tools              | Vitest **5.0.5**, Lighthouse **13.5.0**, Oxlint **1.89.0**, Oxfmt **0.74.0**, Oxc Parser **0.155.0**          |
-| Git gates                  | Husky **9.1.7**, lint-staged **17.6.0**                                                                       |
-| Isolated integration tools | mongodb-memory-server **11.3.0**                                                                              |
+| Area                       | Packages / current versions                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Runtime / package manager  | Node **24.x** (verified 24.18.1), pnpm **12.14.0**                                                               |
+| Language                   | TypeScript **7.0.2**                                                                                             |
+| API                        | NestJS **12.2.0**, Fastify **5.12.7**                                                                            |
+| Database                   | Mongoose **9.11.2**, @nestjs/mongoose **12.0.0**                                                                 |
+| Realtime                   | Socket.IO / socket.io-client **4.8.4**                                                                           |
+| Authentication             | bcryptjs **3.0.3**, @nestjs/jwt **12.0.3**, passport-jwt **4.0.1**                                               |
+| Security / hosting         | @fastify/helmet **13.2.0**, @fastify/cors **11.3.1**, @fastify/static **10.1.6**, @nestjs/throttler **6.7.1**    |
+| Recovery mail              | Nodemailer **10.1.7**; SMTP configuration required                                                               |
+| UI                         | React / React DOM **19.3.1**, Zustand **5.0.15**                                                                 |
+| PDF receipts               | PDFCN Forme **@formepdf/core / @formepdf/react 0.28.0**, React **19.3.1**                                        |
+| Japanese fonts             | Fontsource Variable Noto Sans JP **5.3.1**; receipt TTF subsets converted from Fontsource **5.3.1**, SIL OFL 1.1 |
+| Navigation / server state  | TanStack Router **1.170.45**, Query **5.104.5**                                                                  |
+| Localization / tooltips    | i18next **26.5.4**, react-i18next **17.1.0**, Floating UI React **0.27.20**                                      |
+| Styling / animation        | Tailwind CSS + Vite plugin **4.3.3**, Motion **14.5.0**, Lucide **1.61.0**                                       |
+| Build tools                | Vite **8.3.5**, React plugin **6.1.2**; Vite+ **1.3.0** installed                                                |
+| Contracts                  | Zod **4.6.7**                                                                                                    |
+| Quality tools              | Vitest **5.0.5**, Lighthouse **13.5.0**, Oxlint **1.89.0**, Oxfmt **0.74.0**, Oxc Parser **0.155.0**             |
+| Git gates                  | Husky **9.1.7**, lint-staged **17.6.0**                                                                          |
+| Isolated integration tools | mongodb-memory-server **11.3.0**                                                                                 |
 
 The manifests specify ranges; pnpm-lock.yaml records exact versions. `pnpm deps:check` checks every direct package against npm. Node declarations follow the supported Node 24 runtime. Current scripts invoke the standalone Vite, Vitest, TypeScript and Oxc tools. Vite+ has a known upstream alias peer warning; application builds and standalone test commands remain verified.
 
@@ -86,12 +89,12 @@ Choose **EN / JA** beside the cart to switch language. Guest preferences stay in
 
 1. Open **My Account → Create an Account**. You can save an optional delivery address during registration. New accounts are normal customers; registration cannot choose admin/courier privileges.
 2. Add food to the bag and continue to checkout. Sign-in preserves the cart during navigation. Checkout fills in your saved name, phone number and address. Edit any details for this delivery and click **Deliver**; these edits do not change your registered defaults. A delivery address is required. You can attach a current-location pin if you are at that address; editing the address clears the pin.
-3. **My Orders** shows only orders owned by the signed-in customer. Open an order for items, totals, address, status, cancellation reason and live updates.
+3. **My Orders** shows only orders owned by the signed-in customer. Download a Japanese or English PDF receipt from the order row or details page. Receipts include saved item prices, customer delivery details, order status/history and the time zone configured by the service. They are order summaries; the app does not collect payment.
 4. Admins see new orders in **Dispatch Station**. **Users → Edit** changes profiles and roles using a themed dropdown. Email/access changes sign the affected user out; they sign in again with their current details.
 5. Couriers use **Available Deliveries → Request Delivery**. Admins approve/decline from an order's delivery controls. Once assigned, the order moves to that courier's **My Deliveries** and disappears from other available lists.
 6. Admins and the assigned courier can advance each stage in order. Cancellation requires an explanation and is final. Real location sharing is available during OUT_FOR_DELIVERY and stops when the page closes or delivery finishes.
 
-Available delivery summaries omit customer contact/address details until assignment. Tracking URLs do not bypass account permissions. Old guest orders without an account owner are retained for admin access rather than claimed by matching a phone number.
+Available delivery summaries omit customer contact/address details until assignment. Tracking URLs do not bypass account permissions. Receipt requests require an authenticated customer who owns the order or an administrator; another customer's receipt returns not found. Old guest orders without an account owner are retained for admin access rather than claimed by matching a phone number.
 
 If a checkout response is lost, retry the same checkout. The app reuses its retry key so the saved order is returned without creating a duplicate. **My Orders** also shows orders that were saved before a connection interruption.
 
@@ -174,6 +177,7 @@ backend/src/
   auth/          Login, sessions, recovery, guards
   users/         Admin user management
   orders/        Orders, courier requests, assignment, sockets
+  receipts/      PDFCN/Forme order receipts, fonts and licensed assets
   database/      Schemas, seeding and operator commands
   common/        Validation, limits, hosting and error handling
   operations/    Health/readiness and admin metrics

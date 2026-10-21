@@ -24,7 +24,7 @@ Vite reads root `.env`, `.env.local`, `.env.<mode>` and `.env.<mode>.local`; lat
 
 ## Language and appearance
 
-The interface supports `en` and `ja`; no environment secret or translation service is required. Maintain both JSON bundles under `frontend/src/locales/` and run `pnpm locales:check` after changing copy. The header dropdown writes `ktd_language` in localStorage. Registration includes the chosen language; an authenticated, strictly validated `PATCH /api/auth/preferences` saves only the caller's language to MongoDB and increments `languageVersion`. Existing accounts without these fields use `en`/0. No manual database migration is required.
+The interface supports `en` and `ja`; no environment secret or translation service is required. Maintain both JSON bundles under `frontend/src/locales/` and run `pnpm locales:check` after changing copy. The Japanese interface uses self-hosted Noto Sans JP Variable from Fontsource 5.3.1. The header dropdown writes `ktd_language` in localStorage. Registration includes the chosen language; an authenticated, strictly validated `PATCH /api/auth/preferences` saves only the caller's language to MongoDB and increments `languageVersion`. Existing accounts without these fields use `en`/0. No manual database migration is required.
 
 Signing in restores the saved account language. An unsaved choice is retained locally under `ktd_language_pending`, scoped to its account, with a visible retry and automatic retry on reconnection. Theme remains a device preference in `ktd_theme`. Both appearance switches respect the operating system's reduced-motion setting. Locale changes translate interface/catalog copy and date formatting; they do not convert USD prices or translate customer-entered content.
 
@@ -36,11 +36,13 @@ Reset links default to 30 minutes, with a per-account five-minute request interv
 
 ## Limits, lists and pricing
 
-HTTP limits are per IP and handler, with stricter login/registration settings. Refresh and recovery use their own maximums with RATE_LIMIT_TTL_MS. UI retry messages use Retry-After. Socket settings bound packets per connection/IP, tracked IPs, handshake attempts, concurrent connections, rooms and payload bytes. IP packet budgets survive reconnects. TRUSTED_PROXY_IPS is empty by default; forwarded IPs are used only through exact explicitly trusted proxy addresses. Configure the actual edge topology as described in OPERATIONS.md. State is process-local; deployment/proxy/scaling requirements are in [OPERATIONS.md](OPERATIONS.md).
+HTTP limits are per IP and handler, with stricter login/registration settings. Refresh, recovery and receipt downloads use their own maximums with RATE_LIMIT_TTL_MS. RECEIPT_RATE_LIMIT_MAX defaults to 10 requests per IP per rate window. UI retry messages use Retry-After. Socket settings bound packets per connection/IP, tracked IPs, handshake attempts, concurrent connections, rooms and payload bytes. IP packet budgets survive reconnects. TRUSTED_PROXY_IPS is empty by default; forwarded IPs are used only through exact explicitly trusted proxy addresses. State is process-local; deployment/proxy/scaling requirements are in [OPERATIONS.md](OPERATIONS.md).
 
 ORDER_LIST_MAX_LIMIT and USER_LIST_MAX_LIMIT bound paginated APIs. UI sizes are 10/25/50/100; retain maximums of at least 100 to offer all four. Default limits cannot exceed their maximum. Delivery requests and user-management history have independent caps.
 
 DELIVERY_FEE and TAX_RATE configure server pricing; `/api/config` exposes only public pricing. Totals are calculated in cents using canonical menu prices. Stored orders retain their original totals. Current prices use USD demonstration amounts; payment processing and jurisdiction-specific tax are not integrated.
+
+PDF receipts are rendered by the API from the saved order prices. RECEIPT_TIME_ZONE accepts an IANA time zone and defaults to UTC; the chosen zone is printed with the timestamp. The build copies the canonical English/Japanese locale files and licensed Noto Sans JP font assets into the backend output. See [PDFCN/Forme](https://www.pdfcn.dev/docs/theming/forme), [Forme font registration](https://docs.formepdf.com/fonts), and [receipt font sources](../../backend/src/receipts/fonts/README.md).
 
 KITCHEN_LATITUDE/LONGITUDE are fallback storage coordinates, not geocoding. The UI displays a delivery pin only when coordinates were actually supplied. Browser current-location attachment is optional and requires consent; real courier sharing is limited to their active assigned delivery. TELEMETRY_MAX_AGE_MS/FUTURE_MS reject stale samples. Device acquisition/send intervals are public VITE_GPS_* values. VITE_ENABLE_COURIER_SIMULATOR is an optional admin demonstration setting, disabled by default.
 
@@ -105,6 +107,8 @@ The table below records template values, not deployed secrets. Optional commente
 | `REFRESH_RATE_LIMIT_MAX` | `30` |
 | `REGISTER_RATE_LIMIT_MAX` | `5` |
 | `REGISTER_RATE_LIMIT_TTL_MS` | `60000` |
+| `RECEIPT_RATE_LIMIT_MAX` | `10` |
+| `RECEIPT_TIME_ZONE` | `UTC` |
 | `RESET_RATE_LIMIT_MAX` | `5` |
 | `SERVE_FRONTEND` | `false` |
 | `SMTP_CONNECTION_TIMEOUT_MS` | `10000` |

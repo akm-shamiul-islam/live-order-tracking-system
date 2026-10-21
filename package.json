@@ -46,7 +46,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,mts,cts}": [
-      "oxlint --fix",
+      "oxlint --fix --config .oxlintrc.staged.json",
       "oxfmt"
     ]
   },

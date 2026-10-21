@@ -12,7 +12,10 @@ import {
   Inject,
   BadRequestException,
   Headers,
+  Res,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import type { FastifyReply } from 'fastify';
 import { OrdersService } from './orders.service.js';
 import { OrdersGateway } from './orders.gateway.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -29,6 +32,7 @@ import {
   OrderStatus,
   OrderIdentifierSchema,
   PhoneSchema,
+  LanguageSchema,
   CancellationReasonSchema,
   UserIdSchema,
   PageNumberSchema,
@@ -37,6 +41,7 @@ import {
 } from '@kitchentodoor/shared';
 import { z } from 'zod';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
+import { ReceiptService } from '../receipts/receipt.service.js';
 
 const getListOrdersQuerySchema = () =>
   z.object({
@@ -57,6 +62,7 @@ const getHistoryQuerySchema = () =>
     page: PageNumberSchema.optional(),
     limit: z.coerce.number().int().min(1).max(getRuntimeSettings().ORDER_LIST_MAX_LIMIT).optional(),
   });
+const getReceiptQuerySchema = () => z.object({ language: LanguageSchema.optional() });
 import type {
   CreateOrderDto,
   UpdateOrderStatusDto,
@@ -71,6 +77,7 @@ export class OrdersController {
     @Inject(OrdersService) private readonly ordersService: OrdersService,
     @Inject(OrdersGateway) private readonly ordersGateway: OrdersGateway,
     @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(ReceiptService) private readonly receiptService: ReceiptService,
   ) {}
 
   @Post()
@@ -245,6 +252,36 @@ export class OrdersController {
   ): Promise<{ success: boolean; order: OrderDetails }> {
     const order = await this.ordersService.getOrderById(orderId, user);
     return { success: true, order };
+  }
+
+  @Get(':orderId/receipt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER, UserRole.ADMIN)
+  @Throttle({
+    default: {
+      limit: () => getRuntimeSettings().RECEIPT_RATE_LIMIT_MAX,
+      ttl: () => getRuntimeSettings().RATE_LIMIT_TTL_MS,
+    },
+  })
+  async downloadReceipt(
+    @Param('orderId', new ZodValidationPipe(OrderIdentifierSchema)) orderId: string,
+    @Query(new ZodValidationPipe(getReceiptQuerySchema)) query: z.infer<
+      ReturnType<typeof getReceiptQuerySchema>
+    >,
+    @CurrentUser() user: UserSummary,
+    @Res() response: FastifyReply,
+  ): Promise<FastifyReply> {
+    const receipt = await this.receiptService.create(orderId, user, query.language);
+    const safeOrderNumber = receipt.orderNumber.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+    return response
+      .header('Content-Type', 'application/pdf')
+      .header(
+        'Content-Disposition',
+        `attachment; filename="KitchenToDoor-Receipt-${safeOrderNumber || 'order'}.pdf"`,
+      )
+      .header('Content-Length', receipt.pdf.byteLength)
+      .header('X-Content-Type-Options', 'nosniff')
+      .send(Buffer.from(receipt.pdf));
   }
 
   @Patch(':orderId/status')

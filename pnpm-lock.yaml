@@ -248,6 +248,12 @@ importers:
       '@fastify/static':
         specifier: ^10.1.6
         version: 10.1.6
+      '@formepdf/core':
+        specifier: 0.28.0
+        version: 0.28.0(react@19.3.1)
+      '@formepdf/react':
+        specifier: 0.28.0
+        version: 0.28.0(react@19.3.1)
       '@kitchentodoor/shared':
         specifier: workspace:*
         version: link:../shared
@@ -302,6 +308,9 @@ importers:
       passport-jwt:
         specifier: ^4.0.1
         version: 4.0.1
+      react:
+        specifier: 19.3.1
+        version: 19.3.1
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -327,6 +336,9 @@ importers:
       '@types/passport-jwt':
         specifier: ^4.0.1
         version: 4.0.1
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
       autocannon:
         specifier: 8.0.0
         version: 8.0.0
@@ -354,6 +366,9 @@ importers:
       '@floating-ui/react':
         specifier: 0.27.20
         version: 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@fontsource-variable/noto-sans-jp':
+        specifier: 5.3.1
+        version: 5.3.1
       '@kitchentodoor/shared':
         specifier: workspace:*
         version: link:../shared
@@ -681,6 +696,9 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
+  '@fontsource-variable/noto-sans-jp@5.3.1':
+    resolution: {integrity: sha512-/anGvJFc5y36f8DJ+3TSh2+KAvaRLA9PaLUMvneeY5s4j8m+8X4F3lE/sjTuG9YI5BX4sykvCk4TuJMG7ecMRQ==}
+
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
 
@@ -695,6 +713,19 @@ packages:
 
   '@formatjs/intl-localematcher@0.6.2':
     resolution: {integrity: sha512-XOMO2Hupl0wdd172Y06h6kLpBz6Dv+J4okPLl4LPtzbr8f66WbIoy4ev98EBuZ6ZK4h5ydTN6XneT4QVpD7cdA==}
+
+  '@formepdf/core@0.28.0':
+    resolution: {integrity: sha512-0wJKPpCq15jPTNv82OG6zZeE6S2b2B5beIbkIrWQ5T8kOVNq5lAAsiO/+/42vunejgqPLA8H5pA4AQ+pcqLwLQ==}
+    peerDependencies:
+      react: ^18 || ^19
+
+  '@formepdf/react@0.28.0':
+    resolution: {integrity: sha512-mytvkfkMQ83h2rBm/f0HrQ3EBU675CvazOun+XWhBHxd54GTHE/XKDqiYZ3GgmHjNGYhjRqQClFPDoRXmaVS7w==}
+    peerDependencies:
+      react: ^18 || ^19
+
+  '@formepdf/shared@0.28.0':
+    resolution: {integrity: sha512-i9XsJFM07U3pMcdQRM5xHa98WamYf9U+S1UOeBxKWWPCGBpHWx94dAkzFsglGekHAXDiFDkDEFHSgvHHL91Q2w==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2677,6 +2708,10 @@ packages:
     resolution: {integrity: sha512-rRqJg/6gd538VHvR3PSrdRBb/1Vy2YfzHqzvbhGIQpDRKIa4FgV/54b5Q1xYSxOOwKvjXweS26E0Q+nAMwp2pQ==}
     engines: {node: '>=8.6'}
 
+  entities@6.0.1:
+    resolution: {integrity: sha512-aN97NXWF6AWBTahfVOIrB/NShkzi5H7F9r1s9mD3cDj4Ko5f2qhhVoYMibXF7GlLveb/D2ioWay8lxI97Ven3g==}
+    engines: {node: '>=0.12'}
+
   es-define-property@1.0.1:
     resolution: {integrity: sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g==}
     engines: {node: '>= 0.4'}
@@ -3571,6 +3606,9 @@ packages:
 
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
+
+  parse5@7.3.0:
+    resolution: {integrity: sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw==}
 
   parseurl@1.3.3:
     resolution: {integrity: sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==}
@@ -4480,6 +4518,8 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
+  '@fontsource-variable/noto-sans-jp@5.3.1': {}
+
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:
       '@formatjs/fast-memoize': 2.2.7
@@ -4505,6 +4545,20 @@ snapshots:
   '@formatjs/intl-localematcher@0.6.2':
     dependencies:
       tslib: 2.8.1
+
+  '@formepdf/core@0.28.0(react@19.3.1)':
+    dependencies:
+      '@formepdf/react': 0.28.0(react@19.3.1)
+      react: 19.3.1
+
+  '@formepdf/react@0.28.0(react@19.3.1)':
+    dependencies:
+      '@formepdf/shared': 0.28.0
+      react: 19.3.1
+
+  '@formepdf/shared@0.28.0':
+    dependencies:
+      parse5: 7.3.0
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -5975,6 +6029,8 @@ snapshots:
       ansi-colors: 4.1.3
       strip-ansi: 6.0.1
 
+  entities@6.0.1: {}
+
   es-define-property@1.0.1: {}
 
   es-errors@1.3.0: {}
@@ -6918,6 +6974,10 @@ snapshots:
   p-try@2.2.0: {}
 
   pako@1.0.11: {}
+
+  parse5@7.3.0:
+    dependencies:
+      entities: 6.0.1
 
   parseurl@1.3.3: {}
 

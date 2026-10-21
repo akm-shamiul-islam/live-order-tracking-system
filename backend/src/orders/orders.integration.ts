@@ -269,6 +269,40 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     owner.disconnect();
   });
 
+  it('downloads PDF receipts only for the owner or an administrator', async () => {
+    const order = await create('customer1');
+    const receiptUrl = `/api/orders/${order.id}/receipt?language=ja`;
+    const ownerReceipt = await app.inject({ url: receiptUrl, headers: auth('customer1') });
+    expect(ownerReceipt.statusCode).toBe(200);
+    expect(ownerReceipt.headers['content-type']).toBe('application/pdf');
+    expect(ownerReceipt.headers['content-disposition']).toContain(order.orderNumber);
+    expect(ownerReceipt.payload.startsWith('%PDF-')).toBe(true);
+    expect(ownerReceipt.headers['cache-control']).toBe('no-store');
+
+    expect((await app.inject({ url: receiptUrl })).statusCode).toBe(401);
+    expect((await app.inject({ url: receiptUrl, headers: auth('customer2') })).statusCode).toBe(
+      404,
+    );
+    expect(
+      (
+        await app.inject({
+          url: `/api/orders/${order.trackingId}/receipt?language=ja`,
+          headers: auth('customer2'),
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect((await app.inject({ url: receiptUrl, headers: auth('courier1') })).statusCode).toBe(403);
+    expect(
+      (
+        await app.inject({
+          url: `/api/orders/${order.id}/receipt?language=fr`,
+          headers: auth('customer1'),
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect((await app.inject({ url: receiptUrl, headers: auth('admin') })).statusCode).toBe(200);
+  });
+
   it('stores exactly one audit entry when status updates race', async () => {
     const order = await create();
     const results = await Promise.allSettled(

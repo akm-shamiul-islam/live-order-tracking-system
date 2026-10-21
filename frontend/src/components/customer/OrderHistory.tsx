@@ -15,6 +15,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { PageSkeleton, Spinner } from '../layout/Loading';
 import { useOrderListUpdates } from '../../hooks/useOrderListUpdates';
 import { clientSettings } from '../../lib/clientSettings';
+import { ReceiptDownloadButton } from './ReceiptDownloadButton';
 
 const SearchSchema = z.object({ q: z.string().trim().max(100, 'Use at most 100 characters') });
 
@@ -183,12 +184,21 @@ function OrderHistoryContent() {
                 <span className="font-display font-extrabold text-lg text-slate-900 dark:text-slate-100 font-mono">
                   ${order.pricing.total.toFixed(2)}
                 </span>
-                <IconActionLink
-                  to={isCourier ? '/courier/$orderId' : '/tracking/$orderId'}
-                  orderId={order.id}
-                  icon={Eye}
-                  label={isCourier ? c('Manage Delivery') : c('Live Tracking')}
-                />
+                <div className="flex items-center gap-2">
+                  {!isCourier && (
+                    <ReceiptDownloadButton
+                      orderId={order.id}
+                      orderNumber={order.orderNumber}
+                      variant="icon"
+                    />
+                  )}
+                  <IconActionLink
+                    to={isCourier ? '/courier/$orderId' : '/tracking/$orderId'}
+                    orderId={order.id}
+                    icon={Eye}
+                    label={isCourier ? c('Manage Delivery') : c('Live Tracking')}
+                  />
+                </div>
               </div>
             </div>
           ))

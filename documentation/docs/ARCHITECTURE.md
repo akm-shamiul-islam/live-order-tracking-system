@@ -105,6 +105,10 @@ Available-delivery DTOs contain order number, items, total, stage, creation time
 
 Statuses advance sequentially from PLACED through DELIVERED. Admins and the assigned courier can advance them. Every active stage can be cancelled with a 5–500 character explanation. Terminal stages are final; cancellation retains the explanation and activity history for the customer.
 
+### Customer PDF receipts
+
+`GET /api/orders/:orderId/receipt?language=en|ja` requires a current authenticated customer or administrator session and has a configurable per-IP receipt limit. The controller calls the same actor-aware `OrdersService.getOrderById` lookup as order details; a customer who requests another customer's ID or private tracking token receives 404. Couriers cannot use this endpoint. The API renders a tagged PDF with PDFCN's Forme renderer and serves it as a private no-store attachment. It uses saved order/catalog prices, customer delivery details, status/cancellation history and canonical EN/JA strings. Native Forme tables repeat their header on continuation pages. English/Japanese fonts are embedded locally; no order content is sent to a PDF service. The interface offers downloads from My Orders and order details and cancels a pending download if the view is closed.
+
 ## Location and realtime updates
 
 Couriers explicitly opt in to device GPS after starting their assigned delivery. Updates are throttled, timestamped, and rejected when stale, reordered, terminal or unauthorized. Sharing stops on page exit/completion. Customers can attach their current location at checkout; a written address alone is not silently geocoded or given random coordinates.

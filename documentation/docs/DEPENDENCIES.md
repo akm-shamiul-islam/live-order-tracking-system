@@ -1,6 +1,6 @@
 # Dependency version audit
 
-Registry metadata was checked on **2026-10-21 (Asia/Tokyo)** across all four workspace manifests. After removing the deprecated bcrypt types stub, there are **63 maintained packages across 74 declarations**. Of these, 62 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime.
+Registry metadata was checked on **2026-10-21 (Asia/Tokyo)** across all four workspace manifests. After removing the deprecated bcrypt types stub and adding PDFCN Forme and Noto Sans JP, there are **66 maintained packages across 79 declarations**. Of these, 65 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime.
 
 The `^` prefix permits compatible newer versions; it does not mean the installed version equals the minimum shown in `package.json`. The lockfile and installed package metadata establish the version actually used. React 19.3.1 and Tailwind CSS 4.3.3 were already installed at their current stable versions; their README badges and lower dependency bounds were outdated.
 
@@ -28,6 +28,9 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [@fastify/helmet](https://www.npmjs.com/package/@fastify/helmet/v/13.2.0) | `^13.2.0` | 13.2.0 | backend |
 | [@fastify/static](https://www.npmjs.com/package/@fastify/static/v/10.1.6) | `^10.1.6` | 10.1.6 | backend |
 | [@floating-ui/react](https://www.npmjs.com/package/@floating-ui/react/v/0.27.20) | `0.27.20` | 0.27.20 | frontend |
+| [@formepdf/core](https://www.npmjs.com/package/@formepdf/core/v/0.28.0) | `0.28.0` | 0.28.0 | backend |
+| [@formepdf/react](https://www.npmjs.com/package/@formepdf/react/v/0.28.0) | `0.28.0` | 0.28.0 | backend |
+| [@fontsource-variable/noto-sans-jp](https://www.npmjs.com/package/@fontsource-variable/noto-sans-jp/v/5.3.1) | `5.3.1` | 5.3.1 | frontend |
 | [@nestjs/common](https://www.npmjs.com/package/@nestjs/common/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
 | [@nestjs/config](https://www.npmjs.com/package/@nestjs/config/v/12.0.1) | `^12.0.1` | 12.0.1 | backend |
 | [@nestjs/core](https://www.npmjs.com/package/@nestjs/core/v/12.2.0) | `^12.2.0` | 12.2.0 | backend |
@@ -46,7 +49,7 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [@types/node](https://www.npmjs.com/package/@types/node/v/24.19.2) | `^24.19.2` | 24.19.2 (Node 24) | root, backend |
 | [@types/nodemailer](https://www.npmjs.com/package/@types/nodemailer/v/8.0.2) | `^8.0.2` | 8.0.2 | backend |
 | [@types/passport-jwt](https://www.npmjs.com/package/@types/passport-jwt/v/4.0.1) | `^4.0.1` | 4.0.1 | backend |
-| [@types/react](https://www.npmjs.com/package/@types/react/v/19.3.0) | `^19.3.0` | 19.3.0 | frontend |
+| [@types/react](https://www.npmjs.com/package/@types/react/v/19.3.0) | `^19.3.0` / `19.3.0` | 19.3.0 | frontend, backend |
 | [@types/react-dom](https://www.npmjs.com/package/@types/react-dom/v/19.3.0) | `^19.3.0` | 19.3.0 | frontend |
 | [@vitejs/plugin-react](https://www.npmjs.com/package/@vitejs/plugin-react/v/6.1.2) | `^6.1.2` | 6.1.2 | frontend |
 | [autocannon](https://www.npmjs.com/package/autocannon/v/8.0.0) | `8.0.0` | 8.0.0 | backend |
@@ -71,7 +74,7 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [oxlint-tsgolint](https://www.npmjs.com/package/oxlint-tsgolint/v/7.0.2004) | `^7.0.2004` | 7.0.2004 | root |
 | [passport](https://www.npmjs.com/package/passport/v/0.7.0) | `^0.7.0` | 0.7.0 | backend |
 | [passport-jwt](https://www.npmjs.com/package/passport-jwt/v/4.0.1) | `^4.0.1` | 4.0.1 | backend |
-| [react](https://www.npmjs.com/package/react/v/19.3.1) | `^19.3.1` | 19.3.1 | frontend |
+| [react](https://www.npmjs.com/package/react/v/19.3.1) | `^19.3.1` / `19.3.1` | 19.3.1 | frontend, backend |
 | [react-i18next](https://www.npmjs.com/package/react-i18next/v/17.1.0) | `17.1.0` | 17.1.0 | frontend |
 | [react-dom](https://www.npmjs.com/package/react-dom/v/19.3.1) | `^19.3.1` | 19.3.1 | frontend |
 | [reflect-metadata](https://www.npmjs.com/package/reflect-metadata/v/0.2.2) | `^0.2.2` | 0.2.2 | backend |
@@ -151,7 +154,7 @@ Reviewed the package APIs used by the application against current maintainer doc
 | `@types/node` 24.19.2 | [DefinitelyTyped versioning](https://github.com/DefinitelyTyped/DefinitelyTyped#versioning), [Node releases](https://nodejs.org/en/about/previous-releases) | Corrected the type/runtime major mismatch. Node 24 LTS remains the supported runtime; the global Node 26 type release is reported separately. |
 | `oxfmt` 0.74.0 | [Release](https://github.com/oxc-project/oxc/releases/tag/oxfmt_v0.74.0), [configuration](https://oxc.rs/docs/guide/usage/formatter/config.html), [sorting](https://oxc.rs/docs/guide/usage/formatter/sorting.html) | Current config keys and formatting commands work. Removed inaccurate claims that optional sorting was enabled. |
 | `oxlint` 1.89.0, `oxlint-tsgolint` 7.0.2004 | [Release](https://github.com/oxc-project/oxc/releases/tag/oxlint_v1.89.0), [type-aware configuration](https://oxc.rs/docs/guide/usage/linter/type-aware.html) | Root `typeAware`/`typeCheck`, plugins, and the deprecated API rule match current configuration. Lint passes with zero errors; existing warnings remain. |
-| `react`, `react-dom`, `@types/react`, `@types/react-dom` | [Current versions](https://react.dev/versions), [createRoot](https://react.dev/reference/react-dom/client/createRoot) | React/DOM 19.3.1 and React types 19.3.0 use a single client root, controlled forms, effect cleanup, and current submit event types. Browser checks show no runtime exceptions. |
+| `react`, `react-dom`, `@types/react`, `@types/react-dom` | [Current versions](https://react.dev/versions), [createRoot](https://react.dev/reference/react-dom/client/createRoot) | React/DOM 19.3.1 and React types 19.3.0 support the frontend and Forme's backend React document serializer. |
 | `tailwindcss`, `@tailwindcss/vite` | [Vite setup](https://tailwindcss.com/docs/installation/using-vite), [dark mode](https://tailwindcss.com/docs/dark-mode), [upgrade guide](https://tailwindcss.com/docs/upgrade-guide) | Matching 4.3.3 packages use the Vite plugin, CSS import, and selector-based dark variant. Production CSS builds successfully. |
 | `@tanstack/react-router` | [Search parameter validation](https://tanstack.com/router/latest/docs/guide/search-params) | Native Zod 4 validation, typed links, defaults, URL state, lazy routes, and history pass regression checks. |
 | `zustand` | [Official v5 migration](https://github.com/pmndrs/zustand/blob/main/docs/reference/migrations/migrating-to-v5.md) | Vanilla `createStore` plus `useStore` uses stable selectors for individual user/token values. No custom equality function, traditional entry point, or persist middleware migration is needed. |
@@ -180,6 +183,8 @@ The current verification results are recorded in [IMPLEMENTATION_AND_VERIFICATIO
 | `mongodb-memory-server` 11.3.0 | [API](https://typegoose.github.io/mongodb-memory-server/docs/api/classes/mongo-memory-server/) | Isolated fixtures, persistent stop/restart with start(true), cleanup and on-demand binary download. No development database mutations. |
 | `lighthouse` 13.5.0 | [Maintainer API](https://github.com/GoogleChrome/lighthouse) | Compiled production app, isolated real browser/authentication, cold-cache mobile/desktop measurements and sanitized saved summaries. |
 | Backend `socket.io-client` 4.8.4 | [TypeScript](https://socket.io/docs/v4/typescript/) | Public io/Socket imports replace ambient declarations; transports/on/once compile and real socket tests execute. |
+| `@formepdf/core` / `@formepdf/react` 0.28.0 | [PDFCN Forme integration](https://www.pdfcn.dev/docs/theming/forme), [Forme quickstart](https://docs.formepdf.com/quickstart), [components](https://docs.formepdf.com/components), [page breaks](https://docs.formepdf.com/page-breaks) | `renderDocument`, document-scoped font registration, tagged semantic headings, and native tables are used on the API. Table headers repeat across continuation pages. Node avoids loading the PDF WASM browser entry in the frontend. |
+| `@fontsource-variable/noto-sans-jp` 5.3.1 | [Fontsource variable fonts](https://fontsource.org/docs/getting-started/variable), [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) | Bundled variable WOFF2 unicode subsets supply the EN/JA UI font. PDF receipts embed static 400/700 TTF subsets converted from Fontsource 5.3.1 WOFF2 files for Forme; OFL and hashes are recorded beside the font assets. |
 
 ### TypeScript tooling APIs
 

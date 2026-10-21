@@ -15,6 +15,7 @@
       name="description"
       content="Explore burgers, sourdough pizzas, pasta, fresh salads and desserts. Order from KitchenToDoor and follow every kitchen and delivery update."
     />
+    <link rel="stylesheet" href="/initial-loader.css" />
     <link
       rel="preload"
       href="/fonts/inter-latin-3100e775.woff2"
@@ -35,9 +36,21 @@
     class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased selection:bg-teal-500/30 selection:text-teal-600 transition-colors duration-200"
   >
     <div id="root">
-      <div role="status" class="initial-loading">
-        <span aria-hidden="true" class="initial-spinner"></span>
-        <p id="initial-loading-message">Opening KitchenToDoor…</p>
+      <div class="initial-loader" role="status" aria-live="polite" aria-atomic="true">
+        <div class="initial-loader__card">
+          <span class="initial-loader__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 11h16l-1.4 9H5.4L4 11Z" />
+              <path d="M6 11V8a6 6 0 0 1 12 0v3M2.5 11h19M8 3 6.8 1.8M16 3l1.2-1.2" />
+            </svg>
+          </span>
+          <p class="initial-loader__brand">KitchenToDoor</p>
+          <span class="initial-loader__spinner" aria-hidden="true"></span>
+          <p class="initial-loader__message">
+            <span class="initial-loader__en" lang="en">Preparing your menu…</span>
+            <span class="initial-loader__ja" lang="ja">メニューを準備しています…</span>
+          </p>
+        </div>
       </div>
     </div>
     <noscript

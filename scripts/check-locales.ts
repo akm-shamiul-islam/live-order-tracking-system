@@ -5,7 +5,7 @@ import { parseSync } from 'oxc-parser';
 import { parseJson } from './lib/json.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-type Resources = Record<'ui' | 'food', Record<string, string>>;
+type Resources = Record<'ui' | 'food' | 'receipt', Record<string, string>>;
 const en = parseJson<Resources>(await readFile(join(root, 'frontend/src/locales/en.json'), 'utf8'));
 const ja = parseJson<Resources>(await readFile(join(root, 'frontend/src/locales/ja.json'), 'utf8'));
 const failures: string[] = [];
@@ -14,7 +14,7 @@ const tokens = (value: string) =>
     .map((match) => match[1])
     .sort()
     .join(',');
-for (const namespace of ['ui', 'food'] as const) {
+for (const namespace of ['ui', 'food', 'receipt'] as const) {
   for (const key of new Set([...Object.keys(en[namespace]), ...Object.keys(ja[namespace])])) {
     const english = en[namespace][key];
     const japanese = ja[namespace][key];
@@ -23,7 +23,7 @@ for (const namespace of ['ui', 'food'] as const) {
       failures.push(`${namespace}: interpolation mismatch for ${key}`);
     else if (
       english === japanese &&
-      !['KitchenToDoor', 'kcal', 'admin@kitchentodoor.io'].includes(key)
+      !['KitchenToDoor', 'kcal', 'admin@kitchentodoor.io', 'brand'].includes(key)
     )
       failures.push(`${namespace}: untranslated Japanese copy for ${key}`);
   }

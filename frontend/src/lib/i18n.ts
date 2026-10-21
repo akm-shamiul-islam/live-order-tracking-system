@@ -47,7 +47,7 @@ export async function initializeI18n() {
     fallbackLng: 'en',
     supportedLngs: ['en', 'ja'],
     defaultNS: 'ui',
-    ns: ['ui', 'food'],
+    ns: ['ui', 'food', 'receipt'],
     resources: { en },
     keySeparator: false,
     nsSeparator: false,

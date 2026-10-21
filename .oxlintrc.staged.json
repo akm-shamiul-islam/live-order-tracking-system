@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "vitest"],
+  "env": {
+    "browser": true,
+    "node": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "options": {
+    "typeAware": false,
+    "typeCheck": false
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "typescript/no-extraneous-class": ["warn", { "allowWithDecorator": true }],
+    "no-underscore-dangle": ["warn", { "allow": ["_id", "_zod"] }],
+    "typescript/no-deprecated": "error"
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "backup/**",
+    "documentation/**",
+    ".agents/**",
+    ".codex/**"
+  ]
+}

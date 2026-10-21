@@ -414,6 +414,30 @@ export const api = {
       return data.order;
     },
 
+    async downloadReceipt(
+      orderId: string,
+      language: Language,
+      signal?: AbortSignal,
+    ): Promise<Blob> {
+      const intent = authIntent;
+      const owner = getSession().user?.id;
+      if (!owner) throw new ApiError('Sign in to download this receipt.', 401);
+      const params = new URLSearchParams({ language });
+      const response = await request(
+        `${API_BASE}/orders/${encodeURIComponent(orderId)}/receipt?${params}`,
+        { headers: getHeaders(), signal },
+      );
+      if (!response.ok) await handleResponse<never>(response);
+      if (!response.headers.get('Content-Type')?.toLowerCase().startsWith('application/pdf'))
+        throw new ApiError('The service returned an invalid receipt. Please try again.', 502);
+      const receipt = await response.blob();
+      if (intent !== authIntent || getSession().user?.id !== owner || !getSession().token)
+        throw new ApiError('Your account changed. Sign in and try again.', 409);
+      if (!receipt.size)
+        throw new ApiError('The service returned an empty receipt. Please try again.', 502);
+      return receipt;
+    },
+
     async getPage({
       status,
       search,
