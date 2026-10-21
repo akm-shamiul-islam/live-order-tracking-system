@@ -45,7 +45,7 @@ The current inventory covers 57 distinct direct packages across 67 manifest decl
 | MongoDB/HTTP/socket integration | 14 passed against isolated MongoDB |
 | Browser workflows | 10 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
 | Lighthouse | [Eight-case summary](../quality/lighthouse-2026-10-21.json); see QUALITY.md |
-| Throughput | Full comparison and raw runs in BENCHMARKS.md and documentation/benchmarks |
+| Throughput | 18 clean-revision runs passed with zero errors; [results](BENCHMARKS.md) and [raw JSON](../benchmarks/throughput-2026-10-21.json) |
 | Registry/security/lint gates | 57 direct packages / 67 declarations current; 0 known advisories; lint 0 errors, 103 warnings |
 
 [QUALITY.md](QUALITY.md) explains commands, isolation, measurement settings and limitations. Test databases, synthetic accounts, browser profiles, proxy ports and API processes are separate from existing development services. Run resource-heavy checks sequentially; concurrent runners caused local fixture timeouts and were rerun independently.

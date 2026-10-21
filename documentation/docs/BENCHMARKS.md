@@ -31,7 +31,28 @@ BENCH_CONNECTIONS, BENCH_PIPELINING, BENCH_TIMEOUT_SECONDS, BENCH_DURATION_SECON
 
 ## Reference results
 
-A complete measured reference is recorded after the final verification run. The README contains the concise adapter comparison; raw measurements are stored in documentation/benchmarks.
+Measured 2026-10-21T01:09:21.193Z from committed revision `83353a91b9f0d28ffdde15da14b7ab362f787fca`, with a clean working tree.
+
+Intel(R) Core(TM) i7-8665U CPU @ 1.90GHz; 8 logical CPUs, 15.81 GiB RAM, Windows 11 Pro (x64). Node v24.18.1, pnpm 12.14.0, NestJS 12.2.0, Fastify 5.12.7, Express 5.3.0, MongoDB 8.2.6 and Autocannon 8.0.0.
+
+| Workload | Fastify req/s | Express req/s | Fastify p99 (ms) | Express p99 (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Public configuration | 1,095.41 | 1,210.60 | 51 | 67 |
+| Private order with MongoDB | 141.20 | 153.31 | 298 | 233 |
+| Authenticated dispatch page (10 orders) | 67.50 | 70.41 | 919 | 659 |
+
+| Workload | Adapter | Median req/s | Median run p50 (ms) | Median run p99 (ms) |
+| --- | --- | ---: | ---: | ---: |
+| Public configuration | fastify | 1,095.41 | 20 | 51 |
+| Public configuration | express | 1,210.60 | 14 | 67 |
+| Private order with MongoDB | fastify | 141.20 | 177 | 298 |
+| Private order with MongoDB | express | 153.31 | 160 | 233 |
+| Authenticated dispatch page (10 orders) | fastify | 67.50 | 319 | 919 |
+| Authenticated dispatch page (10 orders) | express | 70.41 | 316 | 659 |
+
+25 concurrent connections, pipelining 1, three 10-second recorded runs per adapter/workload, each after a 3-second warmup. Same compiled application/security checks and isolated MongoDB with 100 synthetic orders; HTTP on loopback without TLS. All 18 recorded runs completed with zero errors, timeouts or non-2xx responses. Express returned higher median throughput for these workloads; Fastify/Express request-rate ratios were 0.905, 0.921, 0.959, respectively. This result does not justify a general speed claim about either adapter.
+
+[Raw JSON: all 18 runs, settings and environment](../benchmarks/throughput-2026-10-21.json).
 
 ## Interpretation
 

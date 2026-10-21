@@ -159,7 +159,19 @@ Integration/browser/measurement commands create isolated synthetic databases and
 
 ## HTTP throughput reference
 
-Run `pnpm benchmark:throughput` after building to compare Fastify and Express using the same application, security guards and isolated MongoDB fixtures. Measurements and methodology are recorded in [BENCHMARKS.md](documentation/docs/BENCHMARKS.md). The measured reference table is maintained here after a full benchmark run.
+Measured **2026-10-21** on Intel(R) Core(TM) i7-8665U CPU @ 1.90GHz; 8 logical CPUs, 15.81 GiB RAM, Windows 11 Pro (x64). Source revision: `83353a9` (clean working tree).
+
+25 concurrent connections, pipelining 1, three 10-second recorded runs per adapter/workload, each after a 3-second warmup. Same compiled application/security checks and isolated MongoDB with 100 synthetic orders; HTTP on loopback without TLS. All 18 recorded runs completed with zero errors, timeouts or non-2xx responses. Values below are medians of run throughput and run p99 latency.
+
+| Workload                                | Fastify req/s | Express req/s | Fastify p99 (ms) | Express p99 (ms) |
+| --------------------------------------- | ------------: | ------------: | ---------------: | ---------------: |
+| Public configuration                    |      1,095.41 |      1,210.60 |               51 |               67 |
+| Private order with MongoDB              |        141.20 |        153.31 |              298 |              233 |
+| Authenticated dispatch page (10 orders) |         67.50 |         70.41 |              919 |              659 |
+
+**Express had higher median throughput in this run.** These shared-laptop GET results do not establish universal adapter superiority or production capacity. Node v24.18.1, pnpm 12.14.0, NestJS 12.2.0, Fastify 5.12.7, Express 5.3.0, MongoDB 8.2.6 and Autocannon 8.0.0.
+
+Reproduce with `pnpm build` then `pnpm benchmark:throughput`. [Methodology and full latency results](documentation/docs/BENCHMARKS.md) and [raw measurements](documentation/benchmarks/throughput-2026-10-21.json) record every run and the test conditions.
 
 ## Workspace
 
