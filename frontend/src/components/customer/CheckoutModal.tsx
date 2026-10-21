@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CartItem } from './CartDrawer';
 import { CreateOrderSchema, calculatePricing, type Coordinates } from '@kitchentodoor/shared';
 import { api, ApiError } from '../../lib/api';
@@ -29,6 +29,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const submitting = useRef(false);
   const [coordinates, setCoordinates] = useState<Coordinates>();
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string>();
@@ -43,7 +44,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (loading) return;
+    if (submitting.current) return;
     setError(null);
     const formElement = e.currentTarget;
     const values = form.validate(formElement);
@@ -79,13 +80,9 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
     }
 
     try {
+      submitting.current = true;
       setLoading(true);
       const res = await api.orders.create(validation.data);
-      try {
-        localStorage.setItem('ktd_last_phone', values.phone);
-      } catch {
-        /* Storage may be blocked. */
-      }
       void queryClient.invalidateQueries({ queryKey: ['my-orders'] });
       onOrderSuccess(res.order.trackingId || res.order.id);
     } catch (err: unknown) {
@@ -100,6 +97,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
       }
       setError(err instanceof Error ? err.message : 'Failed to place order. Please try again.');
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };

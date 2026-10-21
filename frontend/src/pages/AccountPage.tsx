@@ -16,6 +16,10 @@ import {
   Mail,
   KeyRound,
   LogOut,
+  PackageSearch,
+  Truck,
+  ClipboardList,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useZodForm } from '../hooks/useZodForm';
@@ -457,21 +461,25 @@ export function AccountPage() {
             </p>
             {user.role !== UserRole.ADMIN && (
               <Link to="/orders" className={buttonClass}>
+                <PackageSearch aria-hidden="true" className="inline h-4 w-4 mr-2" />
                 {user.role === UserRole.COURIER ? 'My Deliveries' : 'View Your Orders'}
               </Link>
             )}
             {user.role === UserRole.ADMIN && (
               <>
                 <Link to="/dispatch" className={buttonClass}>
+                  <ClipboardList aria-hidden="true" className="inline h-4 w-4 mr-2" />
                   Open Dispatch
                 </Link>
                 <Link to="/users" className={buttonClass}>
+                  <Users aria-hidden="true" className="inline h-4 w-4 mr-2" />
                   Manage Users
                 </Link>
               </>
             )}
             {user.role === UserRole.COURIER && (
               <Link to="/courier" className={buttonClass}>
+                <Truck aria-hidden="true" className="inline h-4 w-4 mr-2" />
                 Available Deliveries
               </Link>
             )}

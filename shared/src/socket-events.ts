@@ -11,6 +11,7 @@ export interface ServerToClientEvents {
     orderNumber: string;
     status: OrderStatus;
     updatedAt: string;
+    revision: number;
     courierId?: string | null;
     logEntry: OrderStatusLog;
   }) => void;
@@ -29,7 +30,14 @@ export interface ServerToClientEvents {
   'order:created': (payload: { order: OrderDetails }) => void;
 
   /** Broadcast when an order is cancelled */
-  'order:cancelled': (payload: { orderId: string; orderNumber: string; reason?: string }) => void;
+  'order:cancelled': (payload: {
+    orderId: string;
+    orderNumber: string;
+    reason?: string;
+    updatedAt: string;
+    revision: number;
+    logEntry: OrderStatusLog;
+  }) => void;
 
   /** Server acknowledgment on successful authentication */
   authenticated: (payload: { user: UserSummary }) => void;

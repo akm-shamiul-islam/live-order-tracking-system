@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { AccountAccessCoordinator } from '../common/account-access-coordinator.js';
 
 describe('OrdersService Unit Tests', () => {
   let service: OrdersService;
@@ -28,7 +29,12 @@ describe('OrdersService Unit Tests', () => {
       create: vi.fn<any>(),
       find: vi.fn<any>(),
     };
-    service = new OrdersService(mockOrderModel, mockStatusLogModel);
+    service = new OrdersService(
+      mockOrderModel,
+      mockStatusLogModel,
+      {} as any,
+      new AccountAccessCoordinator(),
+    );
   });
 
   it('searches the database literally and paginates in a stable order', async () => {
@@ -145,6 +151,7 @@ describe('OrdersService Unit Tests', () => {
     mockOrderModel.findOneAndUpdate.mockResolvedValue({
       ...mockOrder,
       status: OrderStatus.CONFIRMED,
+      deliveryRevision: 1,
     });
     mockStatusLogModel.create.mockResolvedValue({
       _id: { toString: () => 'log_1' },
@@ -164,6 +171,7 @@ describe('OrdersService Unit Tests', () => {
       { _id: mockOrder._id, status: OrderStatus.PLACED },
       {
         $set: { status: OrderStatus.CONFIRMED },
+        $inc: { deliveryRevision: 1 },
         $push: {
           auditTrail: expect.objectContaining({
             orderId: '64f1a2b3c4d5e6f7a8b9c0d1',

@@ -18,6 +18,12 @@ describe('API requests and shared authentication', () => {
       setItem: (key: string, value: string) => storage.set(key, value),
       removeItem: (key: string) => storage.delete(key),
     });
+    const tabStorage = new Map<string, string>();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => tabStorage.get(key) ?? null,
+      setItem: (key: string, value: string) => tabStorage.set(key, value),
+      removeItem: (key: string) => tabStorage.delete(key),
+    });
     vi.stubGlobal('window', new EventTarget());
     vi.stubGlobal('fetch', fetchMock);
     ({ api } = await import('./api'));
@@ -89,6 +95,100 @@ describe('API requests and shared authentication', () => {
     finish(Response.json({ ...response, accessToken: 'late-token' }));
     await expect(pending).rejects.toMatchObject({ status: 401 });
     expect(session.getSession().token).toBeNull();
+  });
+
+  it('serializes sign-out after a pending login and prevents that response restoring the session', async () => {
+    let finish!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    fetchMock.mockResolvedValueOnce(Response.json({ success: true }));
+    const login = api.auth.login('admin@example.com', 'password');
+    const rejectedLogin = login.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const logout = api.auth.logout();
+    expect(session.getSession().token).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    finish(Response.json(response));
+    await expect(rejectedLogin).resolves.toMatchObject({ status: 409 });
+    await expect(logout).resolves.toBe(true);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/api/auth/login',
+      '/api/auth/logout',
+    ]);
+    expect(session.getSession().token).toBeNull();
+  });
+
+  it('preserves the newest sign-in when an earlier sign-in finishes late', async () => {
+    let finish!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const latest = { ...response, accessToken: 'newest-token' };
+    fetchMock.mockResolvedValueOnce(Response.json(latest));
+    const old = api.auth.login('admin@example.com', 'password');
+    const rejectedOld = old.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const recent = api.auth.login('admin@example.com', 'different-password');
+    finish(Response.json(response));
+    await expect(rejectedOld).resolves.toMatchObject({ status: 409 });
+    await expect(recent).resolves.toEqual(latest);
+    expect(session.getSession().token).toBe('newest-token');
+  });
+
+  it('reports failed server revocation while clearing credentials on this device', async () => {
+    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    fetchMock.mockResolvedValueOnce(Response.json({}, { status: 503 }));
+    await expect(api.auth.logout()).resolves.toBe(false);
+    expect(session.getSession().token).toBeNull();
+    const { logoutFeedbackStore } = await import('./authSession');
+    expect(logoutFeedbackStore.getState()).toMatchObject({ failed: true, pending: false });
+    fetchMock.mockResolvedValueOnce(Response.json({ success: true }));
+    await expect(api.auth.logout()).resolves.toBe(true);
+    expect(logoutFeedbackStore.getState()).toMatchObject({ failed: false, pending: false });
+  });
+
+  it('does not cancel a new login when a previous refresh is rejected', async () => {
+    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    let finish!: (response: Response) => void;
+    fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const verification = api.auth.getMe().catch((error: unknown) => error);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    fetchMock.mockResolvedValueOnce(Response.json({ ...response, accessToken: 'new-login-token' }));
+    const login = api.auth.login('admin@example.com', 'password');
+    finish(Response.json({}, { status: 401 }));
+    await expect(verification).resolves.toMatchObject({ status: 401 });
+    await expect(login).resolves.toMatchObject({ accessToken: 'new-login-token' });
+    expect(session.getSession().token).toBe('new-login-token');
+  });
+
+  it('clears a session saved by another tab while sign-out was waiting', async () => {
+    let finish!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const logout = api.auth.logout();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    finish(Response.json({ success: true }));
+    await expect(logout).resolves.toBe(true);
+    expect(session.getSession().token).toBeNull();
+    expect(localStorage.getItem('ktd_token')).toBeNull();
   });
 
   it('does not clear a newer session when an older request returns 401', async () => {
@@ -173,6 +273,31 @@ describe('API requests and shared authentication', () => {
     await expect(api.settings.get()).resolves.toEqual({
       pricing: { deliveryFee: 7.25, taxRate: 0.12 },
     });
+  });
+
+  it('reuses the checkout key after a lost response and reload, then starts a new successful checkout', async () => {
+    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    const dto = {
+      customer: { name: 'Test Customer', phone: '555-1234', address: '123 Test Street' },
+      deliveryAddress: '123 Test Street',
+      items: [{ itemId: 'item-1', name: 'Burger', price: 10, quantity: 1 }],
+    };
+    fetchMock.mockRejectedValueOnce(new TypeError('Lost response after the database commit'));
+    await expect(api.orders.create(dto)).rejects.toMatchObject({ status: 0 });
+    const key = new Headers(fetchMock.mock.calls[0]![1]!.headers).get('Idempotency-Key');
+    expect(key).toMatch(/^[a-f\d-]{36}$/i);
+    expect(sessionStorage.getItem('ktd_checkout_attempt')).not.toMatch(
+      /Test Customer|Test Street|555-1234/,
+    );
+    vi.resetModules();
+    ({ api } = await import('./api'));
+    fetchMock.mockResolvedValueOnce(Response.json({ success: true, order: { id: 'saved-order' } }));
+    await expect(api.orders.create(dto)).resolves.toMatchObject({ order: { id: 'saved-order' } });
+    expect(new Headers(fetchMock.mock.calls[1]![1]!.headers).get('Idempotency-Key')).toBe(key);
+    expect(sessionStorage.getItem('ktd_checkout_attempt')).toBeNull();
+    fetchMock.mockResolvedValueOnce(Response.json({ success: true, order: { id: 'new-order' } }));
+    await api.orders.create(dto);
+    expect(new Headers(fetchMock.mock.calls[2]![1]!.headers).get('Idempotency-Key')).not.toBe(key);
   });
 
   it('keeps the session usable when browser storage is blocked', async () => {

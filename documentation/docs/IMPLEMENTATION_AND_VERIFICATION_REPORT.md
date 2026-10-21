@@ -10,6 +10,7 @@ Updated 2026-10-21 (Asia/Tokyo). This report records repository implementation a
 - Couriers request redacted available deliveries. Admin approval atomically selects one assignment and rejects competing requests. Other couriers lose availability and private read/room access. My Deliveries contains the caller's assigned orders.
 - Admins and assigned couriers advance sequential statuses. Cancellation requires a reason in a modal and preserves it in customer-visible history. Completed/cancelled orders reject further status and location writes.
 - Device GPS requires courier consent and an assigned delivery in progress. Customer location pins are optional. Written addresses are retained without invented coordinates. Street geocoding/navigation is not provided by the illustrative radar.
+- Follow-up review fixes invalid reset links after account changes, late sign-in/logout races, refresh-cookie loss on 503, silent sign-out failures, post-commit notification failures, duplicate checkout retries, concurrent access/assignment decisions, stale tracking updates and child-process cleanup. [The committed-baseline review](CODEBASE_REVIEW.md#review-of-the-committed-baseline) records severity, reproduction and limits.
 
 ## Navigation and presentation
 
@@ -25,7 +26,7 @@ Order creation, statuses, requests and assignment store their audit entries in t
 
 Socket.IO protection bounds packets per connection/IP, tracked IPs, handshakes, concurrent connections, payload bytes and rooms. IP budgets survive reconnects. Origin validation applies to upgrades. Protected events and passive broadcasts check current account/session/assignment access. Integration tests import public socket.io-client types, without ambient shims.
 
-Database timeouts are bounded, readiness distinguishes outages, API errors return a usable 503 and sockets can reconnect after service recovery. Unknown internal socket failures are sanitized. TRUSTED_PROXY_IPS defaults to empty; forwarding headers affect client identity only through explicitly trusted proxy addresses. Process-local budgets still require shared storage before horizontal scaling.
+Database timeouts are bounded, readiness distinguishes outages, API errors return a usable 503 and sockets can reconnect after service recovery. Refresh 503s preserve the refresh cookie. Unknown internal socket failures are sanitized and do not turn acknowledged database mutations into failed responses. Checkout retry keys enforce uniqueness within the customer account; order indexes initialize before traffic. Persisted state revisions and GPS observation times prevent stale cache updates. TRUSTED_PROXY_IPS defaults to empty; forwarding headers affect client identity only through explicitly trusted proxy addresses. Process-local access coordination and rate budgets require shared coordination/transactions and limit storage before horizontal scaling or overlapping deployments.
 
 Fastify serves the production SPA, API and sockets, with direct-route fallback, gzip/Brotli, immutable hashed assets, no-store API/HTML and strict CSP. Zod browser schemas use jitless mode. The early theme initializer is allowed by its exact build-derived SHA-256 hash. Initial production admin bootstrap, health/readiness and admin metrics are implemented.
 
@@ -41,12 +42,12 @@ The current inventory covers 57 distinct direct packages across 67 manifest decl
 | --- | --- |
 | Workspace typecheck | Passed, including orders.integration.ts socket types |
 | Production build | Passed; compressed frontend assets and runnable backend/shared exports |
-| Source tests | 181 passed across 19 files |
-| MongoDB/HTTP/socket integration | 14 passed against isolated MongoDB |
-| Browser workflows | 10 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
+| Source tests | 192 passed across 20 files |
+| MongoDB/HTTP/socket integration | 23 passed against isolated MongoDB |
+| Browser workflows | 12 scenarios passed; [saved summary](../quality/browser-2026-10-21.json) |
 | Lighthouse | [Eight-case summary](../quality/lighthouse-2026-10-21.json); see QUALITY.md |
-| Throughput | 18 clean-revision runs passed with zero errors; [results](BENCHMARKS.md) and [raw JSON](../benchmarks/throughput-2026-10-21.json) |
-| Registry/security/lint gates | 57 direct packages / 67 declarations current; 0 known advisories; lint 0 errors, 103 warnings |
+| Throughput | Historical reference: 18 clean-revision runs at `83353a9` with zero errors; not rerun for this follow-up. [Results](BENCHMARKS.md) and [raw JSON](../benchmarks/throughput-2026-10-21.json) |
+| Registry/security/lint gates | 57 direct packages / 67 declarations current; 0 known advisories; lint 0 errors, 119 warnings |
 
 [QUALITY.md](QUALITY.md) explains commands, isolation, measurement settings and limitations. Test databases, synthetic accounts, browser profiles, proxy ports and API processes are separate from existing development services. Run resource-heavy checks sequentially; concurrent runners caused local fixture timeouts and were rerun independently.
 

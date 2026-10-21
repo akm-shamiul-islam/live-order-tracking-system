@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { OrderDetails, OrderStatus, type ServerToClientEvents } from '@kitchentodoor/shared';
 import { useAuth } from './useAuth';
 import { clientSettings } from '../lib/clientSettings';
+import { applyOrderStatus, applyCourierLocation, mergeOrderSnapshot } from '../lib/orderCache';
 
 export function useOrderSocket(orderId?: string) {
   const queryClient = useQueryClient();
@@ -16,12 +17,14 @@ export function useOrderSocket(orderId?: string) {
 
   const query = useQuery<OrderDetails>({
     queryKey,
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!orderId) throw new Error('Order ID is required');
-      return api.orders.getById(orderId);
+      return api.orders.getById(orderId, signal);
     },
     enabled: !!orderId && !!user,
     refetchInterval: clientSettings.VITE_ORDER_LIST_REFRESH_MS,
+    structuralSharing: (previous, incoming) =>
+      mergeOrderSnapshot(previous as OrderDetails | undefined, incoming as OrderDetails),
   });
 
   const resolvedOrderId = query.data?.id;
@@ -37,21 +40,7 @@ export function useOrderSocket(orderId?: string) {
     const handleStatusUpdated: ServerToClientEvents['order:status_updated'] = (payload) => {
       if (payload.orderId === resolvedOrderId) {
         queryClient.setQueryData<OrderDetails>(queryKey, (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            ...(payload.courierId !== undefined ? { courierId: payload.courierId } : {}),
-            status: payload.status,
-            updatedAt: payload.updatedAt,
-            statusHistory: [
-              payload.logEntry,
-              ...oldData.statusHistory.filter((entry) =>
-                payload.logEntry.id
-                  ? entry.id !== payload.logEntry.id
-                  : entry.timestamp !== payload.logEntry.timestamp,
-              ),
-            ],
-          };
+          return applyOrderStatus(oldData, payload);
         });
       }
     };
@@ -60,15 +49,7 @@ export function useOrderSocket(orderId?: string) {
     const handleLocationUpdated: ServerToClientEvents['courier:location_updated'] = (payload) => {
       if (payload.orderId === resolvedOrderId) {
         queryClient.setQueryData<OrderDetails>(queryKey, (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            courierCoordinates: {
-              lat: payload.lat,
-              lng: payload.lng,
-              lastUpdated: payload.timestamp,
-            },
-          };
+          return applyCourierLocation(oldData, payload);
         });
       }
     };
@@ -82,7 +63,7 @@ export function useOrderSocket(orderId?: string) {
     const handleCancelled: ServerToClientEvents['order:cancelled'] = (payload) => {
       if (payload.orderId !== resolvedOrderId) return;
       queryClient.setQueryData<OrderDetails>(queryKey, (oldData) =>
-        oldData ? { ...oldData, status: OrderStatus.CANCELLED } : oldData,
+        applyOrderStatus(oldData, { ...payload, status: OrderStatus.CANCELLED }),
       );
       void queryClient.invalidateQueries({ queryKey });
     };

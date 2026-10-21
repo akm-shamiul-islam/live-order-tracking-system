@@ -27,12 +27,13 @@ import { SocketRateLimiter } from '../common/socket-rate-limiter.js';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { clientAddress } from '../common/client-address.js';
 import {
-  OrderStatus,
   UserRole,
   UpdateOrderStatusSchema,
   CourierLocationUpdateSchema,
   OrderLookupSchema,
   CancellationReasonSchema,
+  type OrderDetails,
+  type OrderStatusLog,
 } from '@kitchentodoor/shared';
 
 @WebSocketGateway({
@@ -181,13 +182,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       );
 
-      await this.notifyStatusUpdated(
-        result.order.id,
-        result.order.orderNumber,
-        result.order.status,
-        result.logEntry,
-        result.order.courierId,
-      );
+      await this.notifyStatusUpdated(result.order, result.logEntry);
 
       return { ok: true, order: result.order };
     } catch (error) {
@@ -241,7 +236,7 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
         name: user?.name || 'Customer',
       });
 
-      await this.notifyOrderCancelled(result.order.id, result.order.orderNumber, validated.reason);
+      await this.notifyOrderCancelled(result.order, result.logEntry, validated.reason);
 
       return { ok: true };
     } catch (error) {
@@ -251,6 +246,18 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Recheck recipients because a role change, reassignment or logout can happen after joining.
   private async emitAuthorized(event: string, payload: unknown, orderId?: string) {
+    try {
+      await this.deliverAuthorized(event, payload, orderId);
+    } catch {
+      // Persistence has already succeeded. Polling and reconnect refetches recover missed events;
+      // reporting a failed mutation here would encourage a second order or status change.
+      this.logger.warn(
+        `Live notification ${event} could not be delivered. Saved data is unchanged.`,
+      );
+    }
+  }
+
+  private async deliverAuthorized(event: string, payload: unknown, orderId?: string) {
     const rooms = orderId
       ? [`order_${orderId}`, 'admins', 'couriers']
       : event === 'orders:changed'
@@ -304,23 +311,18 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
-  async notifyStatusUpdated(
-    orderId: string,
-    orderNumber: string,
-    status: OrderStatus,
-    logEntry: any,
-    courierId?: string | null,
-  ) {
+  async notifyStatusUpdated(order: OrderDetails, logEntry: OrderStatusLog) {
     const payload = {
-      orderId,
-      orderNumber,
-      status,
-      updatedAt: new Date().toISOString(),
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      updatedAt: order.updatedAt,
+      revision: order.revision ?? 0,
       logEntry,
-      courierId,
+      courierId: order.courierId,
     };
 
-    await this.emitAuthorized('order:status_updated', payload, orderId);
+    await this.emitAuthorized('order:status_updated', payload, order.id);
     await this.notifyListsChanged();
   }
 
@@ -344,8 +346,8 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.emitAuthorized('courier:location_updated', payload, orderId);
   }
 
-  async notifyOrderCreated(order: any) {
-    await this.emitAuthorized('order:created', { order });
+  async notifyOrderCreated(order: OrderDetails) {
+    await this.emitAuthorized('order:created', { order: { ...order, trackingId: undefined } });
     await this.notifyListsChanged();
   }
 
@@ -354,9 +356,16 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.emitAuthorized('orders:changed', {});
   }
 
-  async notifyOrderCancelled(orderId: string, orderNumber: string, reason?: string) {
-    const payload = { orderId, orderNumber, reason };
-    await this.emitAuthorized('order:cancelled', payload, orderId);
+  async notifyOrderCancelled(order: OrderDetails, logEntry: OrderStatusLog, reason?: string) {
+    const payload = {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      reason,
+      revision: order.revision ?? 0,
+      updatedAt: order.updatedAt,
+      logEntry,
+    };
+    await this.emitAuthorized('order:cancelled', payload, order.id);
     await this.notifyListsChanged();
   }
 }

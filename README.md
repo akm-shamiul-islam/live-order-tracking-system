@@ -89,6 +89,10 @@ Open **http://localhost:5173**. The API defaults to port 5000. Use `pnpm dev:fro
 
 Available delivery summaries omit customer contact/address details until assignment. Tracking URLs do not bypass account permissions. Old guest orders without an account owner are retained for admin access rather than claimed by matching a phone number.
 
+If a checkout response is lost, retry the same checkout. The app reuses its retry key so the saved order is returned without creating a duplicate. **My Orders** also shows orders that were saved before a connection interruption.
+
+**Sign Out Everywhere** clears this device immediately and revokes existing sessions on the server. If the service cannot be reached, a warning provides a retry action. Email, role and access changes invalidate existing sessions and password reset links; request a new recovery email after such a change.
+
 ### Pages and shareable links
 
 | URL                                 | Access / purpose                                        |

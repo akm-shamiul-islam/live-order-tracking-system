@@ -1,12 +1,14 @@
 {
-  "measuredAt": "2026-10-21T00:58:25.079Z",
+  "measuredAt": "2026-10-21T01:55:03.793Z",
   "chrome": "Chrome/155.0.8059.84",
   "node": "v24.18.1",
   "checks": [
     "Guest pages and protected drawer links require sign-in",
     "Drawer defaults open and persists both states; breadcrumbs and menu page sizes match navigation",
+    "A lost checkout response can be retried without creating a duplicate order",
     "Expired access token refreshes through the real HttpOnly browser cookie",
     "Customer registration, red field errors, cart continuity, checkout, location pin and owned history",
+    "Failed server sign-out clears local access, displays a warning and retries revocation",
     "Admin Users search, profile editing and courier promotion revoke the previous session",
     "Couriers request delivery, cannot self-assign, and cannot open admin pages",
     "Admin approval, assigned-only history, sequential courier status changes, real GPS sharing and required cancellation reason",

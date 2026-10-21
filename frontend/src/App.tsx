@@ -11,6 +11,7 @@ import { PageSkeleton, LoadingState } from './components/layout/Loading';
 import { PageMetadata } from './components/layout/PageMetadata';
 import { Breadcrumbs } from './components/layout/Breadcrumbs';
 import { useNavigationDrawer } from './hooks/useNavigationDrawer';
+import { SessionNotice } from './components/auth/SessionNotice';
 
 const CartDrawer = lazy(() =>
   import('./components/customer/CartDrawer').then((m) => ({ default: m.CartDrawer })),
@@ -75,6 +76,7 @@ export function App() {
           navigationOpen={navigationOpen}
           onToggleNavigation={() => setNavigationOpen((previous) => !previous)}
         />
+        <SessionNotice />
         <NavigationDrawer
           open={navigationOpen}
           desktop={desktop}

@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-21T01:01:06.920Z",
+  "measuredAt": "2026-10-21T01:57:31.910Z",
   "chrome": "Chrome/155.0.8059.84",
   "lighthouse": "13.5.0",
   "method": "Compiled production app and compressed local assets, isolated synthetic MongoDB, Chrome for Testing, cold HTTP cache per navigation, drawer dismissed using its persisted preference. Mobile Lighthouse simulation; desktop 40ms RTT/10Mbps/1x CPU.",
@@ -13,48 +13,48 @@
       "page": "menu-mobile",
       "private": false,
       "scores": {
-        "performance": 93,
+        "performance": 90,
         "accessibility": 100,
         "best-practices": 100,
         "seo": 100
       },
       "metrics": {
-        "first-contentful-paint": 1868.8975999999998,
-        "largest-contentful-paint": 3025.8719999999994,
-        "total-blocking-time": 82.5,
+        "first-contentful-paint": 1903.7028,
+        "largest-contentful-paint": 3133.6285,
+        "total-blocking-time": 151.5,
         "cumulative-layout-shift": 0,
-        "speed-index": 1874.9338763735195
+        "speed-index": 1903.7028
       },
       "issues": [
         {
           "id": "first-contentful-paint",
           "title": "First Contentful Paint",
-          "score": 0.88,
+          "score": 0.87,
           "displayValue": "1.9 s"
         },
         {
           "id": "largest-contentful-paint",
           "title": "Largest Contentful Paint",
-          "score": 0.77,
-          "displayValue": "3.0 s"
+          "score": 0.74,
+          "displayValue": "3.1 s"
         },
         {
           "id": "total-blocking-time",
           "title": "Total Blocking Time",
-          "score": 0.99,
-          "displayValue": "80 ms"
+          "score": 0.94,
+          "displayValue": "150 ms"
         },
         {
           "id": "max-potential-fid",
           "title": "Max Potential First Input Delay",
-          "score": 0.89,
-          "displayValue": "130 ms"
+          "score": 0.66,
+          "displayValue": "200 ms"
         },
         {
           "id": "interactive",
           "title": "Time to Interactive",
-          "score": 0.94,
-          "displayValue": "3.2 s"
+          "score": 0.93,
+          "displayValue": "3.4 s"
         },
         {
           "id": "unused-javascript",
@@ -66,11 +66,9 @@
         {
           "id": "image-delivery-insight",
           "title": "Improve image delivery",
-          "score": 0,
-          "displayValue": "Est savings of 118 KiB",
+          "score": 0.5,
+          "displayValue": "Est savings of 15 KiB",
           "selectors": [
-            "article.menu-card > div.relative > div.relative > img.relative",
-            "article.menu-card > div.relative > div.relative > img.relative",
             "article.menu-card > div.relative > div.relative > img.relative"
           ]
         },
@@ -92,17 +90,17 @@
       "page": "menu-desktop",
       "private": false,
       "scores": {
-        "performance": 99,
+        "performance": 100,
         "accessibility": 100,
         "best-practices": 100,
         "seo": 100
       },
       "metrics": {
-        "first-contentful-paint": 493.52099999999996,
-        "largest-contentful-paint": 727.2814999999999,
-        "total-blocking-time": 24.5,
+        "first-contentful-paint": 474.5459,
+        "largest-contentful-paint": 677.182375,
+        "total-blocking-time": 0,
         "cumulative-layout-shift": 0,
-        "speed-index": 1017.9016662410617
+        "speed-index": 794.9082998754177
       },
       "issues": [
         {
@@ -114,14 +112,8 @@
         {
           "id": "speed-index",
           "title": "Speed Index",
-          "score": 0.97,
-          "displayValue": "1.0 s"
-        },
-        {
-          "id": "max-potential-fid",
-          "title": "Max Potential First Input Delay",
           "score": 0.99,
-          "displayValue": "80 ms"
+          "displayValue": "0.8 s"
         },
         {
           "id": "unused-javascript",
@@ -157,60 +149,54 @@
       "page": "account-mobile",
       "private": true,
       "scores": {
-        "performance": 84,
+        "performance": 91,
         "accessibility": 100,
         "best-practices": 100,
         "seo": 60
       },
       "metrics": {
-        "first-contentful-paint": 1928.2469999999998,
-        "largest-contentful-paint": 2864.8705000000004,
-        "total-blocking-time": 414,
+        "first-contentful-paint": 1885.4971,
+        "largest-contentful-paint": 2756.74565,
+        "total-blocking-time": 224,
         "cumulative-layout-shift": 0,
-        "speed-index": 1986.7156682205796
+        "speed-index": 1885.4971
       },
       "issues": [
         {
           "id": "first-contentful-paint",
           "title": "First Contentful Paint",
-          "score": 0.86,
+          "score": 0.87,
           "displayValue": "1.9 s"
         },
         {
           "id": "largest-contentful-paint",
           "title": "Largest Contentful Paint",
-          "score": 0.81,
-          "displayValue": "2.9 s"
-        },
-        {
-          "id": "speed-index",
-          "title": "Speed Index",
-          "score": 0.99,
-          "displayValue": "2.0 s"
+          "score": 0.84,
+          "displayValue": "2.8 s"
         },
         {
           "id": "total-blocking-time",
           "title": "Total Blocking Time",
-          "score": 0.66,
-          "displayValue": "410 ms"
+          "score": 0.87,
+          "displayValue": "220 ms"
         },
         {
           "id": "max-potential-fid",
           "title": "Max Potential First Input Delay",
-          "score": 0.6,
-          "displayValue": "220 ms"
+          "score": 0.78,
+          "displayValue": "170 ms"
         },
         {
           "id": "interactive",
           "title": "Time to Interactive",
-          "score": 0.96,
-          "displayValue": "2.9 s"
+          "score": 0.97,
+          "displayValue": "2.8 s"
         },
         {
           "id": "unused-javascript",
           "title": "Reduce unused JavaScript",
           "score": 0,
-          "displayValue": "Est savings of 39 KiB",
+          "displayValue": "Est savings of 37 KiB",
           "selectors": []
         },
         {
@@ -237,61 +223,48 @@
       "page": "orders-mobile",
       "private": true,
       "scores": {
-        "performance": 80,
+        "performance": 88,
         "accessibility": 100,
         "best-practices": 100,
         "seo": 60
       },
       "metrics": {
-        "first-contentful-paint": 1917.4824,
-        "largest-contentful-paint": 3076.9647999999997,
-        "total-blocking-time": 501,
+        "first-contentful-paint": 1870.5156000000002,
+        "largest-contentful-paint": 3108.7889999999993,
+        "total-blocking-time": 238,
         "cumulative-layout-shift": 0,
-        "speed-index": 2139.803320326456
+        "speed-index": 1870.5156000000002
       },
       "issues": [
         {
           "id": "first-contentful-paint",
           "title": "First Contentful Paint",
-          "score": 0.86,
+          "score": 0.88,
           "displayValue": "1.9 s"
         },
         {
           "id": "largest-contentful-paint",
           "title": "Largest Contentful Paint",
-          "score": 0.76,
+          "score": 0.75,
           "displayValue": "3.1 s"
-        },
-        {
-          "id": "speed-index",
-          "title": "Speed Index",
-          "score": 0.99,
-          "displayValue": "2.1 s"
         },
         {
           "id": "total-blocking-time",
           "title": "Total Blocking Time",
-          "score": 0.58,
-          "displayValue": "500 ms"
+          "score": 0.85,
+          "displayValue": "240 ms"
         },
         {
           "id": "max-potential-fid",
           "title": "Max Potential First Input Delay",
-          "score": 0.49,
-          "displayValue": "250 ms"
+          "score": 0.84,
+          "displayValue": "150 ms"
         },
         {
           "id": "interactive",
           "title": "Time to Interactive",
-          "score": 0.88,
-          "displayValue": "3.9 s"
-        },
-        {
-          "id": "mainthread-work-breakdown",
-          "title": "Minimize main-thread work",
-          "score": 0,
-          "displayValue": "2.3 s",
-          "selectors": []
+          "score": 0.95,
+          "displayValue": "3.1 s"
         },
         {
           "id": "unused-javascript",
@@ -331,17 +304,17 @@
       "page": "tracking-mobile",
       "private": true,
       "scores": {
-        "performance": 85,
+        "performance": 86,
         "accessibility": 100,
         "best-practices": 100,
         "seo": 60
       },
       "metrics": {
-        "first-contentful-paint": 1963.5967,
-        "largest-contentful-paint": 3391.58845,
-        "total-blocking-time": 261,
+        "first-contentful-paint": 1974.4073,
+        "largest-contentful-paint": 3173.8145999999997,
+        "total-blocking-time": 289,
         "cumulative-layout-shift": 0,
-        "speed-index": 1963.5967
+        "speed-index": 1974.4073
       },
       "issues": [
         {
@@ -353,8 +326,8 @@
         {
           "id": "largest-contentful-paint",
           "title": "Largest Contentful Paint",
-          "score": 0.67,
-          "displayValue": "3.4 s"
+          "score": 0.73,
+          "displayValue": "3.2 s"
         },
         {
           "id": "speed-index",
@@ -365,20 +338,20 @@
         {
           "id": "total-blocking-time",
           "title": "Total Blocking Time",
-          "score": 0.83,
-          "displayValue": "260 ms"
+          "score": 0.8,
+          "displayValue": "290 ms"
         },
         {
           "id": "max-potential-fid",
           "title": "Max Potential First Input Delay",
-          "score": 0.73,
-          "displayValue": "180 ms"
+          "score": 0.81,
+          "displayValue": "160 ms"
         },
         {
           "id": "interactive",
           "title": "Time to Interactive",
           "score": 0.9,
-          "displayValue": "3.7 s"
+          "displayValue": "3.8 s"
         },
         {
           "id": "unused-javascript",
@@ -425,18 +398,18 @@
         "seo": 60
       },
       "metrics": {
-        "first-contentful-paint": 440.381,
-        "largest-contentful-paint": 752.7620000000001,
-        "total-blocking-time": 3,
+        "first-contentful-paint": 444.1815,
+        "largest-contentful-paint": 746.363,
+        "total-blocking-time": 0,
         "cumulative-layout-shift": 0.06048903184627789,
-        "speed-index": 678.6250090777903
+        "speed-index": 694.5280617261619
       },
       "issues": [
         {
           "id": "largest-contentful-paint",
           "title": "Largest Contentful Paint",
           "score": 0.98,
-          "displayValue": "0.8 s"
+          "displayValue": "0.7 s"
         },
         {
           "id": "cumulative-layout-shift",
@@ -483,42 +456,30 @@
       "page": "users-desktop",
       "private": true,
       "scores": {
-        "performance": 99,
+        "performance": 100,
         "accessibility": 100,
         "best-practices": 100,
         "seo": 60
       },
       "metrics": {
-        "first-contentful-paint": 521.9748000000001,
-        "largest-contentful-paint": 877.9495999999999,
-        "total-blocking-time": 24,
+        "first-contentful-paint": 435.4239,
+        "largest-contentful-paint": 681.8478,
+        "total-blocking-time": 0,
         "cumulative-layout-shift": 0.02308472149257216,
-        "speed-index": 795.7294177411056
+        "speed-index": 550.1245437654363
       },
       "issues": [
         {
           "id": "largest-contentful-paint",
           "title": "Largest Contentful Paint",
-          "score": 0.97,
-          "displayValue": "0.9 s"
-        },
-        {
-          "id": "speed-index",
-          "title": "Speed Index",
           "score": 0.99,
-          "displayValue": "0.8 s"
-        },
-        {
-          "id": "max-potential-fid",
-          "title": "Max Potential First Input Delay",
-          "score": 0.99,
-          "displayValue": "70 ms"
+          "displayValue": "0.7 s"
         },
         {
           "id": "unused-javascript",
           "title": "Reduce unused JavaScript",
           "score": 0,
-          "displayValue": "Est savings of 35 KiB",
+          "displayValue": "Est savings of 34 KiB",
           "selectors": []
         },
         {
@@ -552,60 +513,54 @@
       "page": "courier-mobile",
       "private": true,
       "scores": {
-        "performance": 80,
+        "performance": 82,
         "accessibility": 100,
         "best-practices": 100,
         "seo": 60
       },
       "metrics": {
-        "first-contentful-paint": 2171.0903,
-        "largest-contentful-paint": 3184.1204,
-        "total-blocking-time": 440.96990000000005,
+        "first-contentful-paint": 1873.1551,
+        "largest-contentful-paint": 2908.3102,
+        "total-blocking-time": 491.92245,
         "cumulative-layout-shift": 0,
-        "speed-index": 2374.558102873007
+        "speed-index": 1873.1551
       },
       "issues": [
         {
           "id": "first-contentful-paint",
           "title": "First Contentful Paint",
-          "score": 0.79,
-          "displayValue": "2.2 s"
+          "score": 0.88,
+          "displayValue": "1.9 s"
         },
         {
           "id": "largest-contentful-paint",
           "title": "Largest Contentful Paint",
-          "score": 0.73,
-          "displayValue": "3.2 s"
-        },
-        {
-          "id": "speed-index",
-          "title": "Speed Index",
-          "score": 0.98,
-          "displayValue": "2.4 s"
+          "score": 0.8,
+          "displayValue": "2.9 s"
         },
         {
           "id": "total-blocking-time",
           "title": "Total Blocking Time",
-          "score": 0.64,
-          "displayValue": "440 ms"
+          "score": 0.59,
+          "displayValue": "490 ms"
         },
         {
           "id": "max-potential-fid",
           "title": "Max Potential First Input Delay",
-          "score": 0.66,
-          "displayValue": "200 ms"
+          "score": 0,
+          "displayValue": "1,520 ms"
         },
         {
           "id": "interactive",
           "title": "Time to Interactive",
-          "score": 0.94,
-          "displayValue": "3.2 s"
+          "score": 0.88,
+          "displayValue": "4.0 s"
         },
         {
           "id": "mainthread-work-breakdown",
           "title": "Minimize main-thread work",
           "score": 0,
-          "displayValue": "2.1 s",
+          "displayValue": "2.8 s",
           "selectors": []
         },
         {

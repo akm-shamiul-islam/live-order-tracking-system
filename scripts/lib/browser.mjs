@@ -135,7 +135,7 @@ export async function launchBrowser() {
     };
   }
   async function close() {
-    if (browser.exitCode === null) {
+    if (browser.exitCode === null && browser.signalCode === null) {
       const exited = once(browser, 'exit');
       const cdp = await connectCdp(version.webSocketDebuggerUrl);
       const timeout = setTimeout(() => browser.kill(), 5000);

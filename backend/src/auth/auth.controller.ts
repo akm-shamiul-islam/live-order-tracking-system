@@ -127,7 +127,8 @@ export class AuthController {
       this.setRefresh(response, refreshToken);
       return auth;
     } catch (error) {
-      this.setRefresh(response, '');
+      // An unavailable database does not invalidate a still-valid refresh credential.
+      if (error instanceof UnauthorizedException) this.setRefresh(response, '');
       throw error;
     }
   }

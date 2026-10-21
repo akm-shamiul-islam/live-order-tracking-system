@@ -43,7 +43,7 @@ The repository does not claim that a cloud backup schedule or production restore
 
 ## Multiple instances
 
-Before horizontal scaling, add shared HTTP/socket rate storage, a supported Socket.IO adapter/fanout and any polling-session affinity required by the chosen topology. Test reassignment, revocation and private broadcasts across instances. Current limits, connection counts and metrics are per process. See [Socket.IO deployment documentation](https://socket.io/docs/v4/using-multiple-nodes/).
+Run one API process with the current access/assignment coordinator. Before horizontal scaling or overlapping API processes during deployment, add a transaction-capable MongoDB topology and transactions, or an equivalent shared coordinator, for role/access edits and courier assignment. The process-local coordinator does not protect cross-process decisions. Also add shared HTTP/socket rate storage, a supported Socket.IO adapter/fanout and any polling-session affinity required by the chosen topology. Test reassignment, revocation and private broadcasts across instances. Current limits, connection counts and metrics are per process. See [MongoDB atomicity and transactions](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/) and [Socket.IO deployment documentation](https://socket.io/docs/v4/using-multiple-nodes/).
 
 ## Incident checks
 
@@ -51,6 +51,9 @@ Before horizontal scaling, add shared HTTP/socket rate storage, a supported Sock
 - API unavailable: inspect readiness and MongoDB connectivity; queries fail with 503 instead of buffering indefinitely.
 - Vite proxy warning: verify both development servers, PORT and API_PROXY_TARGET. Known restart failures are reported once until recovery; unexpected errors retain diagnostics.
 - Refresh/sign-out failures: verify same Origin, cookie Secure/HTTPS settings and `/api/auth` proxy routing. Bodyless POST requests must not declare an empty JSON body.
+- A refresh 503 preserves the browser cookie; retry after readiness recovers. A sign-out warning means this device is cleared but server revocation needs retry. Session cleanup warnings after a version increment do not make old credentials valid again.
+- A live-notification warning means the persisted mutation succeeded; HTTP polling/reconnect refetches recover missed events. A durable outbox/notification queue would be needed for guaranteed event replay.
+- Lost checkout response: retry with the original customer-scoped UUID key or check My Orders. Do not generate a new key for a transport retry. Production database permissions must allow creating the checkout unique index before traffic is accepted.
 - Stale assignment or edit: refetch and retry the current record; do not overwrite another admin's changes.
 - Lost device location: verify browser permission, HTTPS, assigned courier, OUT_FOR_DELIVERY stage and timestamp freshness.
 

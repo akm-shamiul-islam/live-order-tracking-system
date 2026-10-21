@@ -5,6 +5,7 @@ import { Order, OrderSchema } from './schemas/order.schema.js';
 import { OrderStatusLog, OrderStatusLogSchema } from './schemas/order-status-log.schema.js';
 import { SeedService } from './seed.service.js';
 import { AuthSession, AuthSessionSchema } from './schemas/auth-session.schema.js';
+import { AccountAccessCoordinator } from '../common/account-access-coordinator.js';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { AuthSession, AuthSessionSchema } from './schemas/auth-session.schema.js
       { name: OrderStatusLog.name, schema: OrderStatusLogSchema },
     ]),
   ],
-  providers: [SeedService],
-  exports: [MongooseModule],
+  providers: [SeedService, AccountAccessCoordinator],
+  exports: [MongooseModule, AccountAccessCoordinator],
 })
 export class DatabaseModule {}

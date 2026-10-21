@@ -14,15 +14,65 @@ import {
   type UpdateUserDto,
   type UserRole,
 } from '@kitchentodoor/shared';
-import { clearSession, getSession, saveSession, synchronizeStoredSession } from './authSession';
+import {
+  clearSession,
+  getSession,
+  saveSession,
+  synchronizeStoredSession,
+  logoutFeedbackStore,
+} from './authSession';
 import { clientSettings } from './clientSettings';
+import { getCheckoutAttempt, completeCheckoutAttempt } from './checkoutAttempt';
 
 const API_BASE = '/api';
 let refreshInFlight: Promise<AuthResponse | null> | undefined;
+let authIntent = 0;
+let authQueue = Promise.resolve();
+
+function withSessionLock<T>(run: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== 'undefined' && navigator.locks) {
+    // Login, logout, reset and rotation all set the same HttpOnly cookie. Serialize them
+    // across tabs as well as within this tab so a late response cannot replace that cookie.
+    return navigator.locks.request('ktd-auth-session', run);
+  }
+  const result = authQueue.then(run, run);
+  authQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+function authenticate(
+  path: 'login' | 'register',
+  body: Record<string, string>,
+): Promise<AuthResponse> {
+  const intent = ++authIntent;
+  const before = getSession();
+  return withSessionLock(async () => {
+    synchronizeStoredSession();
+    const isCurrent = () =>
+      intent === authIntent &&
+      getSession().token === before.token &&
+      getSession().user?.id === before.user?.id;
+    if (!isCurrent()) throw new ApiError('This sign-in was cancelled. Please try again.', 409);
+    const res = await request(`${API_BASE}/auth/${path}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    const auth = parseAuthResponse(await handleResponse<unknown>(res));
+    if (!isCurrent()) throw new ApiError('This sign-in was cancelled. Please try again.', 409);
+    saveSession(auth);
+    logoutFeedbackStore.setState({ failed: false });
+    return auth;
+  });
+}
 
 async function refreshSession(failedToken: string): Promise<AuthResponse | null> {
   if (refreshInFlight) return refreshInFlight;
+  const intent = authIntent;
   const rotate = async () => {
+    if (intent !== authIntent) return null;
     synchronizeStoredSession();
     const before = getSession();
     if (before.token !== failedToken) {
@@ -35,11 +85,11 @@ async function refreshSession(failedToken: string): Promise<AuthResponse | null>
         signal: AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
       });
       if (response.status === 401) {
-        if (getSession().token === before.token) clearSession();
+        if (intent === authIntent && getSession().token === before.token) clearSession();
         return null;
       }
       const auth = parseAuthResponse(await handleResponse<unknown>(response));
-      if (getSession().token !== before.token) return null;
+      if (intent !== authIntent || getSession().token !== before.token) return null;
       saveSession(auth);
       return auth;
     } catch (error) {
@@ -51,17 +101,14 @@ async function refreshSession(failedToken: string): Promise<AuthResponse | null>
       );
     }
   };
-  const run =
-    typeof navigator !== 'undefined' && navigator.locks
-      ? navigator.locks.request('ktd-auth-refresh', rotate)
-      : rotate();
+  const run = withSessionLock(rotate);
   refreshInFlight = run.finally(() => {
     refreshInFlight = undefined;
   });
   return refreshInFlight;
 }
 
-function getHeaders(): HeadersInit {
+function getHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const token = getSession().token;
   if (token) {
@@ -109,7 +156,12 @@ async function request(url: string, options: RequestInit = {}): Promise<Response
       ...options,
       headers: requestHeaders,
       credentials: 'same-origin',
-      signal: options.signal ?? AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
+      signal: options.signal
+        ? AbortSignal.any([
+            options.signal,
+            AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
+          ])
+        : AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
     });
     const authorization = requestHeaders.get('Authorization');
     if (
@@ -126,7 +178,12 @@ async function request(url: string, options: RequestInit = {}): Promise<Response
           ...options,
           headers,
           credentials: 'same-origin',
-          signal: options.signal ?? AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
+          signal: options.signal
+            ? AbortSignal.any([
+                options.signal,
+                AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
+              ])
+            : AbortSignal.timeout(clientSettings.VITE_REQUEST_TIMEOUT_MS),
         });
         if (response.status === 401 && getSession().token === refreshed.accessToken) clearSession();
       }
@@ -199,24 +256,20 @@ export const api = {
     },
 
     async resetPassword(token: string, password: string, confirmPassword: string): Promise<void> {
-      await handleResponse(
-        await request(`${API_BASE}/auth/reset-password`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, password, confirmPassword }),
-        }),
-      );
-      clearSession();
-    },
-    async login(email: string, pass: string): Promise<AuthResponse> {
-      const res = await request(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass }),
+      ++authIntent;
+      await withSessionLock(async () => {
+        await handleResponse(
+          await request(`${API_BASE}/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password, confirmPassword }),
+          }),
+        );
+        clearSession();
       });
-      const data = parseAuthResponse(await handleResponse<AuthResponse>(res));
-      saveSession(data);
-      return data;
+    },
+    login(email: string, pass: string): Promise<AuthResponse> {
+      return authenticate('login', { email, password: pass });
     },
 
     async register(
@@ -225,14 +278,7 @@ export const api = {
       pass: string,
       phone: string,
     ): Promise<AuthResponse> {
-      const res = await request(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password: pass, phone }),
-      });
-      const data = parseAuthResponse(await handleResponse<AuthResponse>(res));
-      saveSession(data);
-      return data;
+      return authenticate('register', { name, email, password: pass, phone });
     },
 
     async getMe(): Promise<UserSummary> {
@@ -244,11 +290,26 @@ export const api = {
 
     logout() {
       const headers = getHeaders();
+      ++authIntent;
       clearSession();
-      return request(`${API_BASE}/auth/logout`, { method: 'POST', headers, keepalive: true }).then(
-        () => undefined,
-        () => undefined,
-      );
+      logoutFeedbackStore.setState({ failed: false, pending: true });
+      return withSessionLock(async () => {
+        try {
+          await handleResponse(
+            await request(`${API_BASE}/auth/logout`, { method: 'POST', headers, keepalive: true }),
+          );
+          logoutFeedbackStore.setState({ failed: false });
+          return true;
+        } catch {
+          logoutFeedbackStore.setState({ failed: true });
+          return false;
+        } finally {
+          // A different tab may have completed an older sign-in while this logout waited
+          // for the shared lock. Clear that saved state after revocation as well.
+          clearSession();
+          logoutFeedbackStore.setState({ pending: false });
+        }
+      });
     },
   },
 
@@ -302,17 +363,25 @@ export const api = {
       return data.order;
     },
     async create(dto: CreateOrderDto): Promise<{ success: boolean; order: OrderDetails }> {
+      const ownerId = getSession().user?.id;
+      if (!ownerId) throw new ApiError('Sign in before placing an order.', 401);
+      const attempt = await getCheckoutAttempt(ownerId, dto);
+      if (getSession().user?.id !== ownerId)
+        throw new ApiError('Your account changed. Sign in and try again.', 401);
       const res = await request(`${API_BASE}/orders`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers: { ...getHeaders(), 'Idempotency-Key': attempt.key },
         body: JSON.stringify(dto),
       });
-      return handleResponse<{ success: boolean; order: OrderDetails }>(res);
+      const result = await handleResponse<{ success: boolean; order: OrderDetails }>(res);
+      completeCheckoutAttempt(attempt.key);
+      return result;
     },
 
-    async getById(orderId: string): Promise<OrderDetails> {
+    async getById(orderId: string, signal?: AbortSignal): Promise<OrderDetails> {
       const res = await request(`${API_BASE}/orders/${encodeURIComponent(orderId)}`, {
         headers: getHeaders(),
+        signal,
       });
       const data = await handleResponse<{ success: boolean; order: OrderDetails }>(res);
       return data.order;

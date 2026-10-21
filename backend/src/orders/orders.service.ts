@@ -5,12 +5,16 @@ import {
   ConflictException,
   ServiceUnavailableException,
   ForbiddenException,
+  type OnModuleInit,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { createHash, randomBytes } from 'node:crypto';
 import { getRuntimeSettings, getPricingSettings } from '../config/runtime-settings.js';
 import { Order, OrderDocument } from '../database/schemas/order.schema.js';
+import { User, type UserDocument } from '../database/schemas/user.schema.js';
+import { AccountAccessCoordinator } from '../common/account-access-coordinator.js';
 import {
   OrderStatusLog,
   OrderStatusLogDocument,
@@ -33,18 +37,67 @@ import {
 } from '@kitchentodoor/shared';
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
     @InjectModel(OrderStatusLog.name)
     private readonly statusLogModel: Model<OrderStatusLogDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @Inject(AccountAccessCoordinator) private readonly access: AccountAccessCoordinator,
   ) {}
+
+  async onModuleInit() {
+    // Checkout retry safety depends on the unique index being ready before accepting requests.
+    await this.orderModel.init();
+  }
 
   generateOrderNumber(): string {
     return `KTD-${randomBytes(6).toString('hex').toUpperCase()}`;
   }
 
-  async createOrder(createOrderDto: CreateOrderDto, userId?: string): Promise<OrderDetails> {
+  private checkoutHash(dto: CreateOrderDto): string {
+    return createHash('sha256')
+      .update(
+        JSON.stringify({
+          customer: { name: dto.customer.name, phone: dto.customer.phone },
+          deliveryAddress: dto.deliveryAddress,
+          deliveryCoordinates: dto.deliveryCoordinates ?? null,
+          note: dto.note ?? '',
+          items: dto.items
+            .map(({ itemId, quantity }) => ({ itemId, quantity }))
+            .sort((a, b) => a.itemId.localeCompare(b.itemId) || a.quantity - b.quantity),
+        }),
+      )
+      .digest('hex');
+  }
+
+  private async replayCheckout(userId: string, checkoutKey: string, requestHash: string) {
+    const existing = await this.orderModel
+      .findOne({ 'customer.userId': userId, checkoutKey })
+      .select('+checkoutRequestHash');
+    if (!existing) return undefined;
+    if (existing.checkoutRequestHash !== requestHash) {
+      throw new ConflictException(
+        'This checkout was already submitted with different details. Check your orders before placing another order.',
+      );
+    }
+    return this.mapToDetails(existing, await this.legacyLogs(existing), {
+      id: userId,
+      role: UserRole.CUSTOMER,
+    });
+  }
+
+  async createOrder(
+    createOrderDto: CreateOrderDto,
+    userId?: string,
+    checkoutKey?: string,
+  ): Promise<OrderDetails> {
+    const requestHash = checkoutKey ? this.checkoutHash(createOrderDto) : undefined;
+    if (checkoutKey) {
+      if (!userId) throw new BadRequestException('Sign in before submitting a checkout.');
+      const replay = await this.replayCheckout(userId, checkoutKey, requestHash!);
+      if (replay) return replay;
+    }
     const items = createOrderDto.items.map((item) => {
       const menuItem = MENU_ITEMS.find((entry) => entry.id === item.itemId);
       if (!menuItem)
@@ -75,6 +128,7 @@ export class OrdersService {
       try {
         const newOrder = await this.orderModel.create({
           _id: orderId,
+          ...(checkoutKey ? { checkoutKey, checkoutRequestHash: requestHash } : {}),
           trackingTokenHash: this.trackingHash(trackingId),
           orderNumber,
           auditTrail: [initialLog],
@@ -104,6 +158,18 @@ export class OrdersService {
         });
         return { ...this.mapToDetails(newOrder, [initialLog]), trackingId };
       } catch (error) {
+        // The unique customer/key index resolves races across concurrent requests and API processes.
+        if (
+          checkoutKey &&
+          userId &&
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 11000
+        ) {
+          const replay = await this.replayCheckout(userId, checkoutKey, requestHash!);
+          if (replay) return replay;
+        }
         if (!this.isOrderNumberCollision(error)) throw error;
       }
     }
@@ -453,7 +519,11 @@ export class OrdersService {
           ? { courierId: order.courierId }
           : {}),
       },
-      { $set: { status: newStatus }, $push: { auditTrail: logEntry } },
+      {
+        $set: { status: newStatus },
+        $push: { auditTrail: logEntry },
+        $inc: { deliveryRevision: 1 },
+      },
       { returnDocument: 'after' },
     );
     if (!updatedOrder) {
@@ -540,8 +610,29 @@ export class OrdersService {
     actor: UserSummary,
     approveRequest = false,
   ) {
+    return this.access.run(() =>
+      this.assignWithCurrentAccess(identifier, courierId, actor, approveRequest),
+    );
+  }
+
+  private async assignWithCurrentAccess(
+    identifier: string,
+    courierId: string | null,
+    actor: UserSummary,
+    approveRequest: boolean,
+  ) {
     if (actor.role !== UserRole.ADMIN)
       throw new ForbiddenException('An administrator must approve courier assignments.');
+    const administrator = await this.userModel.findById(actor.id);
+    if (administrator?.role !== UserRole.ADMIN || administrator.disabled) {
+      throw new ForbiddenException('Your administrator access has changed. Sign in again.');
+    }
+    if (courierId) {
+      const courier = await this.userModel.findById(courierId);
+      if (courier?.role !== UserRole.COURIER || courier.disabled) {
+        throw new BadRequestException('Choose an active courier account.');
+      }
+    }
     const order = await this.orderModel.findOne(this.buildOrderLookupFilter(identifier));
     if (!order) throw new NotFoundException('Order not found.');
     if (
@@ -636,6 +727,7 @@ export class OrdersService {
     );
     return {
       id: order._id.toString(),
+      revision: order.deliveryRevision ?? 0,
       orderNumber: order.orderNumber,
       customer: {
         name: order.customer.name,

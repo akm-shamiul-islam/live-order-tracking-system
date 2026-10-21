@@ -27,6 +27,32 @@ Updated 2026-10-21 (Asia/Tokyo). This document tracks implementation and verific
 
 Commands, saved browser/Lighthouse summaries and limitations are in [IMPLEMENTATION_AND_VERIFICATION_REPORT.md](IMPLEMENTATION_AND_VERIFICATION_REPORT.md) and [QUALITY.md](QUALITY.md). HTTP measurements are described in [BENCHMARKS.md](BENCHMARKS.md).
 
+## Review of the committed baseline
+
+Reviewed the application at `9361f45`, including the account/courier implementation in `83353a9`, against the earlier requirements. Passing workflow tests had not covered several failure paths. This follow-up adds regression coverage and fixes the following findings; severity describes their impact before the fix.
+
+| Severity | Finding | Correction and evidence |
+| --- | --- | --- |
+| High | A reset link delivered before an admin changed the account email, role or access could still reset that account, including after disable/re-enable. | Remove reset hash, expiry and cooldown atomically with the sensitive account update. Three real-database scenarios now reject the old link and preserve the original password. |
+| High | A late login/registration response could restore authentication after sign-out or replace a newer sign-in. Cookie-changing operations used different coordination boundaries. | One Web Lock serializes cookie changes, with an in-tab fallback; intent checks reject superseded responses. Logout clears local state again after server revocation. Source tests cover pending login, refresh, newer login and logout races; Chrome verifies the real cookie flow. |
+| Medium | Refresh errors cleared the HttpOnly cookie even on a database 503, preventing recovery after the outage. | Clear it only for rejected credentials. The MongoDB stop/restart test verifies no deletion cookie on 503 and successful reuse after recovery. |
+| Medium | Sign-out silently ignored server errors; auxiliary session cleanup could report failure after logout/password reset had already invalidated credentials. | Show sign-out progress/failure and retry. Token versioning remains authoritative if auxiliary cleanup fails. Two fault-injection integration cases reject old access/refresh credentials and allow a fresh login. Chrome verifies failed revocation and retry. |
+| Medium | A socket adapter failure made an already committed order/status mutation look unsuccessful. | Sanitize/log notification failures without failing the saved mutation. Real HTTP and socket acknowledgments remain successful when the adapter throws. Polling/reconnects recover missed notifications. |
+| Medium | Repeated checkout requests could create duplicate orders after a lost response. Eight concurrent retries created eight orders in the baseline. | Customer-scoped UUID keys plus a unique partial index return one existing order. Changed payloads conflict; another customer cannot replay the first customer's order. Chrome drops the response after commit and retries without a duplicate. |
+| Medium | Role edits and assignments raced across documents: a courier could be demoted while being assigned, and two admins could demote one another concurrently. | Coordinate these writes within one API process and re-read current actor/courier access inside that boundary. Deterministic race tests now preserve a valid assignment/access decision. Distributed coordination remains a deployment prerequisite below. |
+| Medium | Delayed status/GPS events or HTTP responses could overwrite newer tracking state. | Persist state revisions, emit stored revision/time, reject older events/snapshots, merge GPS by observation time, and preserve unchanged Query references. Source regressions cover terminal states, duplicate events, late reads and GPS ordering. |
+| Low | Verification cleanup could wait forever for a child already terminated by a signal. | Check both `exitCode` and `signalCode`. The final browser run completes all checks and exits normally. |
+
+The follow-up also removes obsolete checkout phone persistence and fills missing account action icons.
+
+### Documentation checked for these changes
+
+- [OWASP password recovery](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html) and [session management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html): token lifecycle and server invalidation.
+- [Mongoose atomic updates](https://mongoosejs.com/docs/tutorials/findoneandupdate.html), [indexes](https://mongoosejs.com/docs/guide.html#indexes), [MongoDB partial unique indexes](https://www.mongodb.com/docs/manual/core/index-partial/) and [single-document atomicity](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/): conditional writes, unique checkout enforcement and distributed limits.
+- [Socket.IO delivery guarantees](https://socket.io/docs/v4/delivery-guarantees/): best-effort events require reconciliation; persisted order success is independent of notification delivery.
+- [TanStack cancellation](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation) and [structural sharing](https://tanstack.com/query/latest/docs/framework/react/guides/render-optimizations): cancel reads and retain stable cache references.
+- [Web Locks](https://www.w3.org/TR/web-locks/) and [Node child process lifecycle](https://nodejs.org/api/child_process.html#subprocesssignalcode): coordinate browser cookie changes and recognize signal termination.
+
 ## Remaining external integrations and operating requirements
 
 | Work | Status and required input |
@@ -36,11 +62,12 @@ Commands, saved browser/Lighthouse summaries and limitations are in [IMPLEMENTAT
 | Live recovery email | Configure SMTP and verify sender/domain/delivery. Tests use mocked mail. A durable delivery queue remains an operating enhancement. |
 | Hosting, TLS and supervision | Application support is implemented; live deployment is not performed. Requires hosting target/domain and production credentials. Local Lighthouse cannot certify deployed TLS/HSTS. |
 | Backups, restore drills and alerts | Health/metrics and an operations runbook are provided. No cloud backup schedule, production restore drill, alert destination or retention policy is configured without infrastructure choices. |
-| Multiple API instances | Rate budgets are per-process. Shared limit storage and Socket.IO fanout/adapter are required before horizontal scaling. Configure implemented TRUSTED_PROXY_IPS for the actual proxy topology. |
+| Multiple API instances | Run one API process. Access/assignment coordination, rate budgets and connection counts are process-local. Transactions/shared coordination, shared limit storage and Socket.IO fanout/adapter are required before horizontal scaling or overlapping API deployments. Configure implemented TRUSTED_PROXY_IPS for the actual proxy topology. |
+| Guaranteed event delivery and older browsers | Socket events are best effort; polling/reconnects reconcile persisted state. A durable outbox is needed for replay guarantees. Browsers without Web Locks have only in-tab cookie coordination; cross-tab race protection requires Web Locks. |
 | Production capacity | Local adapter measurements are reference results, not sustained production capacity or WebSocket/write-load certification. Repeat with target TLS/proxy/database topology. |
 
 The former seven gaps therefore have separate outcomes: privacy, atomic audit, assignment, account lifecycle and application hosting have implementation and automated checks; payment/geocoding and deployment operations still require the choices above. Lighthouse scores alone do not establish production readiness or zero security risk.
 
 ## Measured limitations
 
-The final eight-case Lighthouse run reports 100 accessibility/best-practices throughout and 100 public-menu SEO. Performance is 93 on the mobile menu, 99 on tested desktop pages and 80–85 on private mobile pages. Mobile startup/unused JavaScript and some image/layout diagnostics remain; this is not a claim of perfect performance or zero security defects. Details and test conditions are in QUALITY.md. Lint has zero errors and 103 warnings, including deliberate sequential test steps and existing style/type suggestions.
+The final eight-case Lighthouse run reports 100 accessibility/best-practices throughout and 100 public-menu SEO. Performance is 90 on the mobile menu, 99–100 on tested desktop pages and 82–91 on private/account mobile pages. Mobile startup/unused JavaScript and some image/layout diagnostics remain; this is not a claim of perfect performance or zero security defects. Details and test conditions are in QUALITY.md. Lint has zero errors and 119 warnings, including deliberate sequential test steps and existing style/type suggestions.

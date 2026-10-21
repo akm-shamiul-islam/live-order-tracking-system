@@ -82,6 +82,13 @@ export const PricingSchema = SchemaFactory.createForClass(PricingSubdocument);
 
 @Schema({ timestamps: true, collection: 'orders' })
 export class Order {
+  @Prop({ type: String, select: false })
+  checkoutKey?: string;
+
+  @Prop({ type: String, select: false })
+  checkoutRequestHash?: string;
+
+  // Monotonic state revision for status, assignment and request changes; GPS has its own timestamp.
   @Prop({ type: Number, default: 0 })
   deliveryRevision: number;
   @Prop({
@@ -163,6 +170,10 @@ export class Order {
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
+OrderSchema.index(
+  { 'customer.userId': 1, checkoutKey: 1 },
+  { unique: true, partialFilterExpression: { checkoutKey: { $type: 'string' } } },
+);
 OrderSchema.index({ createdAt: -1, _id: -1 });
 OrderSchema.index({ status: 1, createdAt: -1, _id: -1 });
 OrderSchema.index({ courierId: 1, status: 1, createdAt: -1, _id: -1 });

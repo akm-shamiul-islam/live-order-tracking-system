@@ -92,6 +92,7 @@ export const CancellationReasonSchema = z
 
 export const OrderDetailsSchema = z.object({
   id: z.string(),
+  revision: z.number().int().nonnegative().optional(),
   trackingId: z.string().optional(),
   orderNumber: z.string(),
   customer: CustomerInfoSchema,

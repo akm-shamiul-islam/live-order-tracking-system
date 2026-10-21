@@ -187,6 +187,7 @@ export class AuthService {
       !(await this.sessionModel.exists({
         _id: payload.sid,
         userId: user._id,
+        tokenVersion: user.tokenVersion || 0,
         revokedAt: null,
         expiresAt: { $gt: new Date() },
       }))
@@ -204,7 +205,17 @@ export class AuthService {
 
   async revokeSessions(userId: string): Promise<void> {
     await this.userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } });
-    await this.sessionModel.updateMany({ userId }, { $set: { revokedAt: new Date() } });
+    await this.markSessionsRevoked(userId);
+  }
+
+  private async markSessionsRevoked(userId: string): Promise<void> {
+    try {
+      await this.sessionModel.updateMany({ userId }, { $set: { revokedAt: new Date() } });
+    } catch {
+      // The user's version was already changed atomically. Both access verification and
+      // refresh reject previous versions even if this housekeeping write is unavailable.
+      this.logger.warn('Session cleanup could not be saved. Previous credentials remain invalid.');
+    }
   }
 
   async logout(accessToken?: string, refreshToken?: string): Promise<void> {
@@ -288,7 +299,7 @@ export class AuthService {
     );
     if (!user)
       throw new BadRequestException('This reset link is invalid or expired. Request a new link.');
-    await this.sessionModel.updateMany({ userId: user._id }, { $set: { revokedAt: new Date() } });
+    await this.markSessionsRevoked(user._id.toString());
     void this.recoveryMailer
       .send(
         user.email,

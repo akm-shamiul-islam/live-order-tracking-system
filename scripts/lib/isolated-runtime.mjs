@@ -117,7 +117,7 @@ export async function createIsolatedRuntime({
     return { ...ready, password };
   }
   async function stopChild(child) {
-    if (child.exitCode !== null) return;
+    if (child.exitCode !== null || child.signalCode !== null) return;
     const exited = once(child, 'exit');
     if (child.connected) child.send({ type: 'stop' });
     const timer = setTimeout(() => child.kill(), 5000);

@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Inject,
   BadRequestException,
+  Headers,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service.js';
 import { OrdersGateway } from './orders.gateway.js';
@@ -78,8 +79,12 @@ export class OrdersController {
   async createOrder(
     @Body(new ZodValidationPipe(CreateOrderSchema)) body: CreateOrderDto,
     @CurrentUser('id') userId: string,
+    @Headers('idempotency-key') checkoutKey?: string,
   ): Promise<{ success: boolean; order: OrderDetails }> {
-    const order = await this.ordersService.createOrder(body, userId);
+    if (!z.uuid().optional().safeParse(checkoutKey).success) {
+      throw new BadRequestException('Use a valid UUID for the Idempotency-Key header.');
+    }
+    const order = await this.ordersService.createOrder(body, userId, checkoutKey);
     await this.ordersGateway.notifyOrderCreated({ ...order, trackingId: undefined });
     return { success: true, order };
   }
@@ -200,17 +205,8 @@ export class OrdersController {
     if (body.decision === 'REJECT') {
       await this.ordersService.rejectDeliveryRequest(orderId, courierId, user);
     } else {
-      const courier = await this.authService.findById(courierId);
-      if (courier?.role !== UserRole.COURIER)
-        throw new BadRequestException('This account is no longer an active courier.');
       const result = await this.ordersService.assignCourier(orderId, courierId, user, true);
-      await this.ordersGateway.notifyStatusUpdated(
-        result.order.id,
-        result.order.orderNumber,
-        result.order.status,
-        result.logEntry,
-        result.order.courierId,
-      );
+      await this.ordersGateway.notifyStatusUpdated(result.order, result.logEntry);
     }
     await this.ordersGateway.notifyListsChanged();
     return { success: true };
@@ -236,19 +232,8 @@ export class OrdersController {
     @CurrentUser() user: UserSummary,
   ) {
     const courierId = body.courierId ?? null;
-    if (courierId) {
-      const courier = await this.authService.findById(courierId);
-      if (courier?.role !== UserRole.COURIER)
-        throw new BadRequestException('Choose an available courier account.');
-    }
     const result = await this.ordersService.assignCourier(orderId, courierId, user);
-    await this.ordersGateway.notifyStatusUpdated(
-      result.order.id,
-      result.order.orderNumber,
-      result.order.status,
-      result.logEntry,
-      result.order.courierId,
-    );
+    await this.ordersGateway.notifyStatusUpdated(result.order, result.logEntry);
     return { success: true, order: result.order };
   }
 
@@ -277,13 +262,7 @@ export class OrdersController {
       name: user?.name || 'Dispatcher',
     });
 
-    await this.ordersGateway.notifyStatusUpdated(
-      result.order.id,
-      result.order.orderNumber,
-      result.order.status,
-      result.logEntry,
-      result.order.courierId,
-    );
+    await this.ordersGateway.notifyStatusUpdated(result.order, result.logEntry);
 
     return { success: true, order: result.order };
   }
@@ -303,11 +282,7 @@ export class OrdersController {
       name: user?.name || 'Customer',
     });
 
-    await this.ordersGateway.notifyOrderCancelled(
-      result.order.id,
-      result.order.orderNumber,
-      body.reason,
-    );
+    await this.ordersGateway.notifyOrderCancelled(result.order, result.logEntry, body.reason);
 
     return { success: true, order: result.order };
   }

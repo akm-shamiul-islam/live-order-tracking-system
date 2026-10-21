@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { getModelToken } from '@nestjs/mongoose';
@@ -25,6 +25,7 @@ import { BoundedSocketAdapter } from '../common/socket-adapter.js';
 import { RecoveryMailer } from '../auth/recovery-mailer.js';
 import { AuthSession } from '../database/schemas/auth-session.schema.js';
 import bcrypt from 'bcryptjs';
+import { UsersService } from '../users/users.service.js';
 
 describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () => {
   let mongo: MongoMemoryServer;
@@ -58,6 +59,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
       SOCKET_RATE_LIMIT_MAX: '20',
       REGISTER_RATE_LIMIT_MAX: '1000',
       LOGIN_RATE_LIMIT_MAX: '1000',
+      RESET_RATE_LIMIT_MAX: '1000',
       SOCKET_IP_RATE_LIMIT_MAX: '500',
       SOCKET_RATE_LIMIT_WINDOW_MS: '1000',
       AUTH_COOKIE_SECURE: 'false',
@@ -203,6 +205,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
       OrderStatus.CONFIRMED,
     ]);
     expect((await orders.getOrderById(order.id, actor('admin'))).statusHistory).toHaveLength(2);
+    expect((await orders.getOrderById(order.id, actor('admin'))).revision).toBe(1);
   });
 
   it('handles simultaneous registrations with the same email as a readable conflict', async () => {
@@ -221,6 +224,64 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
       201, 409,
     ]);
     expect(await userModel.countDocuments({ email: payload.email })).toBe(1);
+  });
+
+  it('creates one order for concurrent checkout retries and scopes retry keys to the customer', async () => {
+    const key = randomUUID();
+    const headers = { ...auth('customer1'), 'idempotency-key': key };
+    const before = await orderModel.countDocuments();
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        app.inject({
+          method: 'POST',
+          url: '/api/orders',
+          headers,
+          payload: dto,
+        }),
+      ),
+    );
+    expect(responses.map((response) => response.statusCode)).toEqual(Array(8).fill(201));
+    const ids = new Set(responses.map((response) => response.json().order.id));
+    expect(ids.size).toBe(1);
+    expect(await orderModel.countDocuments()).toBe(before + 1);
+    const replay = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers,
+      payload: {
+        ...dto,
+        items: dto.items.map((item) => ({ ...item, price: 0.01, name: 'Ignored' })),
+      },
+    });
+    expect(replay.statusCode).toBe(201);
+    expect(ids.has(replay.json().order.id)).toBe(true);
+    expect(replay.body).not.toMatch(/checkoutKey|checkoutRequestHash/);
+    const changed = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers,
+      payload: { ...dto, deliveryAddress: 'Different test address' },
+    });
+    expect(changed.statusCode).toBe(409);
+    const otherCustomer = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { ...auth('customer2'), 'idempotency-key': key },
+      payload: dto,
+    });
+    expect(otherCustomer.statusCode).toBe(201);
+    expect(ids.has(otherCustomer.json().order.id)).toBe(false);
+    expect(await orderModel.countDocuments()).toBe(before + 2);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/orders',
+          headers: { ...auth('customer1'), 'idempotency-key': 'invalid-key' },
+          payload: dto,
+        })
+      ).statusCode,
+    ).toBe(400);
   });
 
   it('rejects a WebSocket upgrade from an unapproved browser origin', async () => {
@@ -651,6 +712,228 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     guest.disconnect();
   });
 
+  it('keeps concurrent administrator access changes from removing each other’s authority', async () => {
+    const passwordHash = await bcrypt.hash('Admin-review-password123!', 10);
+    const admins = await userModel.create(
+      ['first', 'second'].map((name) => ({
+        name: `${name} review admin`,
+        email: `${name}-review-admin@example.test`,
+        role: UserRole.ADMIN,
+        passwordHash,
+      })),
+    );
+    const summary = (user: UserDocument): UserSummary => ({
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
+    const changes = await Promise.allSettled(
+      admins.map((target, index) =>
+        app.get(UsersService).update(
+          target._id.toString(),
+          {
+            name: target.name,
+            email: target.email,
+            phone: '',
+            disabled: false,
+            role: UserRole.CUSTOMER,
+            expectedUpdatedAt: target.updatedAt.toISOString(),
+          },
+          summary(admins[1 - index]!),
+        ),
+      ),
+    );
+    expect(changes.filter((change) => change.status === 'fulfilled')).toHaveLength(1);
+    expect(
+      await userModel.countDocuments({
+        _id: { $in: admins.map((user) => user._id) },
+        role: UserRole.ADMIN,
+        disabled: false,
+      }),
+    ).toBe(1);
+  });
+
+  it('does not assign a delivery while the courier’s access change is being committed', async () => {
+    const courier = await userModel.create({
+      name: 'Changing Courier',
+      email: 'changing-courier@example.test',
+      role: UserRole.COURIER,
+      passwordHash: await bcrypt.hash('Courier-review-password123!', 10),
+    });
+    const order = await create('customer2');
+    let reached!: () => void;
+    let release!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = userModel.findOneAndUpdate.bind(userModel);
+    const updateSpy = vi.spyOn(userModel, 'findOneAndUpdate').mockImplementationOnce((...args) => {
+      const query = original(...args);
+      const exec = query.exec.bind(query);
+      vi.spyOn(query, 'exec').mockImplementationOnce(async () => {
+        reached();
+        await gate;
+        return exec();
+      });
+      return query;
+    });
+    const edit = app.get(UsersService).update(
+      courier._id.toString(),
+      {
+        name: courier.name,
+        email: courier.email,
+        phone: '',
+        role: UserRole.CUSTOMER,
+        disabled: false,
+        expectedUpdatedAt: courier.updatedAt.toISOString(),
+      },
+      actor('admin'),
+    );
+    let assignment;
+    try {
+      await paused;
+      assignment = await app.inject({
+        method: 'POST',
+        url: `/api/orders/${order.id}/courier`,
+        headers: auth('admin'),
+        payload: { courierId: courier._id.toString() },
+      });
+    } finally {
+      release();
+      updateSpy.mockRestore();
+    }
+    await edit;
+    expect(assignment.statusCode).toBe(409);
+    expect((await orderModel.findById(order.id))?.courierId).toBeNull();
+    expect((await userModel.findById(courier._id))?.role).toBe(UserRole.CUSTOMER);
+  });
+
+  it.each(['email', 'role', 'disable and re-enable'] as const)(
+    'invalidates outstanding password reset links when an administrator changes %s',
+    async (change) => {
+      mail.mockClear();
+      const email = `reset-${change.replaceAll(' ', '-')}@example.test`;
+      const registration = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: {
+          name: 'Recovery Access Review',
+          email,
+          phone: '555-1234',
+          password: 'Original-password123!',
+        },
+      });
+      expect(registration.statusCode).toBe(201);
+      await app.inject({ method: 'POST', url: '/api/auth/forgot-password', payload: { email } });
+      await vi.waitFor(() => expect(mail).toHaveBeenCalledOnce());
+      const link = new URL(mail.mock.calls[0]![2].match(/https:\/\/\S+/)![0]);
+      const token = new URLSearchParams(link.hash.slice(1)).get('token')!;
+      const id = registration.json().user.id as string;
+      const user = await userModel.findById(id);
+      const update = {
+        name: user!.name,
+        email: change === 'email' ? `new-${email}` : email,
+        phone: user!.phone,
+        role: change === 'role' ? UserRole.COURIER : UserRole.CUSTOMER,
+        disabled: change === 'disable and re-enable',
+        expectedUpdatedAt: user!.updatedAt.toISOString(),
+      };
+      const edited = await app.inject({
+        method: 'PATCH',
+        url: `/api/users/${id}`,
+        headers: auth('admin'),
+        payload: update,
+      });
+      expect(edited.statusCode).toBe(200);
+      let enabledStatus = 200;
+      if (update.disabled) {
+        enabledStatus = (
+          await app.inject({
+            method: 'PATCH',
+            url: `/api/users/${id}`,
+            headers: auth('admin'),
+            payload: {
+              ...update,
+              disabled: false,
+              expectedUpdatedAt: edited.json().user.updatedAt,
+            },
+          })
+        ).statusCode;
+      }
+      expect(enabledStatus).toBe(200);
+      const reset = await app.inject({
+        method: 'POST',
+        url: '/api/auth/reset-password',
+        payload: {
+          token,
+          password: 'Unwanted-password123!',
+          confirmPassword: 'Unwanted-password123!',
+        },
+      });
+      expect(reset.statusCode).toBe(400);
+      const login = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { email: update.email, password: 'Original-password123!' },
+      });
+      expect(login.statusCode).toBe(200);
+      const stored = await userModel
+        .findById(id)
+        .select('+resetTokenHash +resetExpiresAt +resetRequestedAt');
+      expect(stored?.resetTokenHash).toBeUndefined();
+      expect(stored?.resetExpiresAt).toBeUndefined();
+      expect(stored?.resetRequestedAt).toBeUndefined();
+    },
+  );
+
+  it('acknowledges committed HTTP and socket mutations when live notification delivery fails', async () => {
+    const gateway = app.get(OrdersGateway);
+    const broadcast = vi.spyOn(gateway.server, 'in').mockImplementation(() => {
+      throw new Error('Synthetic notification adapter failure');
+    });
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/orders',
+        headers: auth('customer2'),
+        payload: dto,
+      });
+      expect(created.statusCode).toBe(201);
+      const order = created.json().order as OrderDetails;
+      const confirmed = await app.inject({
+        method: 'PATCH',
+        url: `/api/orders/${order.id}/status`,
+        headers: auth('admin'),
+        payload: { status: OrderStatus.CONFIRMED },
+      });
+      expect(confirmed.statusCode).toBe(200);
+      const admin = await socket('admin');
+      expect(
+        (
+          await ack(admin, 'order:update_status', {
+            orderId: order.id,
+            status: OrderStatus.PREPARING,
+          })
+        ).ok,
+      ).toBe(true);
+      const cancelled = await app.inject({
+        method: 'POST',
+        url: `/api/orders/${order.id}/cancel`,
+        headers: auth('admin'),
+        payload: { reason: 'Synthetic kitchen cancellation' },
+      });
+      expect(cancelled.statusCode).toBe(201);
+      expect((await orders.getOrderById(order.id, actor('admin'))).statusHistory).toHaveLength(4);
+      admin.disconnect();
+    } finally {
+      broadcast.mockRestore();
+    }
+  });
+
   it('rotates HttpOnly refresh cookies, blocks cross-origin refresh and revokes reused tokens', async () => {
     const login = await app.inject({
       method: 'POST',
@@ -767,6 +1050,89 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     ).toBe(200);
   });
 
+  it.each(['logout', 'password reset'] as const)(
+    'acknowledges %s once credentials are invalidated even if session cleanup fails',
+    async (action) => {
+      mail.mockClear();
+      const email = `cleanup-${action.replaceAll(' ', '-')}@example.test`;
+      const registered = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: {
+          name: 'Session Cleanup Review',
+          email,
+          phone: '555-1234',
+          password: 'Original-password123!',
+        },
+      });
+      expect(registered.statusCode).toBe(201);
+      const cookie = String(registered.headers['set-cookie']).split(';')[0]!;
+      const authorization = `Bearer ${registered.json().accessToken}`;
+      let token: string | undefined;
+      if (action === 'password reset') {
+        await app.inject({ method: 'POST', url: '/api/auth/forgot-password', payload: { email } });
+      }
+      await vi.waitFor(() =>
+        expect(mail).toHaveBeenCalledTimes(action === 'password reset' ? 1 : 0),
+      );
+      if (action === 'password reset') {
+        const link = new URL(mail.mock.calls[0]![2].match(/https:\/\/\S+/)![0]);
+        token = new URLSearchParams(link.hash.slice(1)).get('token')!;
+      }
+      const cleanup = vi
+        .spyOn(app.get<Model<AuthSession>>(getModelToken(AuthSession.name)), 'updateMany')
+        .mockImplementationOnce(() => {
+          throw new Error('Synthetic auxiliary cleanup failure');
+        });
+      try {
+        const response = await app.inject(
+          action === 'logout'
+            ? {
+                method: 'POST',
+                url: '/api/auth/logout',
+                headers: { authorization, cookie },
+              }
+            : {
+                method: 'POST',
+                url: '/api/auth/reset-password',
+                payload: {
+                  token,
+                  password: 'Changed-password123!',
+                  confirmPassword: 'Changed-password123!',
+                },
+              },
+        );
+        expect(response.statusCode).toBe(200);
+      } finally {
+        cleanup.mockRestore();
+      }
+      expect(
+        (await app.inject({ url: '/api/auth/me', headers: { authorization } })).statusCode,
+      ).toBe(401);
+      expect(
+        (await app.inject({ method: 'POST', url: '/api/auth/refresh', headers: { cookie } }))
+          .statusCode,
+      ).toBe(401);
+      const login = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: {
+          email,
+          password: action === 'logout' ? 'Original-password123!' : 'Changed-password123!',
+        },
+      });
+      expect(login.statusCode).toBe(200);
+      expect(
+        (
+          await app.inject({
+            url: '/api/auth/me',
+            headers: { authorization: `Bearer ${login.json().accessToken}` },
+          })
+        ).statusCode,
+      ).toBe(200);
+    },
+  );
+
   it('enforces changed roles and server revocation on HTTP and existing sockets', async () => {
     const admin = await socket('admin');
     let received = false;
@@ -792,6 +1158,13 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
 
   it('reports a database outage, recovers without restarting the API and preserves the audit trail', async () => {
     const order = await create('customer2');
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'customer2@example.test', password: 'Test-password123!' },
+    });
+    expect(login.statusCode).toBe(200);
+    const refreshCookie = String(login.headers['set-cookie']).split(';')[0]!;
     expect((await app.inject({ url: '/api/health/ready' })).statusCode).toBe(200);
     const uri = mongo.getUri('ktd_integration');
     await mongo.stop({ doCleanup: false });
@@ -811,6 +1184,13 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     });
     expect((await app.inject({ url: '/api/health/live' })).statusCode).toBe(200);
     expect((await app.inject({ url: '/api/health/ready' })).statusCode).toBe(503);
+    const refreshDuringOutage = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      headers: { cookie: refreshCookie },
+    });
+    expect(refreshDuringOutage.statusCode).toBe(503);
+    expect(refreshDuringOutage.headers['set-cookie']).toBeUndefined();
     expect(
       (await app.inject({ url: `/api/orders/${order.trackingId}`, headers: auth('customer2') }))
         .statusCode,
@@ -829,6 +1209,13 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     expect(recovered.statusCode).toBe(200);
     expect(recovered.headers['cache-control']).toBe('no-store');
     expect(recovered.json().order.statusHistory).toHaveLength(1);
+    const renewed = await app.inject({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      headers: { cookie: refreshCookie },
+    });
+    expect(renewed.statusCode).toBe(200);
+    expect(renewed.headers['set-cookie']).toBeDefined();
     await vi.waitFor(() => expect(authenticatedAgain).toBe(true), { timeout: 10_000 });
     expect(codes).not.toContain('UNAUTHORIZED');
     recoveringSocket.disconnect();

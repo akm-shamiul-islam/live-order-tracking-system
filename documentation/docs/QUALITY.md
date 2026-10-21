@@ -20,7 +20,7 @@ Run integration, browser, Lighthouse and throughput commands sequentially. Concu
 
 ## Source and integration tests
 
-The source suite covers contracts, authentication through Nest HTTP, sessions, recovery, configuration, request errors, navigation and permissions. Integration tests use a separate mongodb-memory-server instance, actual HTTP and Socket.IO clients. They cover customer ownership, same-phone isolation, assignment contention, role changes, current authorization during passive broadcasts, cancellation, GPS freshness, refresh rotation/reuse, reset tokens, socket Origin/payload/flood limits and database stop/restart recovery.
+The source suite covers contracts, authentication through Nest HTTP, sessions, recovery, configuration, request errors, navigation and permissions. It also exercises late sign-in/refresh/logout races, retry keys surviving a lost response/reload, stale live events/HTTP snapshots and stable polling references. Integration tests use a separate mongodb-memory-server instance, actual HTTP and Socket.IO clients. They cover customer ownership, same-phone isolation, assignment contention, concurrent role/access changes, current authorization during passive broadcasts, cancellation, GPS freshness, refresh rotation/reuse, reset invalidation after account changes, auxiliary session cleanup failures, concurrent checkout retries, notification adapter failures, socket Origin/payload/flood limits and database stop/restart recovery with refresh-cookie preservation.
 
 These commands do not mutate the development database. The first integration run may download a MongoDB binary into the temporary cache. Current verification totals are maintained in [the implementation report](IMPLEMENTATION_AND_VERIFICATION_REPORT.md).
 
@@ -28,7 +28,7 @@ These commands do not mutate the development database. The first integration run
 
 `pnpm test:browser` launches its own browser profile, isolated MongoDB and compiled API. It drives registration, login, expired-access refresh through the real HttpOnly cookie, cart/checkout, customer history, admin user editing, courier requests/approval, assigned status updates, cancellation and consent-based GPS. Navigation checks include role-specific menus, direct URLs, persistent open/closed drawers, breadcrumbs, menu page sizes, full-width history, responsive layouts, focus containment, dark mode and reduced-motion preferences.
 
-It also verifies SPA/API/asset responses, CSP, Brotli/caching and an isolated Vite proxy during API interruption/restart. Browser exceptions fail the check. Summary JSON is saved under documentation/quality; screenshots and detailed diagnostics stay in a temporary directory printed by the command. No password, access token or private test URL is written into committed summaries.
+It also drops a checkout response after the server commits, retries checkout and checks that only one order exists. A failed sign-out clears local access, displays a warning and successfully retries server revocation. SPA/API/asset responses, CSP, Brotli/caching and an isolated Vite proxy during API interruption/restart are verified. Browser exceptions fail the check. Summary JSON is saved under documentation/quality; screenshots and detailed diagnostics stay in a temporary directory printed by the command. No password, access token or private test URL is written into committed summaries. Cleanup recognizes both normal exit codes and signal termination so it does not await an already exited child indefinitely.
 
 Set CHROME_PATH to an installed Chrome/Chromium executable if needed. The helper detects common Chrome locations and its temporary Chrome for Testing cache. If none is available, install a browser or populate that cache; it does not attach to an existing browser or development server.
 
@@ -42,20 +42,20 @@ Private/account pages deliberately use noindex,nofollow. Their crawlability warn
 
 ## Recorded Lighthouse results
 
-Measured 2026-10-21T01:01:06.920Z with Chrome/155.0.8059.84 / Lighthouse 13.5.0.
+Measured 2026-10-21T01:57:31.910Z with Chrome/155.0.8059.84 / Lighthouse 13.5.0.
 
 | Page scenario | Performance | Accessibility | Best practices | SEO | LCP (s) | TBT (ms) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| menu-mobile | 93 | 100 | 100 | 100 | 3.03 | 83 |
-| menu-desktop | 99 | 100 | 100 | 100 | 0.73 | 25 |
-| account-mobile | 84 | 100 | 100 | 60 | 2.86 | 414 |
-| orders-mobile | 80 | 100 | 100 | 60 | 3.08 | 501 |
-| tracking-mobile | 85 | 100 | 100 | 60 | 3.39 | 261 |
-| dispatch-desktop | 99 | 100 | 100 | 60 | 0.75 | 3 |
-| users-desktop | 99 | 100 | 100 | 60 | 0.88 | 24 |
-| courier-mobile | 80 | 100 | 100 | 60 | 3.18 | 441 |
+| menu-mobile | 90 | 100 | 100 | 100 | 3.13 | 152 |
+| menu-desktop | 100 | 100 | 100 | 100 | 0.68 | 0 |
+| account-mobile | 91 | 100 | 100 | 60 | 2.76 | 224 |
+| orders-mobile | 88 | 100 | 100 | 60 | 3.11 | 238 |
+| tracking-mobile | 86 | 100 | 100 | 60 | 3.17 | 289 |
+| dispatch-desktop | 99 | 100 | 100 | 60 | 0.75 | 0 |
+| users-desktop | 100 | 100 | 100 | 60 | 0.68 | 0 |
+| courier-mobile | 82 | 100 | 100 | 60 | 2.91 | 492 |
 
-[Full summary](../quality/lighthouse-2026-10-21.json). All eight scenarios scored 100 for automated accessibility and best practices. Public menu SEO is 100; private SEO 60 reflects intentional noindex. Mobile performance is 80–93 and desktop performance is 99 in this local run. Remaining diagnostics include startup/unused JavaScript, some image sizing/compression opportunities, small desktop table layout shifts and active-socket back/forward-cache restrictions. These are recorded rather than claimed to be absent; deployed field measurements and further startup optimization remain useful.
+[Full summary](../quality/lighthouse-2026-10-21.json). All eight scenarios scored 100 for automated accessibility and best practices. Public menu SEO is 100; private SEO 60 reflects intentional noindex. Mobile performance is 82–91 and desktop performance is 99–100 in this local run. Remaining diagnostics include startup/unused JavaScript, some image sizing/compression opportunities, small desktop table layout shifts and active-socket back/forward-cache restrictions. These are recorded rather than claimed to be absent; deployed field measurements and further startup optimization remain useful. Run-to-run laptop timing variation is not evidence that a particular code change caused the score difference.
 
 ## Performance and security implementation
 

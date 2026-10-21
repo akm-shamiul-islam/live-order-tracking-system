@@ -3,6 +3,8 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -18,12 +20,14 @@ import {
 import { User, type UserDocument } from '../database/schemas/user.schema.js';
 import { Order, type OrderDocument } from '../database/schemas/order.schema.js';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
+import { AccountAccessCoordinator } from '../common/account-access-coordinator.js';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly users: Model<UserDocument>,
     @InjectModel(Order.name) private readonly orders: Model<OrderDocument>,
+    @Inject(AccountAccessCoordinator) private readonly access: AccountAccessCoordinator,
   ) {}
 
   private summary(user: UserDocument): ManagedUser {
@@ -62,6 +66,18 @@ export class UsersService {
   }
 
   async update(id: string, body: UpdateUserDto, actor: UserSummary): Promise<ManagedUser> {
+    return this.access.run(() => this.updateWithCurrentAccess(id, body, actor));
+  }
+
+  private async updateWithCurrentAccess(
+    id: string,
+    body: UpdateUserDto,
+    actor: UserSummary,
+  ): Promise<ManagedUser> {
+    const administrator = await this.users.findById(actor.id);
+    if (administrator?.role !== UserRole.ADMIN || administrator.disabled) {
+      throw new ForbiddenException('Your administrator access has changed. Sign in again.');
+    }
     const user = await this.users.findById(id);
     if (!user) throw new NotFoundException('User not found.');
     if (actor.id === id && (body.role !== UserRole.ADMIN || body.disabled)) {
@@ -97,7 +113,14 @@ export class UsersService {
         { _id: id, updatedAt: new Date(body.expectedUpdatedAt) },
         {
           $set: changes,
-          ...(revoke ? { $inc: { tokenVersion: 1 } } : {}),
+          ...(revoke
+            ? {
+                $inc: { tokenVersion: 1 },
+                // A link delivered to a previous email or access state must lose its authority
+                // in the same write that changes that account.
+                $unset: { resetTokenHash: 1, resetExpiresAt: 1, resetRequestedAt: 1 },
+              }
+            : {}),
           $push: {
             managementHistory: {
               $each: [{ actorId: actor.id, fields, timestamp: new Date() }],

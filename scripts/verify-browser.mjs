@@ -52,6 +52,25 @@ try {
     mobile: false,
   });
   const evaluate = (expression) => page.evaluate(expression);
+  const interceptionFailures = [];
+  let failNextRequest = false;
+  page.on('Fetch.requestPaused', (event) => {
+    void (async () => {
+      if (!failNextRequest) {
+        await page.send('Fetch.continueRequest', { requestId: event.requestId });
+        return;
+      }
+      failNextRequest = false;
+      await page.send('Fetch.failRequest', { requestId: event.requestId, errorReason: 'Failed' });
+      await page.send('Fetch.disable');
+    })().catch((error) => interceptionFailures.push(error.message));
+  });
+  async function dropNext(path, requestStage) {
+    failNextRequest = true;
+    await page.send('Fetch.enable', {
+      patterns: [{ urlPattern: app.base + path, requestStage }],
+    });
+  }
   const has = (text) =>
     evaluate(
       `Boolean(document.querySelector('main')?.textContent.includes(${JSON.stringify(text)}))`,
@@ -260,12 +279,23 @@ try {
       ),
     'Customer location pin',
   );
+  // Drop the response after the API has committed, then retry the same checkout.
+  await dropNext('/api/orders', 'Response');
+  await clickText('Place Order');
+  await waitFor(
+    () =>
+      evaluate(
+        'document.querySelector("dialog[open]")?.textContent.includes("Check your connection")',
+      ),
+    'Lost checkout response feedback',
+  );
   await clickText('Place Order');
   await waitText('Order Details');
   const customer = await session();
   const own = await api('/orders/my-orders?page=1&limit=100', { token: customer.token });
   assert.equal(own.status, 200);
   assert.equal(own.body.orders.length, 1);
+  pass('A lost checkout response can be retried without creating a duplicate order');
   const order = own.body.orders[0];
   assert.equal(order.deliveryLocationProvided, true);
   assert.equal(await has(order.orderNumber), true);
@@ -319,7 +349,28 @@ try {
     'Customer registration, red field errors, cart continuity, checkout, location pin and owned history',
   );
 
-  await logout();
+  const beforeFailedLogout = await session();
+  await dropNext('/api/auth/logout', 'Request');
+  await clickText('Sign Out', 'header button');
+  await waitFor(
+    () =>
+      evaluate('document.body.textContent.includes("We could not sign out your other sessions")'),
+    'Failed server sign-out warning',
+  );
+  assert.equal((await session()).token, null);
+  assert.equal((await api('/auth/me', { token: beforeFailedLogout.token })).status, 200);
+  await clickText('Retry Sign Out');
+  await waitFor(
+    async () => (await api('/auth/me', { token: beforeFailedLogout.token })).status === 401,
+    'Retried server session revocation',
+  );
+  await waitFor(
+    () =>
+      evaluate('!document.body.textContent.includes("We could not sign out your other sessions")'),
+    'Revocation warning cleared',
+  );
+  assert.deepEqual(interceptionFailures, []);
+  pass('Failed server sign-out clears local access, displays a warning and retries revocation');
   await login('dispatcher@example.test', app.password);
   await waitText('Kitchen Dispatch Station');
   await openNavigation();
@@ -611,7 +662,7 @@ try {
   throw error;
 } finally {
   for (const socket of sockets) socket.disconnect();
-  if (vite && vite.exitCode === null) {
+  if (vite && vite.exitCode === null && vite.signalCode === null) {
     const exited = once(vite, 'exit');
     vite.kill();
     await exited;

@@ -27,6 +27,10 @@ function readStoredSession(): AuthSession | undefined {
 }
 
 export const authStore = createStore<AuthSession>()(() => readStoredSession() ?? emptySession);
+export const logoutFeedbackStore = createStore<{ failed: boolean; pending: boolean }>()(() => ({
+  failed: false,
+  pending: false,
+}));
 
 export function getSession(): AuthSession {
   return authStore.getState();
@@ -68,6 +72,7 @@ export function clearSession() {
   try {
     localStorage.removeItem('ktd_token');
     localStorage.removeItem('ktd_user');
+    localStorage.removeItem('ktd_last_phone');
   } catch {
     // Storage may be blocked by the browser.
   }
