@@ -12,24 +12,28 @@ interface SelectOption {
 
 interface ThemedSelectProps {
   label: string;
+  labelId?: string;
   value: string;
   options: readonly SelectOption[];
   onChange: (value: string) => void;
   placement?: 'above' | 'below';
   disabled?: boolean;
   compact?: boolean;
+  size?: 'default' | 'small';
   tooltip?: string;
   busy?: boolean;
 }
 
 export function ThemedSelect({
   label,
+  labelId,
   value,
   options,
   onChange,
   placement = 'below',
   disabled = false,
   compact = false,
+  size = 'default',
   tooltip,
   busy = false,
 }: ThemedSelectProps) {
@@ -129,7 +133,8 @@ export function ThemedSelect({
         <button
           type="button"
           role="combobox"
-          aria-label={c(label)}
+          aria-label={labelId ? undefined : c(label)}
+          aria-labelledby={labelId}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-busy={busy || undefined}
@@ -141,7 +146,7 @@ export function ThemedSelect({
             setActive(selected);
             setOpen(!open);
           }}
-          className={`flex ${compact ? 'h-10 w-20 gap-1 px-2.5' : 'h-11 w-full gap-3 px-3.5'} items-center justify-between rounded-xl border border-slate-200 bg-white text-left text-xs font-semibold text-slate-700 shadow-xs hover:border-teal-400 hover:bg-teal-50/60 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-teal-500/60 dark:hover:bg-teal-500/10`}
+          className={`flex ${compact ? 'h-10 w-20 gap-1 px-2.5' : size === 'small' ? 'h-10 w-full gap-2 px-3' : 'h-11 w-full gap-3 px-3.5'} items-center justify-between rounded-xl border border-slate-200 bg-white text-left text-xs font-semibold text-slate-700 shadow-xs hover:border-teal-400 hover:bg-teal-50/60 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-teal-500/60 dark:hover:bg-teal-500/10`}
         >
           {compact &&
             (busy ? (

@@ -17,7 +17,11 @@ import { isTrustedProxy } from './common/client-address.js';
 export async function createApplication(quiet = false) {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FrontendHttpAdapter({ logger: false, trustProxy: (address) => isTrustedProxy(address) }),
+    new FrontendHttpAdapter({
+      logger: false,
+      bodyLimit: getRuntimeSettings().HTTP_BODY_LIMIT_BYTES,
+      trustProxy: (address) => isTrustedProxy(address),
+    }),
     { abortOnError: false, ...(quiet ? { logger: false } : {}) },
   );
   app.useWebSocketAdapter(new BoundedSocketAdapter(app));
@@ -29,7 +33,8 @@ export async function createApplication(quiet = false) {
             defaultSrc: ["'self'"],
             scriptSrc: frontendScriptSources(),
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", 'data:'],
+            imgSrc: ["'self'", 'data:', 'blob:'],
+            workerSrc: ["'self'", 'blob:'],
             fontSrc: ["'self'"],
             connectSrc: ["'self'"],
             objectSrc: ["'none'"],

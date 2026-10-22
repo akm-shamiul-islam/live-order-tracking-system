@@ -49,4 +49,8 @@ export class UsersController {
   ) {
     return { user: await this.users.update(id, body, actor) };
   }
+  @Get(':id/history')
+  async history(@Param('id', new ZodValidationPipe(UserIdSchema)) id: string) {
+    return { history: await this.users.history(id) };
+  }
 }

@@ -1,6 +1,6 @@
 # Dependency version audit
 
-Registry metadata was checked on **2026-10-21 (Asia/Tokyo)** across all four workspace manifests. After removing the deprecated bcrypt types stub and adding PDFCN Forme and Noto Sans JP, there are **66 maintained packages across 79 declarations**. Of these, 65 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime.
+Registry metadata was checked on **2026-10-22 (Asia/Tokyo)** across all four workspace manifests. The current inventory includes PDFCN Forme, Noto Sans JP, Sharp and the read-only PDF.js renderer: **67 maintained packages across 80 declarations**. Of these, 66 use npm's latest stable release; `@types/node` uses the latest Node 24 release line to match the supported runtime. Nodemailer supplies its own declarations; the redundant `@types/nodemailer` package was removed.
 
 The `^` prefix permits compatible newer versions; it does not mean the installed version equals the minimum shown in `package.json`. The lockfile and installed package metadata establish the version actually used. React 19.3.1 and Tailwind CSS 4.3.3 were already installed at their current stable versions; their README badges and lower dependency bounds were outdated.
 
@@ -10,7 +10,7 @@ The `^` prefix permits compatible newer versions; it does not mean the installed
 | --- | --- | --- |
 | `@tanstack/react-query` | 5.104.4 | 5.104.5 |
 | `lucide-react` | 1.59.0 | 1.61.0 |
-| `motion` | 12.43.0 | 14.5.0 |
+| `motion` | 12.43.0 | 14.6.0 |
 | `oxfmt` | 0.73.0 | 0.74.0 |
 | `oxlint` | 1.88.0 | 1.89.0 |
 | `zod` | 3.25.76 | 4.6.7 |
@@ -26,7 +26,7 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | --- | --- | --- | --- |
 | [@fastify/cors](https://www.npmjs.com/package/@fastify/cors/v/11.3.1) | `^11.3.1` | 11.3.1 | backend |
 | [@fastify/helmet](https://www.npmjs.com/package/@fastify/helmet/v/13.2.0) | `^13.2.0` | 13.2.0 | backend |
-| [@fastify/static](https://www.npmjs.com/package/@fastify/static/v/10.1.6) | `^10.1.6` | 10.1.6 | backend |
+| [@fastify/static](https://www.npmjs.com/package/@fastify/static/v/10.1.7) | `^10.1.7` | 10.1.7 | backend |
 | [@floating-ui/react](https://www.npmjs.com/package/@floating-ui/react/v/0.27.20) | `0.27.20` | 0.27.20 | frontend |
 | [@formepdf/core](https://www.npmjs.com/package/@formepdf/core/v/0.28.0) | `0.28.0` | 0.28.0 | backend |
 | [@formepdf/react](https://www.npmjs.com/package/@formepdf/react/v/0.28.0) | `0.28.0` | 0.28.0 | backend |
@@ -47,7 +47,6 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [@tanstack/react-router](https://www.npmjs.com/package/@tanstack/react-router/v/1.170.45) | `^1.170.45` | 1.170.45 | frontend |
 | [@types/autocannon](https://www.npmjs.com/package/@types/autocannon/v/7.12.7) | `^7.12.7` | 7.12.7 | root |
 | [@types/node](https://www.npmjs.com/package/@types/node/v/24.19.2) | `^24.19.2` | 24.19.2 (Node 24) | root, backend |
-| [@types/nodemailer](https://www.npmjs.com/package/@types/nodemailer/v/8.0.2) | `^8.0.2` | 8.0.2 | backend |
 | [@types/passport-jwt](https://www.npmjs.com/package/@types/passport-jwt/v/4.0.1) | `^4.0.1` | 4.0.1 | backend |
 | [@types/react](https://www.npmjs.com/package/@types/react/v/19.3.0) | `^19.3.0` / `19.3.0` | 19.3.0 | frontend, backend |
 | [@types/react-dom](https://www.npmjs.com/package/@types/react-dom/v/19.3.0) | `^19.3.0` | 19.3.0 | frontend |
@@ -55,30 +54,32 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [autocannon](https://www.npmjs.com/package/autocannon/v/8.0.0) | `8.0.0` | 8.0.0 | backend |
 | [bcryptjs](https://www.npmjs.com/package/bcryptjs/v/3.0.3) | `^3.0.3` | 3.0.3 | backend |
 | [clsx](https://www.npmjs.com/package/clsx/v/2.1.1) | `^2.1.1` | 2.1.1 | frontend |
-| [devtools-protocol](https://www.npmjs.com/package/devtools-protocol/v/0.0.1723477) | `0.0.1723477` | 0.0.1723477 | root |
+| [devtools-protocol](https://www.npmjs.com/package/devtools-protocol/v/0.0.1724436) | `0.0.1724436` | 0.0.1724436 | root |
 | [dotenv](https://www.npmjs.com/package/dotenv/v/18.0.8) | `^18.0.8` | 18.0.8 | backend |
 | [fastify](https://www.npmjs.com/package/fastify/v/5.12.7) | `^5.12.7` | 5.12.7 | backend |
 | [helmet](https://www.npmjs.com/package/helmet/v/8.3.0) | `8.3.0` | 8.3.0 | backend |
 | [husky](https://www.npmjs.com/package/husky/v/9.1.7) | `^9.1.7` | 9.1.7 | root |
-| [i18next](https://www.npmjs.com/package/i18next/v/26.5.4) | `26.5.4` | 26.5.4 | frontend |
+| [i18next](https://www.npmjs.com/package/i18next/v/26.5.5) | `26.5.5` | 26.5.5 | frontend |
 | [lighthouse](https://www.npmjs.com/package/lighthouse/v/13.5.0) | `^13.5.0` | 13.5.0 | root |
 | [lint-staged](https://www.npmjs.com/package/lint-staged/v/17.6.0) | `^17.6.0` | 17.6.0 | root |
 | [lucide-react](https://www.npmjs.com/package/lucide-react/v/1.61.0) | `^1.61.0` | 1.61.0 | frontend |
 | [mongodb-memory-server](https://www.npmjs.com/package/mongodb-memory-server/v/11.3.0) | `11.3.0` | 11.3.0 | backend |
-| [mongoose](https://www.npmjs.com/package/mongoose/v/9.11.2) | `^9.11.2` | 9.11.2 | backend |
-| [motion](https://www.npmjs.com/package/motion/v/14.5.0) | `^14.5.0` | 14.5.0 | frontend |
-| [nodemailer](https://www.npmjs.com/package/nodemailer/v/10.1.7) | `^10.1.7` | 10.1.7 | backend |
+| [mongoose](https://www.npmjs.com/package/mongoose/v/9.11.3) | `^9.11.3` | 9.11.3 | backend |
+| [motion](https://www.npmjs.com/package/motion/v/14.6.0) | `^14.6.0` | 14.6.0 | frontend |
+| [nodemailer](https://www.npmjs.com/package/nodemailer/v/10.2.1) | `^10.2.1` | 10.2.1 | backend |
 | [oxc-parser](https://www.npmjs.com/package/oxc-parser/v/0.155.0) | `0.155.0` | 0.155.0 | root |
 | [oxfmt](https://www.npmjs.com/package/oxfmt/v/0.74.0) | `^0.74.0` | 0.74.0 | root |
 | [oxlint](https://www.npmjs.com/package/oxlint/v/1.89.0) | `^1.89.0` | 1.89.0 | root |
 | [oxlint-tsgolint](https://www.npmjs.com/package/oxlint-tsgolint/v/7.0.2004) | `^7.0.2004` | 7.0.2004 | root |
 | [passport](https://www.npmjs.com/package/passport/v/0.7.0) | `^0.7.0` | 0.7.0 | backend |
 | [passport-jwt](https://www.npmjs.com/package/passport-jwt/v/4.0.1) | `^4.0.1` | 4.0.1 | backend |
+| [pdfjs-dist](https://www.npmjs.com/package/pdfjs-dist/v/6.4.299) | `6.4.299` | 6.4.299 | frontend |
 | [react](https://www.npmjs.com/package/react/v/19.3.1) | `^19.3.1` / `19.3.1` | 19.3.1 | frontend, backend |
-| [react-i18next](https://www.npmjs.com/package/react-i18next/v/17.1.0) | `17.1.0` | 17.1.0 | frontend |
+| [react-i18next](https://www.npmjs.com/package/react-i18next/v/17.1.2) | `17.1.2` | 17.1.2 | frontend |
 | [react-dom](https://www.npmjs.com/package/react-dom/v/19.3.1) | `^19.3.1` | 19.3.1 | frontend |
 | [reflect-metadata](https://www.npmjs.com/package/reflect-metadata/v/0.2.2) | `^0.2.2` | 0.2.2 | backend |
 | [rxjs](https://www.npmjs.com/package/rxjs/v/7.8.2) | `^7.8.2` | 7.8.2 | backend |
+| [sharp](https://www.npmjs.com/package/sharp/v/0.35.5) | `0.35.5` | 0.35.5 | backend |
 | [socket.io](https://www.npmjs.com/package/socket.io/v/4.8.4) | `^4.8.4` | 4.8.4 | backend |
 | [socket.io-client](https://www.npmjs.com/package/socket.io-client/v/4.8.4) | `^4.8.4` | 4.8.4 | backend, frontend |
 | [tailwind-merge](https://www.npmjs.com/package/tailwind-merge/v/3.7.0) | `^3.7.0` | 3.7.0 | frontend |
@@ -89,12 +90,12 @@ Each release below was verified through the [npm registry](https://registry.npmj
 | [vite-plus](https://www.npmjs.com/package/vite-plus/v/1.3.0) | `^1.3.0` | 1.3.0 | root |
 | [vitest](https://www.npmjs.com/package/vitest/v/5.0.5) | `^5.0.5` | 5.0.5 | root, backend, frontend, shared |
 | [zod](https://www.npmjs.com/package/zod/v/4.6.7) | `^4.6.7` | 4.6.7 | backend, frontend, shared |
-| [zustand](https://www.npmjs.com/package/zustand/v/5.0.15) | `5.0.15` | 5.0.15 | frontend |
+| [zustand](https://www.npmjs.com/package/zustand/v/5.0.16) | `5.0.16` | 5.0.16 | frontend |
 
 ## Migration and compatibility notes
 
 - **Zod 4.6.7:** Updated native enums to `z.enum`, email formats to `z.email` after trimming/normalization, removed the old `ZodSchema` alias, and read errors through `issues`. Numeric schemas retain finite-number validation because Zod 4 rejects infinity by default. Server field-error response paths and inline client validation are preserved. See the [Zod migration guide](https://zod.dev/v4/changelog).
-- **Motion 14.5.0:** The follow-up npm check found 14.5.0 after the initial 14.4.0 update. Reviewed the [14.5.0 release](https://github.com/motiondivision/motion/releases/tag/v14.5.0), [upgrade guide](https://motion.dev/docs/react-upgrade-guide) and [LazyMotion API](https://motion.dev/docs/react-lazy-motion). Version 14 retains the public React APIs used here. Tracking uses native `m.div`, LazyMotion/domAnimation, reduced-motion handling and the documented motion/react-m entry point; no CSS-in-JS prop filtering integration is used.
+- **Motion 14.6.0:** The request 42 npm check found 14.6.0 after the earlier 14.5.0 update. Reviewed the current [upgrade guide](https://motion.dev/docs/react-upgrade-guide) and [LazyMotion API](https://motion.dev/docs/react-lazy-motion). Version 14 retains the public React APIs used here. Tracking uses native `m.div`, LazyMotion/domAnimation, reduced-motion handling and the documented motion/react-m entry point; no CSS-in-JS prop filtering integration is used.
 - **Tooling:** Oxlint 1.89.0 and Oxfmt 0.74.0 are explicit root tools. The installed Vite+ release is 1.3.0 and bundles its own tool versions. Source scripts use the standalone tools described in the README.
 - **Node:** The compatibility review corrected the initial Node 26 type upgrade to `@types/node` 24.19.2, the latest Node 24 types. The root `engines.node` declares `24.x`, matching the project runtime. DefinitelyTyped documents that declarations follow the corresponding library version. The dependency checker reports both the compatible target and the global npm latest version. See [DefinitelyTyped versioning](https://github.com/DefinitelyTyped/DefinitelyTyped#versioning).
 - **Known upstream peer warning:** `pnpm peers check` reports the Vite+ core alias version 1.3.0 against the Vite 6/7/8 peer ranges in its bundled Vitest 5.0.5 and `@vitest/mocker`. Vite+ documents the core alias in its [migration rules](https://viteplus.dev/guide/migrate-rules#vite-and-overrides), and the warning is tracked [upstream](https://github.com/voidzero-dev/vite-plus/issues/1101). The application and standalone runner resolve Vite 8.3.5.
@@ -103,14 +104,31 @@ Each release below was verified through the [npm registry](https://registry.npmj
 
 | Package | Official documentation | Integration checked |
 | --- | --- | --- |
-| `i18next` 26.5.4 | [TypeScript selectors](https://www.i18next.com/overview/typescript), [configuration](https://www.i18next.com/overview/configuration-options) | Typed selector lookup, `ui`/`food` namespaces, matching interpolation, English fallback, JSON key separators disabled and on-demand Japanese resources. React escapes rendered values. |
-| `react-i18next` 17.1.0 | [useTranslation](https://react.i18next.com/latest/usetranslation-hook) | Hook subscriptions update every translated component without remounting forms or resetting router/cart state. Initialization completes before mount. |
+| `i18next` 26.5.5 | [TypeScript selectors](https://www.i18next.com/overview/typescript), [configuration](https://www.i18next.com/overview/configuration-options) | Typed selector lookup, `ui`/`food` namespaces, matching interpolation, English fallback, JSON key separators disabled and on-demand Japanese resources. React escapes rendered values. |
+| `react-i18next` 17.1.2 | [useTranslation](https://react.i18next.com/latest/usetranslation-hook) | Hook subscriptions update every translated component without remounting forms or resetting router/cart state. Initialization completes before mount. |
 | `@floating-ui/react` 0.27.20 | [Tooltip](https://floating-ui.com/docs/tooltip), [ref merging](https://floating-ui.com/docs/react-utils#usemergerefs) | Hover/focus/Escape, ARIA descriptions, fixed positioning, offset/flip/shift, transition styles, mounted-only position updates and dialog-aware portals. Existing dropdown focus refs are merged through the documented hook. |
 | `oxc-parser` 0.155.0 | [Parser API](https://oxc.rs/docs/guide/usage/parser.html) | `parseSync` parses TSX for the translation coverage gate; maintained tooling remains TypeScript and is checked separately. |
 
 The follow-up registry check found [Vite 8.3.5](https://github.com/vitejs/vite/releases/tag/v8.3.5) and [Lucide 1.61.0](https://github.com/lucide-icons/lucide/releases/tag/1.61.0). Vite's build/HMR fixes preserve the documented `transformWithOxc`, proxy and plugin APIs used here. Lucide adds icons and retains the [named React component API](https://lucide.dev/guide/react). Both root/frontend Vite declarations and the frontend icon declaration were updated before browser verification.
 
-A later check found i18next 26.5.4. Its [versioned maintainer changelog](https://github.com/i18next/i18next/blob/v26.5.4/CHANGELOG.md) fixes interpolation values containing placeholder syntax and non-string raw values; the typed selector/resource API remains supported. This patch was installed before the final type, source and browser checks.
+The request 42 check updates i18next to 26.5.5 and react-i18next to 17.1.1. The current [i18next API](https://www.i18next.com/overview/api) and [useTranslation hook](https://react.i18next.com/latest/usetranslation-hook) retain the typed selector/resource, initialization and language-subscription APIs used here. The application awaits initialization, loads Japanese resources before changing language and keeps React forms mounted.
+
+### Request 42 registry and API recheck
+
+Eight direct packages had newer releases on the fresh registry check:
+
+| Package | Previous | Current | Compatibility evidence |
+| --- | --- | --- | --- |
+| `@fastify/static` | 10.1.6 | 10.1.7 | [Maintainer API and Fastify 5 compatibility](https://github.com/fastify/fastify-static); production SPA and compressed-asset checks. |
+| `mongoose` | 9.11.2 | 9.11.3 | Current [atomic update API](https://mongoosejs.com/docs/tutorials/findoneandupdate.html), `returnDocument: 'after'`, conditional profile/order updates and actual MongoDB integration checks. |
+| `nodemailer` | 10.1.7 | 10.2.0 | [Release notes](https://github.com/nodemailer/nodemailer/releases/tag/v10.2.0) add optional SMTP metadata/pool/error features; the existing transport/sendMail API remains in use. |
+| `motion` | 14.5.0 | 14.6.0 | Current React upgrade/LazyMotion guidance above; reduced-motion and browser animation checks. |
+| `zustand` | 5.0.15 | 5.0.16 | [Maintainer release notes](https://github.com/pmndrs/zustand/releases/tag/v5.0.16) describe React snapshot and middleware fixes; vanilla stores plus `useStore` remain supported. |
+| `i18next` | 26.5.4 | 26.5.5 | Current initialization, resource and language APIs above; EN/JA type/source/browser checks. |
+| `react-i18next` | 17.1.0 | 17.1.1 | Current hook/namespace APIs above; language changes retain form/cart/router state. |
+| `devtools-protocol` | 0.0.1723477 | 0.0.1724436 | [Official generated protocol declarations](https://github.com/ChromeDevTools/devtools-protocol); strict tooling types and actual Chrome commands. |
+
+Node declarations continue to follow the supported Node 24 line. No required application API migration was identified for these updates. Current version tables, README badges and repository skills were synchronized; historical measurements keep the versions used at measurement time.
 
 ## Repeat the check
 
@@ -122,17 +140,25 @@ node scripts/check-dependencies.ts --json
 
 The check reads the four maintained manifests, queries npm, and compares both installed versions and declared minimums. Node types follow the single-major runtime declared in the root `engines.node`; other packages follow npm latest. It returns a failing exit code for outdated, missing, or deprecated direct dependencies. Run it after installing dependencies. Latest-release checks need network access; the normal test and typecheck gates remain local.
 
+### Final review patch updates (2026-10-22)
+
+The later registry check found Nodemailer **10.2.1** and react-i18next **17.1.2**. Their installed official package changelogs were reviewed because the web copies still showed older releases. Nodemailer's [10.2.1 changelog](https://github.com/nodemailer/nodemailer/blob/v10.2.1/CHANGELOG.md) fixes MIME header comment stripping; the configured SMTP/sendMail API remains supported. Its [maintainer README](https://github.com/nodemailer/nodemailer/blob/v10.2.1/README.md) confirms bundled TypeScript declarations and recommends removing `@types/nodemailer`, which has been removed here. react-i18next's [17.1.2 changelog](https://github.com/i18next/react-i18next/blob/v17.1.2/CHANGELOG.md) fixes indexed child fallback in Trans; this application uses the supported useTranslation selector API and needs no Trans migration.
+
+The review also corrected the cart's account-switch fallback to return a stable array, following the [Zustand v5 selector requirement](https://github.com/pmndrs/zustand/blob/main/docs/reference/migrations/migrating-to-v5.md). Checkout note limits use the shared Zod contract on client and server; UTF-16 measurement matches the input's maxlength, including emoji, rather than assuming Zod's current code-point length check matches HTML.
+
 Review migration notes before accepting a future major release. Regenerate the lockfile with pnpm, then run typecheck, tests, builds, formatting/lint, and relevant browser/runtime checks. See the [verification report](IMPLEMENTATION_AND_VERIFICATION_REPORT.md) for application verification.
 
 ## Upgrade verification
 
-- `pnpm deps:check`: 63 packages across 74 declarations; all installed versions and declared minimums match their targets, with no deprecated direct packages. The Node 24 type target is reported explicitly.
+- `pnpm deps:check`: 67 packages across 80 declarations; all installed versions and declared minimums match their targets, with no deprecated direct packages. The Node 24 type target is reported explicitly.
 - Typechecking, source/HTTP tests and production builds are recorded in the current verification report. The additional real MongoDB/Socket.IO and browser suites are separate commands.
 - `pnpm lint`: zero errors, including the deprecated API rule; the existing warning backlog remains.
 - `pnpm audit --json`: zero reported vulnerabilities across the resolved dependency tree.
 - The expanded isolated production-browser suite drives customer registration/checkout/history, real HttpOnly refresh, admin user editing, courier requests/approval/status/GPS/cancellation, persistent navigation, loading/dark/responsive states, CSP/assets and Vite restart recovery. It creates and advances only synthetic test orders.
 
 ## Official documentation compatibility review
+
+The 2026-10-22 follow-up checked [PDF.js examples](https://mozilla.github.io/pdf.js/examples/) and its [current source API](https://github.com/mozilla/pdf.js/blob/master/src/display/api.js), plus Sharp's [constructor](https://sharp.pixelplumbing.com/api-constructor/) and [resize](https://sharp.pixelplumbing.com/api-resize/) documentation. PDF.js 6.4.299 renders authenticated receipt bytes on canvases with a matching local worker; it provides no editing or annotation controls. It is lazy-loaded when the preview opens. The implementation uses the current canvas render options and cancels/destroys tasks on closure. Sharp 0.35.5 is a runtime dependency because authenticated profile uploads are decoded, bounded by configured byte/pixel limits, rotated, stripped of metadata and re-encoded as private WebP images. Receipt generation still uses PDFCN/Forme 0.28.0; trusted catalog images are passed as data URIs and the totals use an explicit right-aligned flex row, following the [Forme component reference](https://docs.formepdf.com/components).
 
 Reviewed the package APIs used by the application against current maintainer documentation and release notes on 2026-10-20. The installed-package upgrades and the packages whose minimum ranges were refreshed are covered below. Supported existing APIs remain valid; adopting optional new features is a product decision.
 
@@ -147,7 +173,7 @@ Reviewed the package APIs used by the application against current maintainer doc
 
 | Packages | Official source | Usage and finding |
 | --- | --- | --- |
-| `motion` 14.5.0 | [Upgrade guide](https://motion.dev/docs/react-upgrade-guide), [MotionConfig](https://motion.dev/docs/react-motion-config), [accessibility](https://motion.dev/docs/react-accessibility) | Tracking now uses LazyMotion/domAnimation with motion/react-m, reduced-motion handling and spring interpolation. The menu does not load tracking animations. No CSS-in-JS prop filtering integration is used. |
+| `motion` 14.6.0 | [Upgrade guide](https://motion.dev/docs/react-upgrade-guide), [MotionConfig](https://motion.dev/docs/react-motion-config), [accessibility](https://motion.dev/docs/react-accessibility) | Tracking now uses LazyMotion/domAnimation with motion/react-m, reduced-motion handling and spring interpolation. The menu does not load tracking animations. No CSS-in-JS prop filtering integration is used. |
 | `zod` 4.6.7 | [Migration guide](https://zod.dev/v4/changelog), [schema API](https://zod.dev/api) | Checked issues, numeric bounds, defaults/transforms, coercion, enums, email normalization, refinements, and generic schema types. Existing field-error HTTP contracts and finite-value checks pass. |
 | `@tanstack/react-query` 5.104.5 | [Patch release](https://github.com/TanStack/query/releases/tag/%40tanstack%2Freact-query%405.104.5), [QueryClient](https://tanstack.com/query/latest/docs/framework/react/reference/classes/QueryClient) | Uses object query options, immutable cache updates, invalidation/removal filters, and current `queryClient.query`. The patch's mutation-selector fix requires no migration in this app. |
 | `lucide-react` 1.61.0 | [React guide](https://lucide.dev/guide/react), [release](https://github.com/lucide-icons/lucide/releases/tag/1.61.0) | Static named icon components and SVG props remain supported; imports compile and UI icons render. |
@@ -178,8 +204,8 @@ The current verification results are recorded in [IMPLEMENTATION_AND_VERIFICATIO
 
 | Package | Official documentation | Integration checked |
 | --- | --- | --- |
-| `@fastify/static` 10.1.6 | [Maintainer API](https://github.com/fastify/fastify-static) | Fastify 5 compatibility, setHeaders receives FastifyReply (`header`), preCompressed assets, safe SPA fallback and immutable hashed paths. |
-| `nodemailer` 10.1.7 / `@types/nodemailer` 8.0.2 | [SMTP](https://nodemailer.com/smtp), [usage](https://nodemailer.com/usage) | SMTP transport, required STARTTLS/implicit TLS options, bounded timeouts, disabled file/URL access and awaited sendMail. Current maintained declarations compile; integration tests mock delivery. |
+| `@fastify/static` 10.1.7 | [Maintainer API](https://github.com/fastify/fastify-static) | Fastify 5 compatibility, setHeaders receives FastifyReply (`header`), preCompressed assets, safe SPA fallback and immutable hashed paths. |
+| `nodemailer` 10.2.1 | [Maintainer README](https://github.com/nodemailer/nodemailer/blob/v10.2.1/README.md), [SMTP](https://nodemailer.com/smtp) | SMTP transport, required STARTTLS/implicit TLS options, bounded timeouts, disabled file/URL access and awaited sendMail. Uses bundled declarations; the maintainer recommends removing `@types/nodemailer` on v10. Integration tests mock delivery. |
 | `mongodb-memory-server` 11.3.0 | [API](https://typegoose.github.io/mongodb-memory-server/docs/api/classes/mongo-memory-server/) | Isolated fixtures, persistent stop/restart with start(true), cleanup and on-demand binary download. No development database mutations. |
 | `lighthouse` 13.5.0 | [Maintainer API](https://github.com/GoogleChrome/lighthouse) | Compiled production app, isolated real browser/authentication, cold-cache mobile/desktop measurements and sanitized saved summaries. |
 | Backend `socket.io-client` 4.8.4 | [TypeScript](https://socket.io/docs/v4/typescript/) | Public io/Socket imports replace ambient declarations; transports/on/once compile and real socket tests execute. |
@@ -188,7 +214,7 @@ The current verification results are recorded in [IMPLEMENTATION_AND_VERIFICATIO
 
 ### TypeScript tooling APIs
 
-The root now declares `@types/node` 24.19.2 for its own scripts, `@types/autocannon` 7.12.7 for the maintained callback/result API and Chromium's `devtools-protocol` 0.0.1723477 for browser commands/events. These are development-only dependencies. [Native Node TypeScript](https://nodejs.org/docs/latest-v24.x/api/typescript.html) requires erasable syntax and explicit type imports; strict compiler checks run separately. Browser geolocation permission setup uses the current [Browser.setPermission command](https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-setPermission) instead of deprecated grantPermissions. The theme initializer uses [Vite transformWithOxc](https://vite.dev/guide/api-javascript.html#transformwithoxc), with no deprecated esbuild transform.
+The root now declares `@types/node` 24.19.2 for its own scripts, `@types/autocannon` 7.12.7 for the maintained callback/result API and Chromium's `devtools-protocol` 0.0.1724436 for browser commands/events. These are development-only dependencies. [Native Node TypeScript](https://nodejs.org/docs/latest-v24.x/api/typescript.html) requires erasable syntax and explicit type imports; strict compiler checks run separately. Browser geolocation permission setup uses the current [Browser.setPermission command](https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-setPermission) instead of deprecated grantPermissions. The theme initializer uses [Vite transformWithOxc](https://vite.dev/guide/api-javascript.html#transformwithoxc), with no deprecated esbuild transform.
 
 ### Transitive dependency security fix
 

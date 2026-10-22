@@ -39,7 +39,12 @@ export const CreateOrderSchema = z.object({
     .max(50, 'Choose at most 50 items'),
   deliveryAddress: DeliveryAddressSchema,
   deliveryCoordinates: CoordinatesSchema.optional(),
-  note: z.string().optional(),
+  note: z
+    .string()
+    .trim()
+    // Match the browser's maxlength measurement, including UTF-16 surrogate pairs.
+    .refine((value) => value.length <= 500, 'Use at most 500 characters')
+    .optional(),
 });
 
 export type CreateOrderDto = z.infer<typeof CreateOrderSchema>;

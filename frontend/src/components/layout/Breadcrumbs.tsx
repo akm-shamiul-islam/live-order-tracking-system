@@ -34,6 +34,8 @@ export function Breadcrumbs() {
       '/dispatch': 'Dispatch Station',
       '/users': 'Users',
       '/account': 'My Account',
+      '/profile': 'Profile',
+      '/notifications': 'Notifications',
     };
     crumbs.push({ label: labels[pathname] ?? 'Page Not Found' });
   }

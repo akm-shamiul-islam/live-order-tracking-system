@@ -1,5 +1,6 @@
 // Only the isolated tooling parent starts this child; development data is never used.
 import 'reflect-metadata';
+import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { NestFactory } from '@nestjs/core';
 import { getModelToken } from '@nestjs/mongoose';
@@ -31,6 +32,7 @@ interface BackendModules {
   'database/schemas/auth-session.schema': typeof import('../src/database/schemas/auth-session.schema.ts');
   'orders/orders.service': typeof import('../src/orders/orders.service.ts');
   'auth/auth.service': typeof import('../src/auth/auth.service.ts');
+  'auth/auth-otp.service': typeof import('../src/auth/auth-otp.service.ts');
   'common/cors': typeof import('../src/common/cors.ts');
   'common/socket-adapter': typeof import('../src/common/socket-adapter.ts');
   'common/client-address': typeof import('../src/common/client-address.ts');
@@ -51,6 +53,7 @@ const { Order } = await importBuilt('database/schemas/order.schema');
 const { AuthSession } = await importBuilt('database/schemas/auth-session.schema');
 const { OrdersService } = await importBuilt('orders/orders.service');
 const { AuthService } = await importBuilt('auth/auth.service');
+const { AuthOtpService } = await importBuilt('auth/auth-otp.service');
 const { allowedOrigins } = await importBuilt('common/cors');
 const { BoundedSocketAdapter } = await importBuilt('common/socket-adapter');
 let app: INestApplication | undefined;
@@ -169,7 +172,18 @@ try {
     }
     await service.assignCourier(first.id, courier._id.toString(), actor);
   }
-  const auth = await app.get(AuthService).login({ email: 'dispatcher@example.test', password });
+  const deviceId = randomUUID();
+  const otp = app.get(AuthOtpService);
+  await users.updateOne(
+    { email: 'dispatcher@example.test' },
+    { $set: { trustedDeviceHashes: [otp.hashDeviceId(deviceId)] } },
+  );
+  const login = await app.get(AuthService).login({
+    email: 'dispatcher@example.test',
+    password,
+    deviceId,
+  });
+  if (!('refreshToken' in login)) throw new Error('The isolated admin fixture was not trusted.');
   const database = users.db.db;
   if (!database) throw new Error('The isolated database is unavailable.');
   const info = await database.admin().command({ buildInfo: 1 });
@@ -180,8 +194,8 @@ try {
   const ready: RuntimeReady = {
     type: 'ready',
     base: await app.getUrl(),
-    token: auth.accessToken,
-    user: auth.user,
+    token: login.accessToken,
+    user: login.user,
     trackingId,
     orderId,
     versions: {

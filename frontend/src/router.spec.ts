@@ -9,6 +9,8 @@ describe('Application URLs', () => {
     { url: '/tracking', params: {}, staff: false },
     { url: '/tracking/KTD-1234', params: { orderId: 'KTD-1234' }, staff: false },
     { url: '/orders', params: {}, staff: false },
+    { url: '/account/forgot', params: {}, staff: false },
+    { url: '/account/reset#token=reset_abc', params: {}, staff: false },
     { url: '/dispatch', params: {}, staff: true },
     { url: '/courier', params: {}, staff: true },
     {
@@ -23,7 +25,8 @@ describe('Application URLs', () => {
     });
     await router.load();
     expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
-    expect(router.state.matches.at(-1)?.pathname.replace(/\/$/, '') || '/').toBe(url);
+    expect(router.state.matches.at(-1)?.pathname.replace(/\/$/, '') || '/').toBe(url.split('#')[0]);
+    expect(router.state.location.hash).toBe(url.split('#')[1] ?? '');
     expect(router.state.matches.some((match) => match.routeId === '/staff')).toBe(staff);
     expect(router.state.matches.at(-1)?.params).toEqual(params);
   });
@@ -46,12 +49,13 @@ describe('Application URLs', () => {
     const router = createRouter({
       routeTree,
       history: createMemoryHistory({
-        initialEntries: ['/dispatch?status=PREPARING&q=Shamiul&page=3&size=25'],
+        initialEntries: ['/dispatch?status=PREPARING&assignment=ASSIGNED&q=Shamiul&page=3&size=25'],
       }),
     });
     await router.load();
     expect(router.state.matches.at(-1)?.search).toEqual({
       status: 'PREPARING',
+      assignment: 'ASSIGNED',
       q: 'Shamiul',
       page: 3,
       size: 25,
@@ -70,6 +74,28 @@ describe('Application URLs', () => {
     router.history.replace(canonicalUrl);
     await router.load();
     expect(router.state.matches.at(-1)?.search).toEqual({ category: 'all', page: 1, size: 8 });
+  });
+
+  it('restores notification search, review status and pagination from a shared URL', async () => {
+    const router = createRouter({
+      routeTree,
+      history: createMemoryHistory({
+        initialEntries: ['/notifications?status=APPROVED&q=Courier&page=2&size=25'],
+      }),
+    });
+    await router.load();
+    expect(router.state.matches.at(-1)?.search).toEqual({
+      status: 'APPROVED',
+      q: 'Courier',
+      page: 2,
+      size: 25,
+    });
+    expect(
+      router.buildLocation({
+        to: '/notifications',
+        search: { status: 'ALL', q: '', page: 1, size: 10 },
+      }).href,
+    ).toBe('/notifications');
   });
 
   it('matches only the root not-found boundary for unknown pages', async () => {

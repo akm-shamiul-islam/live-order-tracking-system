@@ -90,28 +90,45 @@ export function ExampleListPage() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th scope="col" className="py-3.5 px-4 text-center">ID</th>
-                <th scope="col" className="py-3.5 px-4">Title</th>
-                <th scope="col" className="py-3.5 px-4 text-center">Status</th>
-                <th scope="col" className="py-3.5 px-4 text-center">Actions</th>
+                <th scope="col" className="py-3.5 px-4 text-center">
+                  ID
+                </th>
+                <th scope="col" className="py-3.5 px-4">
+                  Title
+                </th>
+                <th scope="col" className="py-3.5 px-4 text-center">
+                  Status
+                </th>
+                <th scope="col" className="py-3.5 px-4 text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-12 text-slate-400">Loading records…</td>
+                  <td colSpan={4} className="text-center py-12 text-slate-400">
+                    Loading records…
+                  </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-12 text-slate-400">No records found.</td>
+                  <td colSpan={4} className="text-center py-12 text-slate-400">
+                    No records found.
+                  </td>
                 </tr>
               ) : (
-                items.map((item: any) => (
-                  <tr key={item.id} className="hover:bg-teal-50/40 dark:hover:bg-slate-800/30 transition-colors">
+                items.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-teal-50/40 dark:hover:bg-slate-800/30 transition-colors"
+                  >
                     <td className="py-4 px-4 font-mono font-bold text-teal-600 dark:text-teal-400 text-center">
                       {item.id}
                     </td>
-                    <td className="py-4 px-4 font-medium text-slate-900 dark:text-slate-100">{item.title}</td>
+                    <td className="py-4 px-4 font-medium text-slate-900 dark:text-slate-100">
+                      {item.title}
+                    </td>
                     <td className="py-4 px-4 text-center">{item.status}</td>
                     <td className="py-4 px-4 text-center">
                       <button className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
@@ -131,7 +148,9 @@ export function ExampleListPage() {
         pagination={pagination}
         disabled={isFetching}
         onPageChange={(next) => void navigate({ search: (prev) => ({ ...prev, page: next }) })}
-        onPageSizeChange={(next) => void navigate({ search: (prev) => ({ ...prev, size: next, page: 1 }) })}
+        onPageSizeChange={(next) =>
+          void navigate({ search: (prev) => ({ ...prev, size: next, page: 1 }) })
+        }
       />
     </div>
   );

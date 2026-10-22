@@ -57,7 +57,7 @@ export interface ClientToServerEvents {
   /** Leave an order tracking room */
   'order:leave': (payload: { orderId: string }) => void;
 
-  /** Dispatch or Admin advances the order status */
+  /** Dispatch or Admin advances the Order Status */
   'order:update_status': (
     payload: { orderId: string; status: OrderStatus; note?: string },
     callback?: (ack: { ok: boolean; error?: string; order?: OrderDetails }) => void,

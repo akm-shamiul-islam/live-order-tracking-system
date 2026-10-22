@@ -61,7 +61,7 @@ export class FrontendHttpAdapter extends FastifyAdapter {
         !path.split('/').at(-1)?.includes('.')
       ) {
         const known =
-          /^\/(?:$|orders\/?$|users\/?$|dispatch\/?$|(?:tracking|courier)(?:\/[^/]+)?\/?$|account(?:\/(?:register|forgot|reset))?\/?$)/.test(
+          /^\/(?:$|(?:orders|users|dispatch|profile|notifications)\/?$|(?:tracking|courier)(?:\/[^/]+)?\/?$|account(?:\/(?:register|forgot|reset))?\/?$)/.test(
             path,
           );
         return reply.code(known ? 200 : 404).sendFile('index.html');

@@ -17,9 +17,13 @@ export function PageMetadata() {
               ? 'Your Orders'
               : path.startsWith('/tracking')
                 ? 'Track Your Order'
-                : path.startsWith('/account')
-                  ? 'Your Account'
-                  : 'Page Not Found';
+                : path === '/profile'
+                  ? 'Profile'
+                  : path === '/notifications'
+                    ? 'Notifications'
+                    : path.startsWith('/account')
+                      ? 'Your Account'
+                      : 'Page Not Found';
   return (
     <>
       <title>{`${c(page)} | KitchenToDoor`}</title>

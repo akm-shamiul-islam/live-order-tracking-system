@@ -5,6 +5,9 @@ import {
   OrderStatus,
   UserSummary,
   AuthResponseSchema,
+  AuthChallengeResponseSchema,
+  AuthFlowResponseSchema,
+  PasswordResetGrantSchema,
   PublicConfigSchema,
   type PublicConfig,
   type AvailableDelivery,
@@ -14,8 +17,21 @@ import {
   type UpdateUserDto,
   type UserRole,
   type Language,
+  type AuthFlowResponse,
+  type AuthChallengeResponse,
   LanguagePreferenceResponseSchema,
   type LanguagePreference,
+  ProfileResponseSchema,
+  ProfileChangeSchema,
+  type ProfileResponse,
+  type ProfileChange,
+  type UpdateProfileDto,
+  type ProfileDecisionDto,
+  type NotificationPage,
+  NotificationQuerySchema,
+  type NotificationQuery,
+  UserManagementHistorySchema,
+  type UserManagementHistory,
 } from '@kitchentodoor/shared';
 import {
   clearSession,
@@ -23,6 +39,7 @@ import {
   saveSession,
   synchronizeStoredSession,
   logoutFeedbackStore,
+  authProgressStore,
 } from './authSession';
 import { clientSettings } from './clientSettings';
 import { getCheckoutAttempt, completeCheckoutAttempt } from './checkoutAttempt';
@@ -47,12 +64,37 @@ function withSessionLock<T>(run: () => Promise<T>): Promise<T> {
   return result;
 }
 
+function getDeviceId(): string {
+  const key = 'kitchentodoor.device-id';
+  try {
+    const existing = localStorage.getItem(key);
+    if (
+      existing &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)
+    )
+      return existing;
+    const id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function parseAuthFlowResponse(data: unknown): AuthFlowResponse {
+  const parsed = AuthFlowResponseSchema.safeParse(data);
+  if (!parsed.success)
+    throw new ApiError('The service returned an unexpected response. Please try again.', 502);
+  return parsed.data;
+}
+
 function authenticate(
   path: 'login' | 'register',
   body: Record<string, string>,
-): Promise<AuthResponse> {
+): Promise<AuthFlowResponse> {
   const intent = ++authIntent;
   const before = getSession();
+  authProgressStore.setState({ action: path, intent });
   return withSessionLock(async () => {
     synchronizeStoredSession();
     const isCurrent = () =>
@@ -64,11 +106,48 @@ function authenticate(
       method: 'POST',
       body: JSON.stringify(body),
     });
-    const auth = parseAuthResponse(await handleResponse<unknown>(res));
+    const result = parseAuthFlowResponse(await handleResponse<unknown>(res));
+    if (!isCurrent()) throw new ApiError('This sign-in was cancelled. Please try again.', 409);
+    if ('accessToken' in result) {
+      saveSession(result);
+      logoutFeedbackStore.setState({ failed: false });
+    } else {
+      clearSession();
+    }
+    return result;
+  }).finally(() => {
+    if (authProgressStore.getState().intent === intent)
+      authProgressStore.setState({ action: null });
+  });
+}
+
+function verifyAuthentication(
+  path: 'email/verify' | 'login/verify',
+  challengeId: string,
+  code: string,
+): Promise<AuthResponse> {
+  const intent = ++authIntent;
+  const before = getSession();
+  authProgressStore.setState({ action: 'login', intent });
+  return withSessionLock(async () => {
+    synchronizeStoredSession();
+    const isCurrent = () =>
+      intent === authIntent &&
+      getSession().token === before.token &&
+      getSession().user?.id === before.user?.id;
+    if (!isCurrent()) throw new ApiError('This sign-in was cancelled. Please try again.', 409);
+    const response = await request(`${API_BASE}/auth/${path}`, {
+      method: 'POST',
+      body: JSON.stringify({ challengeId, code, deviceId: getDeviceId() }),
+    });
+    const auth = parseAuthResponse(await handleResponse<unknown>(response));
     if (!isCurrent()) throw new ApiError('This sign-in was cancelled. Please try again.', 409);
     saveSession(auth);
     logoutFeedbackStore.setState({ failed: false });
     return auth;
+  }).finally(() => {
+    if (authProgressStore.getState().intent === intent)
+      authProgressStore.setState({ action: null });
   });
 }
 
@@ -249,14 +328,58 @@ export const api = {
     },
   },
   auth: {
-    async forgotPassword(email: string): Promise<void> {
-      await handleResponse(
-        await request(`${API_BASE}/auth/forgot-password`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }),
+    async forgotPassword(email: string): Promise<AuthChallengeResponse> {
+      return AuthChallengeResponseSchema.parse(
+        await handleResponse<unknown>(
+          await request(`${API_BASE}/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          }),
+        ),
       );
+    },
+
+    async resendOtp(challengeId: string): Promise<AuthChallengeResponse> {
+      return AuthChallengeResponseSchema.parse(
+        await handleResponse<unknown>(
+          await request(`${API_BASE}/auth/otp/resend`, {
+            method: 'POST',
+            body: JSON.stringify({ challengeId }),
+          }),
+        ),
+      );
+    },
+
+    async requestEmailVerification(email: string): Promise<AuthChallengeResponse> {
+      return AuthChallengeResponseSchema.parse(
+        await handleResponse<unknown>(
+          await request(`${API_BASE}/auth/email/verification/request`, {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+          }),
+        ),
+      );
+    },
+
+    verifyEmail(challengeId: string, code: string): Promise<AuthResponse> {
+      return verifyAuthentication('email/verify', challengeId, code);
+    },
+
+    verifyLogin(challengeId: string, code: string): Promise<AuthResponse> {
+      return verifyAuthentication('login/verify', challengeId, code);
+    },
+
+    async verifyPasswordReset(challengeId: string, code: string): Promise<string> {
+      const grant = PasswordResetGrantSchema.parse(
+        await handleResponse<unknown>(
+          await request(`${API_BASE}/auth/reset-password/verify`, {
+            method: 'POST',
+            body: JSON.stringify({ challengeId, code }),
+          }),
+        ),
+      );
+      return grant.resetToken;
     },
 
     async resetPassword(token: string, password: string, confirmPassword: string): Promise<void> {
@@ -272,8 +395,8 @@ export const api = {
         clearSession();
       });
     },
-    login(email: string, pass: string): Promise<AuthResponse> {
-      return authenticate('login', { email, password: pass });
+    login(email: string, pass: string): Promise<AuthFlowResponse> {
+      return authenticate('login', { email, password: pass, deviceId: getDeviceId() });
     },
 
     async register(
@@ -282,13 +405,15 @@ export const api = {
       pass: string,
       phone: string,
       address?: string,
-    ): Promise<AuthResponse> {
+      photo?: string,
+    ): Promise<AuthFlowResponse> {
       return authenticate('register', {
         name,
         email,
         password: pass,
         phone,
         ...(address ? { address } : {}),
+        ...(photo ? { photo } : {}),
         language: getDesiredLanguage(),
       });
     },
@@ -317,7 +442,8 @@ export const api = {
 
     logout() {
       const headers = getHeaders();
-      ++authIntent;
+      const intent = ++authIntent;
+      authProgressStore.setState({ action: 'logout', intent });
       clearSession();
       logoutFeedbackStore.setState({ failed: false, pending: true });
       return withSessionLock(async () => {
@@ -335,6 +461,8 @@ export const api = {
           // for the shared lock. Clear that saved state after revocation as well.
           clearSession();
           logoutFeedbackStore.setState({ pending: false });
+          if (authProgressStore.getState().intent === intent)
+            authProgressStore.setState({ action: null });
         }
       });
     },
@@ -390,11 +518,12 @@ export const api = {
       return data.order;
     },
     async create(dto: CreateOrderDto): Promise<{ success: boolean; order: OrderDetails }> {
+      const intent = authIntent;
       const ownerId = getSession().user?.id;
       if (!ownerId) throw new ApiError('Sign in before placing an order.', 401);
       const attempt = await getCheckoutAttempt(ownerId, dto);
-      if (getSession().user?.id !== ownerId)
-        throw new ApiError('Your account changed. Sign in and try again.', 401);
+      if (intent !== authIntent || getSession().user?.id !== ownerId)
+        throw new ApiError('Your account changed. Sign in and try again.', 409);
       const res = await request(`${API_BASE}/orders`, {
         method: 'POST',
         headers: { ...getHeaders(), 'Idempotency-Key': attempt.key },
@@ -402,6 +531,10 @@ export const api = {
       });
       const result = await handleResponse<{ success: boolean; order: OrderDetails }>(res);
       completeCheckoutAttempt(attempt.key);
+      // A saved order belongs to the original checkout. Its late response must not
+      // clear another session's cart or navigate that session to the previous order.
+      if (intent !== authIntent || getSession().user?.id !== ownerId || !getSession().token)
+        throw new ApiError('Your account changed. Sign in and try again.', 409);
       return result;
     },
 
@@ -440,17 +573,20 @@ export const api = {
 
     async getPage({
       status,
+      assignment,
       search,
       page,
       pageSize,
     }: {
       status?: string;
+      assignment?: 'ALL' | 'ASSIGNED' | 'UNASSIGNED';
       search?: string;
       page: number;
       pageSize: number;
     }): Promise<import('@kitchentodoor/shared').OrderPage> {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (status) params.set('status', status);
+      if (assignment && assignment !== 'ALL') params.set('assignment', assignment);
       if (search) params.set('search', search);
       const res = await request(`${API_BASE}/orders?${params}`, { headers: getHeaders() });
       return handleResponse<import('@kitchentodoor/shared').OrderPage>(res);
@@ -461,10 +597,12 @@ export const api = {
       page: number,
       pageSize: number,
       q = '',
+      status?: string,
     ): Promise<import('@kitchentodoor/shared').OrderPage> {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (phone) params.set('phone', phone);
       if (q) params.set('q', q);
+      if (status) params.set('status', status);
       const res = await request(`${API_BASE}/orders/my-orders?${params}`, {
         headers: getHeaders(),
       });
@@ -533,6 +671,14 @@ export const api = {
     },
   },
   users: {
+    async history(id: string): Promise<UserManagementHistory[]> {
+      const result = await handleResponse<{ history: unknown[] }>(
+        await request(`${API_BASE}/users/${encodeURIComponent(id)}/history`, {
+          headers: getHeaders(),
+        }),
+      );
+      return result.history.map((item) => UserManagementHistorySchema.parse(item));
+    },
     async list(page: number, pageSize: number, q = '', role?: UserRole): Promise<UserPage> {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize), q });
       if (role) params.set('role', role);
@@ -549,6 +695,114 @@ export const api = {
         }),
       );
       return data.user;
+    },
+  },
+  profile: {
+    async get(): Promise<ProfileResponse> {
+      return ProfileResponseSchema.parse(
+        await handleResponse(await request(`${API_BASE}/profile`, { headers: getHeaders() })),
+      );
+    },
+    async update(
+      body: UpdateProfileDto,
+    ): Promise<{ change: ProfileChange; profile: ProfileResponse }> {
+      const result = await handleResponse<{ change: unknown; profile: unknown }>(
+        await request(`${API_BASE}/profile`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify(body),
+        }),
+      );
+      return {
+        change: ProfileChangeSchema.parse(result.change),
+        profile: ProfileResponseSchema.parse(result.profile),
+      };
+    },
+    async photo(id: string, signal?: AbortSignal): Promise<string> {
+      const owner = getSession().user?.id;
+      const response = await request(`${API_BASE}/profile/photos/${encodeURIComponent(id)}`, {
+        headers: getHeaders(),
+        signal,
+      });
+      if (!response.ok) await handleResponse(response);
+      if (!response.headers.get('Content-Type')?.startsWith('image/webp'))
+        throw new ApiError('The photo could not be loaded.', 502);
+      const blob = await response.blob();
+      if (!owner || getSession().user?.id !== owner)
+        throw new ApiError('Your account changed. Sign in and try again.', 409);
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener(
+          'load',
+          () =>
+            typeof reader.result === 'string'
+              ? resolve(reader.result)
+              : reject(new Error('The photo could not be loaded.')),
+          { once: true },
+        );
+        reader.addEventListener(
+          'error',
+          () => reject(new Error('The photo could not be loaded.')),
+          { once: true },
+        );
+        reader.readAsDataURL(blob);
+      });
+    },
+  },
+  notifications: {
+    async list(options: Partial<NotificationQuery> = {}): Promise<NotificationPage> {
+      const { page, limit, status, userId, q, view } = NotificationQuerySchema.parse(options);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+        q,
+        view,
+        ...(status ? { status } : {}),
+        ...(userId ? { userId } : {}),
+      });
+      const result = await handleResponse<NotificationPage>(
+        await request(`${API_BASE}/notifications?${params}`, { headers: getHeaders() }),
+      );
+      return {
+        ...result,
+        notifications: result.notifications.map((item) => ProfileChangeSchema.parse(item)),
+      };
+    },
+    async get(id: string): Promise<ProfileChange> {
+      const result = await handleResponse<{ notification: unknown }>(
+        await request(`${API_BASE}/notifications/${encodeURIComponent(id)}`, {
+          headers: getHeaders(),
+        }),
+      );
+      return ProfileChangeSchema.parse(result.notification);
+    },
+    async read(id: string, unread: boolean, expectedUpdatedAt?: string): Promise<void> {
+      await handleResponse(
+        await request(`${API_BASE}/notifications/${encodeURIComponent(id)}/read`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify({ unread, expectedUpdatedAt }),
+        }),
+      );
+    },
+    async dismiss(id: string, expectedUpdatedAt?: string): Promise<void> {
+      await handleResponse(
+        await request(`${API_BASE}/notifications/${encodeURIComponent(id)}/dismiss`, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify({ expectedUpdatedAt }),
+        }),
+      );
+    },
+    async review(id: string, body: ProfileDecisionDto): Promise<ProfileChange> {
+      const result = await handleResponse<{ notification: unknown }>(
+        await request(`${API_BASE}/notifications/${encodeURIComponent(id)}/review`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify(body),
+        }),
+      );
+      return ProfileChangeSchema.parse(result.notification);
     },
   },
 };

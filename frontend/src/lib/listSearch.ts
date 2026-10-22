@@ -5,6 +5,7 @@ import {
   PageSizeSchema,
   MenuPageSizeSchema,
   MENU_CATEGORY_IDS,
+  NotificationQuerySchema,
 } from '@kitchentodoor/shared';
 
 const paging = {
@@ -26,13 +27,24 @@ export const DispatchSearchSchema = z.object({
     .catch('ALL')
     .default('ALL'),
   q: z.string().trim().max(100).catch('').default(''),
+  assignment: z.enum(['ALL', 'ASSIGNED', 'UNASSIGNED']).catch('ALL').default('ALL'),
 });
 export const HistorySearchSchema = z.object({
   ...paging,
   q: z.string().trim().max(100).catch('').default(''),
+  status: z
+    .union([z.literal('ALL'), z.enum(OrderStatus)])
+    .catch('ALL')
+    .default('ALL'),
 });
+export const CourierSearchSchema = HistorySearchSchema.omit({ status: true });
 export const UsersSearchSchema = z.object({
   ...paging,
   q: z.string().trim().max(100).catch('').default(''),
   role: z.enum(['ALL', 'CUSTOMER', 'COURIER', 'ADMIN']).catch('ALL').default('ALL'),
+});
+export const NotificationsSearchSchema = z.object({
+  ...paging,
+  q: NotificationQuerySchema.shape.q.catch(''),
+  status: z.enum(['ALL', 'PENDING', 'APPROVED', 'REJECTED']).catch('ALL').default('ALL'),
 });

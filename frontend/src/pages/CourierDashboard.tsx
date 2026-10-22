@@ -1,5 +1,4 @@
 import { useCopy } from '../lib/i18n';
-import { IconAction, IconActionLink } from '../components/ui/IconAction';
 import { formatDateTime } from '../lib/dateTime';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -12,6 +11,7 @@ import { useOrderListUpdates } from '../hooks/useOrderListUpdates';
 import { PageSkeleton, Spinner } from '../components/layout/Loading';
 import { Pagination } from '../components/layout/Pagination';
 import { clientSettings } from '../lib/clientSettings';
+import { orderStatusBadgeClass } from '../lib/orderStatusBadge';
 
 export function CourierDashboard() {
   const c = useCopy();
@@ -101,7 +101,9 @@ export function CourierDashboard() {
                     <h2 className="font-mono text-sm font-bold text-teal-800 dark:text-teal-200">
                       {order.orderNumber}
                     </h2>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <span
+                      className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${orderStatusBadgeClass(order.status)}`}
+                    >
                       {c(order.status.replaceAll('_', ' '))}
                     </span>
                   </div>
@@ -125,21 +127,32 @@ export function CourierDashboard() {
                         : c('Your delivery request was declined.')}
                     </p>
                   ) : isCourier ? (
-                    <IconAction
-                      icon={Send}
-                      tone="primary"
-                      label={pending === order.id ? c('Sending Request…') : c('Request Delivery')}
-                      pending={pending === order.id}
-                      disabled={!!pending}
-                      onClick={() => void request(order.id)}
-                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={!!pending}
+                        onClick={() => void request(order.id)}
+                        className="inline-flex min-h-11 items-center justify-end gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 text-sm font-bold text-white shadow-sm transition-[background-color,transform] hover:from-emerald-800 hover:to-teal-800 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {pending === order.id ? (
+                          <Spinner />
+                        ) : (
+                          <Send aria-hidden="true" className="h-4 w-4" />
+                        )}
+                        {pending === order.id ? c('Sending Request…') : c('Request Delivery')}
+                      </button>
+                    </div>
                   ) : (
-                    <IconActionLink
-                      to="/tracking/$orderId"
-                      orderId={order.id}
-                      icon={Eye}
-                      label={c('Review in Dispatch')}
-                    />
+                    <div className="flex justify-end">
+                      <Link
+                        to="/tracking/$orderId"
+                        params={{ orderId: order.id }}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-teal-700/30 bg-teal-50 px-4 text-sm font-bold text-teal-800 shadow-sm transition-colors hover:border-teal-600/50 hover:bg-teal-100 dark:border-teal-500/30 dark:bg-teal-500/10 dark:text-teal-200 dark:hover:bg-teal-500/20"
+                      >
+                        <Eye aria-hidden="true" className="h-4 w-4" />
+                        {c('Review in Dispatch')}{' '}
+                      </Link>
+                    </div>
                   )}
                 </article>
               ))

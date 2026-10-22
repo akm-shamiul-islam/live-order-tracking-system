@@ -2,11 +2,12 @@ import { useCopy } from '../lib/i18n';
 import { lazy, Suspense } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { OrderIdentifierSchema, OrderLookupSchema, OrderStatus } from '@kitchentodoor/shared';
-import { Search, Navigation, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Navigation, AlertCircle, RefreshCw, Utensils, PackageCheck } from 'lucide-react';
 import { useOrderSocket } from '../hooks/useOrderSocket';
 import { useAuth } from '../hooks/useAuth';
 import { useZodForm } from '../hooks/useZodForm';
 import { FieldError } from '../components/forms/FieldError';
+import { SearchClearButton } from '../components/forms/SearchClearButton';
 import { ApiError } from '../lib/api';
 import { PageSkeleton, LoadingState } from '../components/layout/Loading';
 import { OrderTimeline } from '../components/tracking/OrderTimeline';
@@ -111,12 +112,18 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
               <input
                 {...form.field('orderId')}
                 type="text"
+                role="searchbox"
+                enterKeyHint="search"
                 autoComplete="off"
                 spellCheck={false}
                 aria-invalid={fieldMessage ? true : undefined}
                 aria-describedby={fieldMessage ? 'tracking-orderId-error' : undefined}
                 placeholder={c('Private tracking ID or staff order number…')}
-                className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 text-xs text-slate-900 shadow-xs placeholder-slate-400 focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-100"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-11 text-xs text-slate-900 shadow-xs placeholder-slate-400 focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-100"
+              />
+              <SearchClearButton
+                visible={form.values.orderId.length > 0}
+                onClear={() => form.setValue('orderId', '')}
               />
             </div>
             <FieldError id="tracking-orderId-error" message={fieldMessage} />
@@ -214,8 +221,13 @@ function OrderTrackingPage({ orderId, view }: { orderId: string; view: 'tracking
           </p>
           <Link
             to={view === 'courier' ? '/orders' : '/'}
-            className="inline-flex rounded-xl bg-teal-700 px-6 py-2.5 text-sm font-bold text-white hover:bg-teal-800"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-teal-800"
           >
+            {view === 'courier' ? (
+              <PackageCheck aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <Utensils aria-hidden="true" className="h-4 w-4" />
+            )}
             {view === 'courier' ? c('My Deliveries') : c('Explore Food Menu')}
           </Link>
         </div>

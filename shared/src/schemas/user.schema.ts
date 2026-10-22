@@ -1,6 +1,6 @@
 import { z } from '../zod.js';
 import { EmailSchema, UserSummarySchema } from './auth.schema.js';
-import { PhoneSchema } from './lookup.schema.js';
+import { PhoneSchema, OptionalDeliveryAddressSchema } from './lookup.schema.js';
 import { UserRole } from '../enums.js';
 import type { PaginationInfo } from '../pagination.js';
 
@@ -12,11 +12,18 @@ export const ManagedUserSchema = UserSummarySchema.extend({
   updatedAt: z.iso.datetime(),
 });
 export type ManagedUser = z.infer<typeof ManagedUserSchema>;
+export const UserManagementHistorySchema = z.object({
+  actorName: z.string(),
+  fields: z.array(z.string()),
+  timestamp: z.iso.datetime(),
+});
+export type UserManagementHistory = z.infer<typeof UserManagementHistorySchema>;
 
 export const UpdateUserSchema = z.object({
   name: z.string().trim().min(2, 'Enter at least 2 characters').max(100),
   email: EmailSchema,
   phone: z.union([PhoneSchema, z.literal('')]).optional(),
+  address: OptionalDeliveryAddressSchema,
   role: UserRoleSchema,
   disabled: z.boolean(),
   expectedUpdatedAt: z.iso.datetime(),

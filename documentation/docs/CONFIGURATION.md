@@ -10,9 +10,28 @@ Vite reads root `.env`, `.env.local`, `.env.<mode>` and `.env.<mode>.local`; lat
 
 `PORT=5000` and `FRONTEND_PORT=5173` are development defaults. `API_PROXY_TARGET` optionally overrides the proxy target; otherwise Vite uses the configured API port. `FRONTEND_URL` is an exact comma-separated Origin allowlist for HTTP and WebSocket upgrades: include each real scheme/host/port, including localhost versus 127.0.0.1 when both are used.
 
-`SERVE_FRONTEND=true` serves built `frontend/dist` from Fastify, including direct page URLs and `/socket.io`. Build first. `PUBLIC_APP_URL` is the canonical browser origin for recovery links; use HTTPS in production, set the matching `FRONTEND_URL`, and set `AUTH_COOKIE_SECURE=true`. Hashed assets default to one-year immutable caching; HTML/theme initialization use no-store. Unknown API/assets remain 404 rather than receiving SPA HTML.
+`SERVE_FRONTEND=true` serves built `frontend/dist` from Fastify, including direct page URLs and `/socket.io`. Build first. `PUBLIC_APP_URL` controls the Content Security Policy's HTTPS upgrade behavior; use HTTPS in production, set the matching `FRONTEND_URL`, and set `AUTH_COOKIE_SECURE=true`. Hashed assets default to one-year immutable caching; HTML/theme initialization use no-store. Unknown API/assets remain 404 rather than receiving SPA HTML.
 
 ## Authentication and accounts
+
+### Profile photos and review notifications
+
+| Setting | Default | Purpose |
+| --- | ---: | --- |
+| `PROFILE_CHANGE_RATE_LIMIT_MAX` | `5` | Profile submissions per IP within `RATE_LIMIT_TTL_MS` |
+| `PROFILE_PHOTO_MAX_BYTES` | `2000000` | Uploaded raster bytes; maximum supported protocol size is 3000000 bytes |
+| `PROFILE_PHOTO_MAX_PIXELS` | `20000000` | Server image decode ceiling |
+| `PROFILE_PHOTO_SIZE` | `256` | Square output size in pixels, at most 1024 |
+| `HTTP_BODY_LIMIT_BYTES` | `4100000` | HTTP request limit; must accommodate the base64 photo plus JSON fields |
+| `PROFILE_RECOVERY_INTERVAL_MS` | `15000` | Retry interrupted profile approvals and registration-photo review creation |
+| `PROFILE_RECOVERY_BATCH_SIZE` | `50` | Maximum records recovered in each pass |
+| `VITE_NOTIFICATIONS_POLL_MS` | `15000` | Browser notification refresh interval; also refreshes on open/focus |
+
+`/api/config` exposes the photo byte limit alongside pricing. Photos are authenticated, private WebP responses; original filenames/metadata and raw uploaded files are not retained. JPEG/PNG/WebP inputs are normalized with Sharp 0.35.5. SVG, PDFs and animated uploads are rejected. A photo uploaded at registration remains pending until an administrator approves it.
+
+Profile requests and notifications are durable MongoDB records. Rejection requires feedback. Password requests store only a bcrypt hash, never the current or proposed plaintext password; the pending hash is removed when a decision is finalized. Approved passwords invalidate existing sessions and recovery links.
+
+### Sign-in, sessions and recovery
 
 - `JWT_SECRET` is required. Generate with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
 - `JWT_EXPIRES_IN` defaults to `15m`. Accepts positive seconds or `s`, `m`, `h`, `d`, `w` suffixes; validated values become numeric seconds for JWT signing. Maximum: one year.
@@ -28,11 +47,36 @@ The interface supports `en` and `ja`; no environment secret or translation servi
 
 Signing in restores the saved account language. An unsaved choice is retained locally under `ktd_language_pending`, scoped to its account, with a visible retry and automatic retry on reconnection. Theme remains a device preference in `ktd_theme`. Both appearance switches respect the operating system's reduced-motion setting. Locale changes translate interface/catalog copy and date formatting; they do not convert USD prices or translate customer-entered content.
 
-## Recovery email
+## Email OTP and Gmail SMTP
 
-`PASSWORD_RESET_ENABLED=false` by default. Enable only after setting `SMTP_HOST` and `SMTP_FROM`; `SMTP_USER`/`SMTP_PASSWORD` must be paired if authentication is needed. Port 587 with required STARTTLS is the default; use SMTP_SECURE=true with the provider's implicit TLS port when appropriate. Configure connection/socket timeouts and a real HTTPS PUBLIC_APP_URL for production.
+Authenticated SMTP is required for public registration, sign-in verification from a new device and password recovery. Development can start without SMTP, but these flows return a configuration error; production startup requires authenticated SMTP. Existing accounts are treated as verified for migration, while new registrations remain inactive until their code is accepted.
 
-Reset links default to 30 minutes, with a per-account five-minute request interval. Responses do not reveal whether the email exists. Tokens are single-use and password changes invalidate sessions. SMTP delivery errors are logged without credentials. The implementation sends asynchronously without a durable job queue; verify sender/domain and delivery with the chosen provider. See [Nodemailer SMTP](https://nodemailer.com/smtp) and [OWASP recovery guidance](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html).
+The default code lifetime is `AUTH_OTP_TTL_SECONDS=600` (10 minutes), the resend delay is `AUTH_OTP_RESEND_SECONDS=60` (one minute), and `AUTH_OTP_MAX_ATTEMPTS=5` limits guesses per code. The lifetime must exceed the resend delay and cannot exceed one hour. `AUTH_TRUSTED_DEVICES_MAX=20` bounds remembered devices per account. `OTP_REQUEST_RATE_LIMIT_MAX` and `OTP_VERIFY_RATE_LIMIT_MAX` configure per-IP request and verification limits; both use `RATE_LIMIT_TTL_MS`. Codes are generated cryptographically, stored as keyed hashes and consumed once. Password-reset grants are hashed, single-use and invalidated by account security changes. Known and unknown reset addresses receive the same response structure. Reset email delivery is asynchronous and is not backed by a durable job queue.
+
+### Gmail App Password setup
+
+For local development and low-volume testing, Nodemailer supports Gmail SMTP with an App Password. Google requires 2-Step Verification before one can be created. This application currently supports SMTP username/password authentication; Nodemailer's OAuth 2.0 transport is not wired into the app configuration. If App Passwords are unavailable because of account policy or security settings, use an SMTP provider that supports username/password authentication or add OAuth 2.0 configuration before using Gmail. Gmail can rewrite a sender address that differs from the authenticated account and is not intended for production transactional volume. See [Google's App Password instructions](https://support.google.com/mail/answer/185833?hl=en) and [Nodemailer's Gmail guidance](https://nodemailer.com/guides/using-gmail).
+
+1. Enable **2-Step Verification** on the Google account that will send mail.
+2. Open the account's **App Passwords** page, create a password for Mail, and copy the generated 16-character value. It is separate from the normal Google password.
+3. Keep the App Password private and set these values in the root `.env` file. Do not paste the password into chat, source code or a committed file:
+
+   ```dotenv
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_REQUIRE_TLS=true
+   SMTP_USER=your-address@gmail.com
+   SMTP_PASSWORD=your-16-character-app-password
+   SMTP_FROM=your-address@gmail.com
+   SMTP_FROM_NAME=KitchenToDoor
+   ```
+
+4. Use the same Gmail address for `SMTP_USER` and `SMTP_FROM`, save `.env`, then restart the backend. Nodemailer uses `secure=false` on port 587 and upgrades with STARTTLS; port 465 uses `SMTP_SECURE=true`. See [Nodemailer's SMTP transport documentation](https://nodemailer.com/smtp).
+
+Use mailbox addresses that you can access for any account that may need an OTP, including development admin and courier accounts. The sample `admin@kitchentodoor.io` and `courier@kitchentodoor.io` addresses are placeholders. Changing `ADMIN_DEFAULT_EMAIL` or `COURIER_DEFAULT_EMAIL` does not update an account that was already seeded; update existing staff emails while signed in, or configure the defaults before seeding a fresh database.
+
+`SMTP_USER` and `SMTP_PASSWORD` must be set together. When SMTP is enabled, `SMTP_HOST`, `SMTP_FROM`, `SMTP_USER` and `SMTP_PASSWORD` are all required. The branded English/Japanese HTML and plain-text messages use `SMTP_FROM_NAME`. Never disable SMTP certificate checks. If delivery fails, check backend logs, Google account security activity, the App Password and outbound SMTP connectivity; logs do not include OTPs or mail credentials.
 
 ## Limits, lists and pricing
 
@@ -63,8 +107,12 @@ The table below records template values, not deployed secrets. Optional commente
 | `API_HOST` | `0.0.0.0` |
 | `API_PROXY_TARGET` | `http://127.0.0.1:5000` |
 | `AUTH_COOKIE_SECURE` | `false` |
+| `AUTH_OTP_MAX_ATTEMPTS` | `5` |
+| `AUTH_OTP_RESEND_SECONDS` | `60` |
+| `AUTH_OTP_TTL_SECONDS` | `600` |
 | `AUTH_REFRESH_HISTORY_MAX` | `1000` |
 | `AUTH_SESSION_TTL_MS` | `604800000` |
+| `AUTH_TRUSTED_DEVICES_MAX` | `20` |
 | `BOOTSTRAP_ADMIN_EMAIL` | Empty |
 | `BOOTSTRAP_ADMIN_PASSWORD` | Set privately |
 | `COURIER_DEFAULT_EMAIL` | `courier@kitchentodoor.io` |
@@ -97,9 +145,6 @@ The table below records template values, not deployed secrets. Optional commente
 | `ORDER_LIST_MAX_LIMIT` | `100` |
 | `ORDER_NUMBER_RETRY_ATTEMPTS` | `5` |
 | `PASSWORD_HASH_ROUNDS` | Set privately |
-| `PASSWORD_RESET_ENABLED` | Set privately |
-| `PASSWORD_RESET_INTERVAL_MS` | Set privately |
-| `PASSWORD_RESET_TTL_MS` | Set privately |
 | `PORT` | `5000` |
 | `PUBLIC_APP_URL` | `http://localhost:5173` |
 | `RATE_LIMIT_MAX` | `120` |
@@ -110,16 +155,19 @@ The table below records template values, not deployed secrets. Optional commente
 | `RECEIPT_RATE_LIMIT_MAX` | `10` |
 | `RECEIPT_TIME_ZONE` | `UTC` |
 | `RESET_RATE_LIMIT_MAX` | `5` |
+| `OTP_REQUEST_RATE_LIMIT_MAX` | `5` |
+| `OTP_VERIFY_RATE_LIMIT_MAX` | `10` |
 | `SERVE_FRONTEND` | `false` |
 | `SMTP_CONNECTION_TIMEOUT_MS` | `10000` |
-| `SMTP_FROM` | `kitchen@example.com` |
-| `SMTP_HOST` | `smtp.example.com` |
-| `SMTP_PASSWORD` | Set privately |
+| `SMTP_FROM` | Commented; use authenticated sender |
+| `SMTP_FROM_NAME` | `KitchenToDoor` |
+| `SMTP_HOST` | Commented; Gmail: `smtp.gmail.com` |
+| `SMTP_PASSWORD` | Set privately in `.env` |
 | `SMTP_PORT` | `587` |
 | `SMTP_REQUIRE_TLS` | `true` |
 | `SMTP_SECURE` | `false` |
 | `SMTP_SOCKET_TIMEOUT_MS` | `15000` |
-| `SMTP_USER` | Empty |
+| `SMTP_USER` | Commented; Gmail account address |
 | `SOCKET_CONNECT_MAX` | `30` |
 | `SOCKET_CONNECT_WINDOW_MS` | `60000` |
 | `SOCKET_CONNECTIONS_MAX` | `2000` |

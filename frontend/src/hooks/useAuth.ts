@@ -17,8 +17,14 @@ export function useAuth() {
     isAdmin,
     isCourier,
     login: (email: string, password: string) => api.auth.login(email, password),
-    register: (name: string, email: string, password: string, phone: string, address?: string) =>
-      api.auth.register(name, email, password, phone, address),
+    register: (
+      name: string,
+      email: string,
+      password: string,
+      phone: string,
+      address?: string,
+      photo?: string,
+    ) => api.auth.register(name, email, password, phone, address, photo),
     logout: () => api.auth.logout(),
   };
 }

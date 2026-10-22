@@ -308,6 +308,7 @@ describe('API requests and shared authentication', () => {
     );
     await expect(api.settings.get()).resolves.toEqual({
       pricing: { deliveryFee: 7.25, taxRate: 0.12 },
+      profilePhotoMaxBytes: 2_000_000,
     });
   });
 
@@ -335,6 +336,40 @@ describe('API requests and shared authentication', () => {
     await api.orders.create(dto);
     expect(new Headers(fetchMock.mock.calls[2]![1]!.headers).get('Idempotency-Key')).not.toBe(key);
   });
+
+  it.each(['different account', 'new session for the same account'] as const)(
+    'discards a late checkout result after switching to a %s',
+    async (replacement) => {
+      session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+      const dto = {
+        customer: { name: 'Test Customer', phone: '555-1234', address: '123 Test Street' },
+        deliveryAddress: '123 Test Street',
+        items: [{ itemId: 'item-1', name: 'Burger', price: 10, quantity: 1 }],
+      };
+      let finish!: (response: Response) => void;
+      fetchMock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const checkout = api.orders.create(dto).catch((error: unknown) => error);
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      const fresh = {
+        ...response,
+        accessToken: 'new-session-token',
+        user: {
+          ...response.user,
+          id: replacement === 'different account' ? 'other-customer' : response.user.id,
+        },
+      };
+      fetchMock.mockResolvedValueOnce(Response.json(fresh));
+      await api.auth.login(fresh.user.email, 'password');
+      finish(Response.json({ success: true, order: { id: 'previous-session-order' } }));
+      await expect(checkout).resolves.toMatchObject({ status: 409 });
+      expect(session.getSession()).toMatchObject({ token: fresh.accessToken, user: fresh.user });
+    },
+  );
 
   it('keeps the session usable when browser storage is blocked', async () => {
     vi.stubGlobal('localStorage', {

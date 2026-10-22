@@ -1,18 +1,19 @@
 import { useCopy } from './lib/i18n';
-import { lazy, Suspense, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Outlet, useLocation, useNavigate, useRouter } from '@tanstack/react-router';
 import { UserRole } from '@kitchentodoor/shared';
 import { Navbar, NavigationDrawer } from './components/layout/Navbar';
 import { AppActionsContext } from './components/layout/AppActionsContext';
-import type { MenuItem } from './components/customer/MenuCatalog';
-import type { CartItem } from './components/customer/CartDrawer';
 import { useAuth } from './hooks/useAuth';
+import { useCart } from './hooks/useCart';
 import { useDesktopLayout } from './hooks/useDesktopLayout';
 import { PageSkeleton, LoadingState } from './components/layout/Loading';
 import { PageMetadata } from './components/layout/PageMetadata';
 import { Breadcrumbs } from './components/layout/Breadcrumbs';
 import { useNavigationDrawer } from './hooks/useNavigationDrawer';
 import { SessionNotice } from './components/auth/SessionNotice';
+import { AuthLoadingOverlay } from './components/auth/AuthLoadingOverlay';
+import { authStore } from './lib/authSession';
 
 const CartDrawer = lazy(() =>
   import('./components/customer/CartDrawer').then((m) => ({ default: m.CartDrawer })),
@@ -23,23 +24,56 @@ const CheckoutModal = lazy(() =>
 const AdminLoginModal = lazy(() =>
   import('./components/admin/AdminLoginModal').then((m) => ({ default: m.AdminLoginModal })),
 );
+const ProfilePage = lazy(() =>
+  import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+);
 const loadingPanel = <PageSkeleton />;
 
 export function App() {
   const c = useCopy();
 
   const { user, isAuthenticated, logout } = useAuth();
+  const cart = useCart(user?.id);
   const navigate = useNavigate();
+  const router = useRouter();
   const pathname = useLocation({ select: (location) => location.pathname });
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useNavigationDrawer();
   const desktop = useDesktopLayout();
+  const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
+  useEffect(
+    () =>
+      router.subscribe('onResolved', ({ fromLocation, toLocation }) => {
+        if (fromLocation?.href !== toLocation.href) setProfileOpen(false);
+      }),
+    [router],
+  );
+  useEffect(
+    () =>
+      authStore.subscribe((next, previous) => {
+        if (next.user?.id === previous.user?.id) return;
+        setProfileOpen(false);
+        setCheckoutOpen(false);
+        setCartOpen(false);
+        setAdminLoginOpen(false);
+      }),
+    [],
+  );
+  const registerLeaveGuard = useCallback((guard: () => Promise<boolean>) => {
+    leaveGuard.current = guard;
+    return () => {
+      if (leaveGuard.current === guard) leaveGuard.current = null;
+    };
+  }, []);
   function signOut() {
-    void logout();
-    void navigate({ to: '/' });
+    void (async () => {
+      if (leaveGuard.current && !(await leaveGuard.current())) return;
+      void logout();
+      void navigate({ to: '/' });
+    })();
   }
   function closeNavigation() {
     setNavigationOpen(false);
@@ -50,20 +84,19 @@ export function App() {
     );
   }
 
-  function addToCart(item: MenuItem) {
-    setCart((previous) => {
-      if (previous.some((entry) => entry.id === item.id)) {
-        return previous.map((entry) =>
-          entry.id === item.id ? { ...entry, quantity: Math.min(99, entry.quantity + 1) } : entry,
-        );
-      }
-      return [...previous, { ...item, quantity: 1 }];
-    });
-  }
-
   return (
-    <AppActionsContext value={{ addToCart, openStaffLogin: () => setAdminLoginOpen(true) }}>
+    <AppActionsContext
+      value={{
+        addToCart: cart.add,
+        updateCartQuantity: cart.updateQuantity,
+        getCartQuantity: cart.quantity,
+        openStaffLogin: () => setAdminLoginOpen(true),
+        openProfile: () => setProfileOpen(true),
+        registerLeaveGuard,
+      }}
+    >
       <PageMetadata />
+      <AuthLoadingOverlay />
       <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
         <a
           href="#main-content"
@@ -72,12 +105,13 @@ export function App() {
           {c('Skip to Content')}{' '}
         </a>
         <Navbar
-          cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+          cartCount={cart.items.reduce((sum, item) => sum + item.quantity, 0)}
           onOpenCart={() => setCartOpen(true)}
           isAuthenticatedAdmin={isAuthenticated}
           onLogoutAdmin={signOut}
           navigationOpen={navigationOpen}
           onToggleNavigation={() => setNavigationOpen((previous) => !previous)}
+          onOpenProfile={() => setProfileOpen(true)}
         />
         <SessionNotice />
         <NavigationDrawer
@@ -123,21 +157,9 @@ export function App() {
             <CartDrawer
               isOpen={cartOpen}
               onClose={() => setCartOpen(false)}
-              items={cart}
-              onUpdateQuantity={(id, delta) =>
-                setCart((previous) =>
-                  previous
-                    .map((item) =>
-                      item.id === id
-                        ? { ...item, quantity: Math.min(99, item.quantity + delta) }
-                        : item,
-                    )
-                    .filter((item) => item.quantity > 0),
-                )
-              }
-              onRemoveItem={(id) =>
-                setCart((previous) => previous.filter((item) => item.id !== id))
-              }
+              items={cart.items}
+              onUpdateQuantity={cart.updateQuantity}
+              onRemoveItem={cart.remove}
               onProceedToCheckout={() => {
                 setCartOpen(false);
                 if (isAuthenticated) setCheckoutOpen(true);
@@ -150,9 +172,9 @@ export function App() {
               key={user?.id}
               isOpen={checkoutOpen}
               onClose={() => setCheckoutOpen(false)}
-              cartItems={cart}
+              cartItems={cart.items}
               onOrderSuccess={(orderId) => {
-                setCart([]);
+                cart.clear();
                 setCheckoutOpen(false);
                 void navigate({ to: '/tracking/$orderId', params: { orderId } });
               }}
@@ -169,6 +191,7 @@ export function App() {
               }}
             />
           )}
+          {profileOpen && isAuthenticated && <ProfilePage onClose={() => setProfileOpen(false)} />}
         </Suspense>
       </div>
     </AppActionsContext>

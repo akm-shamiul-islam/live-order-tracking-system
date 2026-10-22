@@ -1,0 +1,8 @@
+export const primaryButton =
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition duration-200 hover:bg-teal-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.98] dark:bg-teal-600 dark:hover:bg-teal-500';
+export const secondaryButton =
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 transition duration-200 hover:border-teal-400 hover:bg-teal-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.98] dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-500/60 dark:hover:bg-teal-500/10';
+export const dangerButton =
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-300 px-4 text-sm font-bold text-rose-700 transition duration-200 hover:bg-rose-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-500 disabled:opacity-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/50';
+export const formInput =
+  'min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 read-only:cursor-default read-only:bg-slate-100 read-only:text-slate-500 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:read-only:bg-slate-800 dark:read-only:text-slate-400';

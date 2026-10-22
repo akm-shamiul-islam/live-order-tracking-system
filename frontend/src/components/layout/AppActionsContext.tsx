@@ -1,9 +1,13 @@
 import { createContext, use } from 'react';
-import type { MenuItem } from '../customer/MenuCatalog';
+import type { MenuItem } from '@kitchentodoor/shared';
 
 interface AppActions {
   addToCart: (item: MenuItem) => void;
+  updateCartQuantity: (id: string, delta: number) => void;
+  getCartQuantity: (id: string) => number;
   openStaffLogin: () => void;
+  openProfile: () => void;
+  registerLeaveGuard: (guard: () => Promise<boolean>) => () => void;
 }
 
 export const AppActionsContext = createContext<AppActions | null>(null);

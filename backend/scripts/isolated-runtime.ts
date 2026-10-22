@@ -9,6 +9,7 @@ import { createServer } from 'node:net';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { JwtService } from '@nestjs/jwt';
 import { isRuntimeMessage, type RuntimeAdapter, type RuntimeReady } from './runtime-contracts.ts';
+import { createTestSmtpServer } from '../src/testing/test-smtp.js';
 
 export { io, type Socket } from 'socket.io-client';
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -45,6 +46,8 @@ export async function createIsolatedRuntime({
   const mongo = await MongoMemoryServer.create({
     binary: { downloadDir: join(tmpdir(), 'ktd-mongo-binaries') },
   });
+  const smtp = await createTestSmtpServer();
+
   const password = `Test-${randomBytes(20).toString('hex')}!`;
   const jwtSecret = randomBytes(32).toString('hex');
   function expireAccessToken(token: string) {
@@ -77,7 +80,15 @@ export async function createIsolatedRuntime({
         JWT_SECRET: jwtSecret,
         JWT_EXPIRES_IN: '15m',
         DNS_SERVERS: '',
-        PASSWORD_RESET_ENABLED: 'false',
+        SMTP_HOST: smtp.host,
+        SMTP_PORT: String(smtp.port),
+        SMTP_SECURE: 'false',
+        SMTP_REQUIRE_TLS: 'false',
+        SMTP_USER: smtp.user,
+        SMTP_PASSWORD: smtp.password,
+        SMTP_FROM: smtp.from,
+        AUTH_OTP_TTL_SECONDS: '600',
+        AUTH_OTP_RESEND_SECONDS: '60',
         AUTH_COOKIE_SECURE: 'false',
         SERVE_FRONTEND: serveFrontend ? 'true' : 'false',
         PUBLIC_APP_URL: origin,
@@ -85,6 +96,7 @@ export async function createIsolatedRuntime({
         RATE_LIMIT_MAX: String(rateLimit),
         LOGIN_RATE_LIMIT_MAX: String(rateLimit),
         REGISTER_RATE_LIMIT_MAX: String(rateLimit),
+        PROFILE_CHANGE_RATE_LIMIT_MAX: String(rateLimit),
         SOCKET_CONNECT_MAX: '200',
         SOCKET_CONNECTIONS_PER_IP_MAX: '100',
         MONGODB_SERVER_SELECTION_TIMEOUT_MS: '2000',
@@ -144,6 +156,7 @@ export async function createIsolatedRuntime({
   async function close() {
     await Promise.all(children.map(stopChild));
     await mongo.stop();
+    await smtp.close();
   }
-  return { start, stop, close, count, expireAccessToken };
+  return { start, stop, close, count, expireAccessToken, takeOtp: smtp.takeOtp };
 }

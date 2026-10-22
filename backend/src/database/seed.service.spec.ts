@@ -16,11 +16,13 @@ describe('Explicit development administrator recovery', () => {
   };
   const findOne = vi.fn<(filter: { email: string }) => Promise<Account | null>>();
   const save = vi.fn<() => Promise<void>>();
-  const service = new SeedService({ findOne } as unknown as Model<UserDocument>);
+  const findOneAndUpdate = vi.fn<(...args: unknown[]) => Promise<Account | null>>();
+  const service = new SeedService({ findOne, findOneAndUpdate } as unknown as Model<UserDocument>);
 
   beforeEach(() => {
     findOne.mockReset();
     save.mockReset().mockResolvedValue(undefined);
+    findOneAndUpdate.mockReset();
     vi.stubEnv('NODE_ENV', 'development');
     vi.stubEnv('ADMIN_DEFAULT_EMAIL', ' ADMIN@KITCHENTODOOR.IO ');
     vi.stubEnv('ADMIN_DEFAULT_PASSWORD', 'KitchenAdmin#2026!Secure');
@@ -43,19 +45,51 @@ describe('Explicit development administrator recovery', () => {
       save,
     };
     findOne.mockResolvedValue(admin);
+    findOneAndUpdate.mockResolvedValue(admin);
     await service.resetDevelopmentAdmin();
     expect(findOne).toHaveBeenCalledWith({ email: 'admin@kitchentodoor.io' });
-    expect(await bcrypt.compare('KitchenAdmin#2026!Secure', admin.passwordHash)).toBe(true);
+    const mutation = findOneAndUpdate.mock.calls[0]?.[1] as {
+      $set: { passwordHash: string };
+      $inc: { tokenVersion: number; profileVersion: number };
+      $unset: Record<string, number>;
+    };
+    expect(await bcrypt.compare('KitchenAdmin#2026!Secure', mutation.$set.passwordHash)).toBe(true);
     expect(admin.role).toBe('ADMIN');
     expect(admin.name).toBe('Existing Admin');
-    expect(admin.tokenVersion).toBe(4);
-    expect(save).toHaveBeenCalledTimes(1);
+    expect(mutation.$inc).toEqual({ tokenVersion: 1, profileVersion: 1 });
+    expect(mutation.$unset).toEqual({ resetTokenHash: 1, resetExpiresAt: 1, resetRequestedAt: 1 });
+    expect(save).not.toHaveBeenCalled();
   });
 
   it.each(['production', 'test', ''])('refuses password changes in %s', async (environment) => {
     vi.stubEnv('NODE_ENV', environment);
     await expect(service.resetDevelopmentAdmin()).rejects.toThrow('NODE_ENV=development');
     expect(findOne).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('refuses to overwrite an administrator changed during password recovery', async () => {
+    findOne.mockResolvedValue({
+      passwordHash: 'previous-hash',
+      role: 'ADMIN',
+      tokenVersion: 3,
+      save,
+    });
+    findOneAndUpdate.mockResolvedValue(null);
+    await expect(service.resetDevelopmentAdmin()).rejects.toThrow('changed during recovery');
+    expect(findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'ADMIN',
+        $expr: {
+          $and: [
+            { $eq: [{ $ifNull: ['$tokenVersion', 0] }, 3] },
+            { $eq: [{ $ifNull: ['$profileVersion', 0] }, 0] },
+          ],
+        },
+      }),
+      expect.any(Object),
+      { returnDocument: 'after', runValidators: true },
+    );
     expect(save).not.toHaveBeenCalled();
   });
 

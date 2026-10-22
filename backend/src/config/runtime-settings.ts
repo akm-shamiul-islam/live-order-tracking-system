@@ -41,6 +41,8 @@ export const RuntimeSettingsSchema = z
     REGISTER_RATE_LIMIT_MAX: positiveInteger(5),
     REFRESH_RATE_LIMIT_MAX: positiveInteger(30),
     RESET_RATE_LIMIT_MAX: positiveInteger(5),
+    OTP_REQUEST_RATE_LIMIT_MAX: positiveInteger(5),
+    OTP_VERIFY_RATE_LIMIT_MAX: positiveInteger(10),
     RECEIPT_RATE_LIMIT_MAX: positiveInteger(10),
     RECEIPT_TIME_ZONE: z
       .string()
@@ -56,12 +58,13 @@ export const RuntimeSettingsSchema = z
         }
       }, 'Use a valid IANA time zone'),
     AUTH_SESSION_TTL_MS: positiveInteger(604_800_000),
+    AUTH_OTP_TTL_SECONDS: positiveInteger(600).pipe(z.number().max(3600)),
+    AUTH_OTP_RESEND_SECONDS: positiveInteger(60).pipe(z.number().max(86_400)),
+    AUTH_OTP_MAX_ATTEMPTS: positiveInteger(5).pipe(z.number().max(20)),
+    AUTH_TRUSTED_DEVICES_MAX: positiveInteger(20).pipe(z.number().max(100)),
     JWT_EXPIRES_IN: tokenLifetime,
     AUTH_REFRESH_HISTORY_MAX: positiveInteger(1000),
     AUTH_COOKIE_SECURE: z.stringbool().optional(),
-    PASSWORD_RESET_ENABLED: z.stringbool().default(false),
-    PASSWORD_RESET_TTL_MS: positiveInteger(1_800_000),
-    PASSWORD_RESET_INTERVAL_MS: positiveInteger(300_000),
     PUBLIC_APP_URL: z.url().default('http://localhost:5173'),
     SMTP_HOST: z.string().trim().optional(),
     SMTP_PORT: positiveInteger(587),
@@ -72,6 +75,7 @@ export const RuntimeSettingsSchema = z
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
     SMTP_FROM: z.email().optional(),
+    SMTP_FROM_NAME: z.string().trim().min(1).max(100).default('KitchenToDoor'),
     PASSWORD_HASH_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
     ORDER_LIST_DEFAULT_LIMIT: positiveInteger(50),
     ORDER_LIST_MAX_LIMIT: positiveInteger(100),
@@ -84,6 +88,13 @@ export const RuntimeSettingsSchema = z
     USER_LIST_DEFAULT_LIMIT: positiveInteger(10),
     USER_LIST_MAX_LIMIT: positiveInteger(100),
     USER_MANAGEMENT_AUDIT_MAX: positiveInteger(100),
+    PROFILE_CHANGE_RATE_LIMIT_MAX: positiveInteger(5),
+    PROFILE_PHOTO_MAX_BYTES: positiveInteger(2_000_000).pipe(z.number().max(3_000_000)),
+    PROFILE_PHOTO_MAX_PIXELS: positiveInteger(20_000_000),
+    PROFILE_PHOTO_SIZE: positiveInteger(256).pipe(z.number().max(1024)),
+    PROFILE_RECOVERY_INTERVAL_MS: positiveInteger(15_000),
+    PROFILE_RECOVERY_BATCH_SIZE: positiveInteger(50),
+    HTTP_BODY_LIMIT_BYTES: positiveInteger(4_100_000),
     TELEMETRY_MAX_AGE_MS: positiveInteger(15_000),
     TELEMETRY_MAX_FUTURE_MS: positiveInteger(5000),
     SOCKET_RATE_LIMIT_WINDOW_MS: positiveInteger(1000),
@@ -125,6 +136,15 @@ export const RuntimeSettingsSchema = z
       ),
   })
   .superRefine((settings, context) => {
+    if (
+      settings.HTTP_BODY_LIMIT_BYTES <
+      Math.ceil(settings.PROFILE_PHOTO_MAX_BYTES / 3) * 4 + 65_536
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['HTTP_BODY_LIMIT_BYTES'],
+        message: 'Allow enough request bytes for the configured profile photo and JSON fields',
+      });
     if (settings.USER_LIST_DEFAULT_LIMIT > settings.USER_LIST_MAX_LIMIT) {
       context.addIssue({
         code: 'custom',
@@ -132,11 +152,11 @@ export const RuntimeSettingsSchema = z
         message: 'Default user limit must not exceed USER_LIST_MAX_LIMIT',
       });
     }
-    if (settings.PASSWORD_RESET_ENABLED && (!settings.SMTP_HOST || !settings.SMTP_FROM)) {
+    if (settings.AUTH_OTP_TTL_SECONDS <= settings.AUTH_OTP_RESEND_SECONDS) {
       context.addIssue({
         code: 'custom',
-        path: ['PASSWORD_RESET_ENABLED'],
-        message: 'Configure SMTP_HOST and SMTP_FROM before enabling password recovery',
+        path: ['AUTH_OTP_TTL_SECONDS'],
+        message: 'The OTP lifetime must be longer than its resend cooldown',
       });
     }
     if (Boolean(settings.SMTP_USER) !== Boolean(settings.SMTP_PASSWORD)) {
@@ -146,17 +166,28 @@ export const RuntimeSettingsSchema = z
         message: 'SMTP_USER and SMTP_PASSWORD must be configured together',
       });
     }
+    const hasSmtpSettings = Boolean(
+      settings.SMTP_HOST || settings.SMTP_FROM || settings.SMTP_USER || settings.SMTP_PASSWORD,
+    );
     if (
-      settings.NODE_ENV === 'production' &&
-      settings.PASSWORD_RESET_ENABLED &&
-      !settings.PUBLIC_APP_URL.startsWith('https://')
+      hasSmtpSettings &&
+      (!settings.SMTP_HOST || !settings.SMTP_FROM || !settings.SMTP_USER || !settings.SMTP_PASSWORD)
     ) {
       context.addIssue({
         code: 'custom',
-        path: ['PUBLIC_APP_URL'],
-        message: 'Use HTTPS for production password recovery links',
+        path: ['SMTP_HOST'],
+        message: 'Configure SMTP_HOST, SMTP_FROM, SMTP_USER and SMTP_PASSWORD together',
       });
     }
+    if (
+      settings.NODE_ENV === 'production' &&
+      (!settings.SMTP_HOST || !settings.SMTP_FROM || !settings.SMTP_USER || !settings.SMTP_PASSWORD)
+    )
+      context.addIssue({
+        code: 'custom',
+        path: ['SMTP_HOST'],
+        message: 'Production requires an authenticated SMTP transport for account verification',
+      });
     if (settings.ORDER_LIST_DEFAULT_LIMIT > settings.ORDER_LIST_MAX_LIMIT) {
       context.addIssue({
         code: 'custom',

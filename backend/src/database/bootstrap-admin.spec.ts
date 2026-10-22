@@ -22,6 +22,10 @@ describe('Explicit first-administrator provisioning', () => {
     vi.stubEnv('BOOTSTRAP_ADMIN_EMAIL', ' ADMIN@EXAMPLE.TEST ');
     vi.stubEnv('BOOTSTRAP_ADMIN_PASSWORD', 'Operator-chosen-password123!');
     vi.stubEnv('PASSWORD_HASH_ROUNDS', '10');
+    vi.stubEnv('SMTP_HOST', 'smtp.example.test');
+    vi.stubEnv('SMTP_FROM', 'noreply@example.test');
+    vi.stubEnv('SMTP_USER', 'smtp-user');
+    vi.stubEnv('SMTP_PASSWORD', 'smtp-password');
   }
   it('requires explicit production credentials and preserves existing accounts', async () => {
     const { service, findOne, create } = fixture();

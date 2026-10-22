@@ -47,16 +47,17 @@ import { getRuntimeSettings } from '../config/runtime-settings.js';
 
 @Injectable()
 export class ExampleService {
-  constructor(
-    @InjectModel(Example.name) private readonly exampleModel: Model<ExampleDocument>,
-  ) {}
+  constructor(@InjectModel(Example.name) private readonly exampleModel: Model<ExampleDocument>) {}
 
   private buildFilter(status?: string, search?: string) {
     const filter: Record<string, unknown> = {};
     if (status) filter.status = status;
     if (search) {
       const sanitized = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.$or = [{ code: { $regex: sanitized, $options: 'i' } }, { name: { $regex: sanitized, $options: 'i' } }];
+      filter.$or = [
+        { code: { $regex: sanitized, $options: 'i' } },
+        { name: { $regex: sanitized, $options: 'i' } },
+      ];
     }
     return filter;
   }
@@ -65,7 +66,12 @@ export class ExampleService {
     return this.exampleModel.countDocuments(this.buildFilter(status, search));
   }
 
-  async getPage(status?: string, search?: string, page = 1, limit = 10): Promise<ExampleDocument[]> {
+  async getPage(
+    status?: string,
+    search?: string,
+    page = 1,
+    limit = getRuntimeSettings().ORDER_LIST_DEFAULT_LIMIT,
+  ): Promise<ExampleDocument[]> {
     const query = this.exampleModel
       .find(this.buildFilter(status, search))
       .sort({ createdAt: -1, _id: -1 });
@@ -84,6 +90,7 @@ export class ExampleService {
 ## 3. Fastify Response & Error Handling
 
 Fastify handles status codes and streaming responses cleanly:
+
 - Use standard NestJS HTTP exceptions (`BadRequestException`, `UnauthorizedException`, `ForbiddenException`, `NotFoundException`, `ConflictException`, `ServiceUnavailableException`).
 - `ZodValidationPipe` formats schema issues into `{ message: 'Validation failed', errors: [{ field, message }] }` with status 400.
 - For 429 rate limit errors, Fastify injects a `Retry-After` header. Frontend `api.ts` parses this header to provide human-readable countdown messages.

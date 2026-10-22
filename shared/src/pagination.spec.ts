@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { paginate, PageNumberSchema, PageSizeSchema } from './pagination.js';
 
 describe('Pagination boundaries', () => {
-  it('keeps an empty result on an accessible first page', () => {
+  it('keeps an empty result on an accessible First Page', () => {
     expect(paginate(0, 9, 10)).toEqual({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   });
   it('clamps a page when filters or deletions shorten the results', () => {

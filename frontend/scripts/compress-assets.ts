@@ -10,7 +10,7 @@ async function compress(directory: string): Promise<void> {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) await compress(path);
-    else if (/\.(?:js|css|svg|html)$/.test(entry.name)) {
+    else if (/\.(?:m?js|css|svg|html)$/.test(entry.name)) {
       const data = await readFile(path);
       if (data.length < 1024) continue;
       const [gz, br] = await Promise.all([gzipAsync(data), brotliAsync(data)]);

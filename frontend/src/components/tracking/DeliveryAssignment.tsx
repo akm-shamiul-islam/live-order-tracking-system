@@ -55,12 +55,12 @@ export function DeliveryAssignment({ order }: { order: OrderDetails }) {
   }
   return (
     <section
-      className="glass-panel space-y-4 rounded-2xl p-5"
+      className="glass-panel relative z-20 space-y-4 overflow-visible rounded-2xl p-5"
       aria-labelledby="delivery-assignment-title"
     >
       <h2 id="delivery-assignment-title" className="font-display flex items-center gap-2 font-bold">
         <Bike aria-hidden="true" className="h-5 w-5 text-teal-500" />
-        {c('Delivery assignment')}{' '}
+        {c('Delivery Assignment')}{' '}
       </h2>
       <p className="text-sm text-slate-500 dark:text-slate-400">
         {assignedToMe

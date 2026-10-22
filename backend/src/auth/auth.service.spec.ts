@@ -4,6 +4,8 @@ import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { UserRole } from '@kitchentodoor/shared';
 import bcrypt from 'bcryptjs';
 import { RecoveryMailer } from './recovery-mailer.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
+import { AuthOtpService } from './auth-otp.service.js';
 
 describe('AuthService Unit Tests', () => {
   let service: AuthService;
@@ -16,6 +18,7 @@ describe('AuthService Unit Tests', () => {
       create: vi.fn<any>(),
       findById: vi.fn<any>(),
       updateOne: vi.fn<any>().mockResolvedValue({ modifiedCount: 1 }),
+      deleteOne: vi.fn<any>().mockResolvedValue({ deletedCount: 1 }),
     };
     mockJwtService = {
       sign: vi.fn<any>().mockReturnValue('mock_jwt_token_xyz'),
@@ -29,6 +32,19 @@ describe('AuthService Unit Tests', () => {
         updateMany: vi.fn<() => Promise<unknown>>().mockResolvedValue({}),
       } as any,
       {} as RecoveryMailer,
+      {} as ProfilesService,
+      {
+        hashDeviceId: vi.fn<AuthOtpService['hashDeviceId']>(() => 'trusted-device-hash'),
+        begin: vi.fn<AuthOtpService['begin']>(async (email, purpose) => ({
+          status: 'verification_required',
+          purpose,
+          challengeId: 'A'.repeat(43),
+          email,
+          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+          resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
+        })),
+        requireConfigured: vi.fn<AuthOtpService['requireConfigured']>(),
+      } as unknown as AuthOtpService,
     );
   });
 
@@ -56,7 +72,11 @@ describe('AuthService Unit Tests', () => {
     mockUserModel.findOne.mockResolvedValue(null);
 
     await expect(
-      service.login({ email: 'unknown@user.com', password: 'password123' }),
+      service.login({
+        email: 'unknown@user.com',
+        password: 'password123',
+        deviceId: '11111111-1111-4111-8111-111111111111',
+      }),
     ).rejects.toThrow(UnauthorizedException);
   });
 
@@ -68,10 +88,18 @@ describe('AuthService Unit Tests', () => {
       passwordHash,
       name: 'Dispatcher',
       role: UserRole.ADMIN,
+      emailVerified: true,
+      trustedDeviceHashes: ['trusted-device-hash'],
       phone: '555-0199',
     });
 
-    const result = await service.login({ email: 'admin@kitchen.com', password: 'validPass123' });
+    const result = await service.login({
+      email: 'admin@kitchen.com',
+      password: 'validPass123',
+      deviceId: '11111111-1111-4111-8111-111111111111',
+    });
+    expect('accessToken' in result).toBe(true);
+    if (!('accessToken' in result)) throw new Error('Expected a trusted-device session');
     expect(result.accessToken).toBe('mock_jwt_token_xyz');
     expect(result.user.email).toBe('admin@kitchen.com');
     expect(result.user.role).toBe(UserRole.ADMIN);
@@ -85,7 +113,27 @@ describe('AuthService Unit Tests', () => {
     });
   });
 
-  it('register creates user with hashed password and returns token', async () => {
+  it('sends an email code before issuing a session from an unknown device', async () => {
+    const passwordHash = await bcrypt.hash('validPass123', 10);
+    mockUserModel.findOne.mockResolvedValue({
+      _id: { toString: () => 'u123' },
+      email: 'admin@kitchen.com',
+      passwordHash,
+      name: 'Dispatcher',
+      role: UserRole.ADMIN,
+      emailVerified: true,
+      trustedDeviceHashes: [],
+    });
+    const result = await service.login({
+      email: 'admin@kitchen.com',
+      password: 'validPass123',
+      deviceId: '11111111-1111-4111-8111-111111111111',
+    });
+    expect(result).toMatchObject({ status: 'verification_required', purpose: 'new_device_login' });
+    expect(mockJwtService.sign).not.toHaveBeenCalled();
+  });
+
+  it('register creates a pending user and returns an email verification challenge', async () => {
     mockUserModel.findOne.mockResolvedValue(null);
     mockUserModel.create.mockImplementation((doc: any) =>
       Promise.resolve({
@@ -103,12 +151,17 @@ describe('AuthService Unit Tests', () => {
       address: '123 Saved Street',
     });
 
-    expect(result.accessToken).toBe('mock_jwt_token_xyz');
-    expect(result.user.name).toBe('Sam Customer');
-    expect(result.user.role).toBe(UserRole.CUSTOMER);
-    expect(result.user.address).toBe('123 Saved Street');
+    expect(result).toMatchObject({
+      status: 'verification_required',
+      purpose: 'email_verification',
+    });
+    expect(mockJwtService.sign).not.toHaveBeenCalled();
     expect(mockUserModel.create).toHaveBeenCalledWith(
-      expect.objectContaining({ address: '123 Saved Street' }),
+      expect.objectContaining({
+        address: '123 Saved Street',
+        emailVerified: false,
+        trustedDeviceHashes: [],
+      }),
     );
   });
 

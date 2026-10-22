@@ -15,7 +15,9 @@ import {
   MenuSearchSchema,
   DispatchSearchSchema,
   HistorySearchSchema,
+  CourierSearchSchema,
   UsersSearchSchema,
+  NotificationsSearchSchema,
 } from './lib/listSearch';
 import { safeReturnTo } from './lib/access';
 import { z } from '@kitchentodoor/shared/zod';
@@ -74,7 +76,7 @@ const historyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'orders',
   validateSearch: HistorySearchSchema,
-  search: { middlewares: [stripSearchParams({ page: 1, size: 10, q: '' })] },
+  search: { middlewares: [stripSearchParams({ page: 1, size: 10, q: '', status: 'ALL' })] },
   component: () => (
     <AccountRequired>
       <HistoryComponent />
@@ -85,6 +87,31 @@ const staffRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'staff',
   component: StaffOnly,
+});
+const ProfileComponent = lazyRouteComponent(() => import('./pages/ProfilePage'), 'ProfilePage');
+const NotificationsComponent = lazyRouteComponent(
+  () => import('./pages/NotificationsPage'),
+  'NotificationsPage',
+);
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'profile',
+  component: () => (
+    <AccountRequired>
+      <ProfileComponent />
+    </AccountRequired>
+  ),
+});
+const notificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'notifications',
+  validateSearch: NotificationsSearchSchema,
+  search: { middlewares: [stripSearchParams({ page: 1, size: 10, status: 'ALL', q: '' })] },
+  component: () => (
+    <AccountRequired>
+      <NotificationsComponent />
+    </AccountRequired>
+  ),
 });
 const accountRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -117,7 +144,11 @@ const dispatchRoute = createRoute({
   getParentRoute: () => staffRoute,
   path: 'dispatch',
   validateSearch: DispatchSearchSchema,
-  search: { middlewares: [stripSearchParams({ status: 'ALL', q: '', page: 1, size: 10 })] },
+  search: {
+    middlewares: [
+      stripSearchParams({ status: 'ALL', assignment: 'ALL', q: '', page: 1, size: 10 }),
+    ],
+  },
   component: lazyRouteComponent(
     () => import('./components/admin/AdminOrdersTable'),
     'AdminOrdersTable',
@@ -131,7 +162,7 @@ const courierRoute = createRoute({
 const courierIndexRoute = createRoute({
   getParentRoute: () => courierRoute,
   path: '/',
-  validateSearch: HistorySearchSchema,
+  validateSearch: CourierSearchSchema,
   search: { middlewares: [stripSearchParams({ page: 1, size: 10, q: '' })] },
   component: lazyRouteComponent(() => import('./pages/CourierDashboard'), 'CourierDashboard'),
 });
@@ -150,6 +181,8 @@ const courierOrderRoute = createRoute({
 
 export const routeTree = rootRoute.addChildren([
   menuRoute,
+  profileRoute,
+  notificationsRoute,
   trackingRoute.addChildren([trackingIndexRoute, trackingOrderRoute]),
   historyRoute,
   accountRoute.addChildren([

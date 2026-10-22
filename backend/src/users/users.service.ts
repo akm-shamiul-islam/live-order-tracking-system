@@ -16,6 +16,7 @@ import {
   type UpdateUserDto,
   type UserPage,
   type UserSummary,
+  type UserManagementHistory,
 } from '@kitchentodoor/shared';
 import { User, type UserDocument } from '../database/schemas/user.schema.js';
 import { Order, type OrderDocument } from '../database/schemas/order.schema.js';
@@ -36,6 +37,9 @@ export class UsersService {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      address: user.address,
+      photoId: user.photoId || null,
+      profileVersion: user.profileVersion ?? 0,
       role: user.role,
       disabled: user.disabled ?? false,
       createdAt: user.createdAt.toISOString(),
@@ -58,7 +62,7 @@ export class UsersService {
     const pagination = paginate(await this.users.countDocuments(filter), page, limit);
     const users = await this.users
       .find(filter)
-      .select('name email phone role disabled createdAt updatedAt')
+      .select('name email phone address photoId profileVersion role disabled createdAt updatedAt')
       .sort({ createdAt: -1, _id: -1 })
       .skip((pagination.page - 1) * limit)
       .limit(limit);
@@ -67,6 +71,29 @@ export class UsersService {
 
   async update(id: string, body: UpdateUserDto, actor: UserSummary): Promise<ManagedUser> {
     return this.access.run(() => this.updateWithCurrentAccess(id, body, actor));
+  }
+
+  async history(id: string): Promise<UserManagementHistory[]> {
+    const user = await this.users.findById(id).select('+managementHistory');
+    if (!user) throw new NotFoundException('User not found.');
+    const history = user.managementHistory ?? [];
+    const actors = await this.users
+      .find({
+        _id: {
+          $in: [
+            ...new Set(
+              history.map((entry) => entry.actorId).filter((value) => /^[a-f\d]{24}$/i.test(value)),
+            ),
+          ],
+        },
+      })
+      .select('name');
+    const names = new Map(actors.map((actor) => [actor._id.toString(), actor.name]));
+    return [...history].reverse().map((entry) => ({
+      actorName: names.get(entry.actorId) || 'Former Administrator',
+      fields: entry.fields,
+      timestamp: entry.timestamp.toISOString(),
+    }));
   }
 
   private async updateWithCurrentAccess(
@@ -101,6 +128,7 @@ export class UsersService {
       name: body.name,
       email: body.email,
       phone: body.phone || '',
+      address: body.address ?? user.address ?? '',
       role: body.role,
       disabled: body.disabled,
     };
@@ -113,9 +141,9 @@ export class UsersService {
         { _id: id, updatedAt: new Date(body.expectedUpdatedAt) },
         {
           $set: changes,
+          $inc: { profileVersion: 1, ...(revoke ? { tokenVersion: 1 } : {}) },
           ...(revoke
             ? {
-                $inc: { tokenVersion: 1 },
                 // A link delivered to a previous email or access state must lose its authority
                 // in the same write that changes that account.
                 $unset: { resetTokenHash: 1, resetExpiresAt: 1, resetRequestedAt: 1 },

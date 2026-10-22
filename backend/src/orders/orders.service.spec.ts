@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OrdersService } from './orders.service.js';
-import { OrderStatus } from '@kitchentodoor/shared';
+import { OrderStatus, UserRole, type UserSummary } from '@kitchentodoor/shared';
 import {
   BadRequestException,
   NotFoundException,
@@ -67,6 +67,38 @@ describe('OrdersService Unit Tests', () => {
     );
   });
 
+  it('keeps courier order queries scoped to the assigned courier', async () => {
+    const courier: UserSummary = {
+      id: 'courier-123',
+      name: 'Courier',
+      email: 'courier@example.test',
+      role: UserRole.COURIER,
+    };
+    mockOrderModel.countDocuments.mockResolvedValue(0);
+
+    await service.countOrders(undefined, '', courier, 'UNASSIGNED');
+
+    expect(mockOrderModel.countDocuments).toHaveBeenCalledWith({ courierId: courier.id });
+  });
+
+  it('filters orders by courier assignment for the dispatch list', async () => {
+    const admin: UserSummary = {
+      id: 'admin-123',
+      name: 'Admin',
+      email: 'admin@example.test',
+      role: UserRole.ADMIN,
+    };
+    mockOrderModel.countDocuments.mockResolvedValue(0);
+
+    await service.countOrders(undefined, '', admin, 'ASSIGNED');
+    expect(mockOrderModel.countDocuments).toHaveBeenLastCalledWith({
+      courierId: { $exists: true, $ne: null },
+    });
+
+    await service.countOrders(undefined, '', admin, 'UNASSIGNED');
+    expect(mockOrderModel.countDocuments).toHaveBeenLastCalledWith({ courierId: null });
+  });
+
   it('paginates history for the requested phone', async () => {
     const query = {
       sort: vi.fn<(sort: Record<string, number>) => unknown>().mockReturnThis(),
@@ -81,6 +113,38 @@ describe('OrdersService Unit Tests', () => {
     expect(mockOrderModel.find).toHaveBeenCalledWith({ 'customer.phone': '555-1234' });
     expect(query.skip).toHaveBeenCalledWith(25);
     expect(query.limit).toHaveBeenCalledWith(25);
+  });
+
+  it('filters courier history by status while keeping courier scope', async () => {
+    const query = {
+      sort: vi.fn<(sort: Record<string, number>) => unknown>().mockReturnThis(),
+      skip: vi.fn<(count: number) => unknown>().mockReturnThis(),
+      limit: vi.fn<(count: number) => Promise<unknown[]>>().mockResolvedValue([]),
+    };
+    mockOrderModel.find.mockReturnValue(query);
+    const filter = { courierId: 'courier-id', status: OrderStatus.PREPARING };
+    mockOrderModel.countDocuments.mockResolvedValue(1);
+
+    await service.countMyOrders(undefined, 'courier-id', true, '', OrderStatus.PREPARING);
+    expect(mockOrderModel.countDocuments).toHaveBeenCalledWith(filter);
+
+    await service.getMyOrders(
+      undefined,
+      10,
+      1,
+      'courier-id',
+      true,
+      {
+        id: 'courier-id',
+        name: 'Courier',
+        email: 'courier@example.test',
+        role: UserRole.COURIER,
+      },
+      '',
+      OrderStatus.PREPARING,
+    );
+
+    expect(mockOrderModel.find).toHaveBeenCalledWith(filter);
   });
 
   it('generates an order number starting with KTD-', () => {

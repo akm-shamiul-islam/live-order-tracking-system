@@ -1,15 +1,26 @@
 # Codebase review and task status
 
-Updated 2026-10-21 (Asia/Tokyo). This document tracks implementation and verification; the README remains focused on project installation and use.
+Updated 2026-10-23 (Asia/Tokyo). This document tracks implementation and verification; the README remains focused on project installation and use.
+
+## Account menu and OTP review (2026-10-23)
+
+- Replaced the account dropdown's green gradient with the application's slate surfaces, standard light/dark text and restrained teal avatar/role accents. Profile opens from the top-right avatar menu, with Sign Out below it; the drawer retains its KitchenToDoor/Explore heading.
+- Widened the Profile modal. Full Name, Email Address and Phone Number appear in that order, using the same one/two/three-column behavior as password fields. Fixed a small-tablet gap where the address occupied only one grid cell; it now spans the full row.
+- Both observers of the shared profile cache now disable focus/reconnect refetches. Previously the header's observer could refresh the editor's cache and silently replace an unsaved draft after an administrator updated the account. Opening the editor fetches a current revision before showing editable fields, preventing a stale cached version from failing the next submission. Cancel and confirmed route navigation close the modal; cancelled Back navigation and Keep Editing retain it. Clean and pending-review profiles can also be closed with Cancel. Account changes dismiss open account/checkout dialogs.
+- Pending photos are visible to their owner in the uploader/account menu, and saved photos load through the protected image endpoint. Image failures show the profile icon. The approval requirement and owner/admin photo/receipt permissions remain enforced.
+- Fixed OTP verification races: wrong attempts increment the configured budget atomically; an older wrong attempt cannot consume a freshly resent code, and a correct code can succeed after a concurrent wrong attempt while still below the limit. SMTP-failure retry updates now execute explicitly and handle storage failures. Four focused regressions cover these paths.
+- Corrected the remaining documentation references to the cart's state owner, checkout confirmation label and profile entry point. The forgot-password email → OTP → password flow remains covered by the browser workflow.
+
+Implementation follows [TanStack focus refetch guidance](https://tanstack.com/query/latest/docs/framework/react/guides/window-focus-refetching), [Mongoose query execution](https://mongoosejs.com/docs/queries.html) and [atomic updates](https://mongoosejs.com/docs/tutorials/findoneandupdate.html), plus [OWASP password recovery guidance](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html). Local verification and external operating requirements are recorded below and in the implementation report.
 
 ## Completed implementation
 
 | Request or former gap | Current implementation and evidence |
 | --- | --- |
 | Default staff login | Quoted `#` passwords in the real template, normalized emails, explicit Nest injection for tsx, useful service errors and development admin recovery. Existing passwords are not reset silently. |
-| Login state | Zustand 5.0.15 persistence/tab sync, rotating refresh cookies, server revocation, disabled-account/current-role checks and stale-response protection. |
+| Login state | Zustand 5.0.16 persistence/tab sync, rotating refresh cookies, server revocation, disabled-account/current-role checks and stale-response protection. |
 | Registration and customer ownership | Registration forces CUSTOMER. Ordering/tracking require login; history uses account ownership, without phone-only or tracking-link bypass. Real HTTP/MongoDB/socket tests include unrelated users with the same phone. |
-| Saved registration address | Optional multiline address persists with the authenticated profile and prefills checkout with name/phone. Customers edit details for the current delivery and click Deliver; registered defaults stay intact. Shared validation, session synchronization, real MongoDB and browser checks cover persistence, edits and stale location pins. |
+| Saved registration address | Optional multiline address persists with the authenticated profile and prefills checkout with name/phone. Customers edit details for the current delivery and click Confirm Order; registered defaults stay intact. Shared validation, session synchronization, real MongoDB and browser checks cover persistence, edits and stale location pins. |
 | Admin Users menu | Admin-only searchable/paginated users, themed role editor, name/email/phone/access changes, stale-write rejection, management audit and session invalidation. Direct URLs/APIs deny non-admins. |
 | Courier requests | Redacted available summaries, delivery requests, admin approval/decline and one winning assignment under contention. Other couriers lose list/full-read/room access after assignment. My Deliveries contains assigned orders only. |
 | Status/cancellation | Admin/assigned-courier dropdowns follow sequential stages. Cancellation requires a modal reason and retains it in customer-visible history. Terminal orders reject further status/GPS writes. |
@@ -25,10 +36,45 @@ Updated 2026-10-21 (Asia/Tokyo). This document tracks implementation and verific
 | TypeScript-only maintained code | All nine remaining JavaScript files converted to TypeScript, including tooling and the early theme initializer. Strict tooling checks, typed browser/IPC contracts and a no-JavaScript source gate run through workspace typechecking and pre-push. Builds emit the runtime JavaScript. |
 | Loading and food | Route/table skeletons and action spinners; 27 menu items across seven categories, local real photos, ingredient descriptions and realistic USD demo prices. |
 | Packages and current APIs | Every direct package is checked against npm, with Node types matching Node 24. Current official APIs are reviewed. The Hyperid 4 override removes the vulnerable UUID dependency; the security audit is clear. |
-| Account lifecycle | Registration/sign-in/profile/recovery pages, one-time reset, rotating HttpOnly refresh and server revocation. SMTP is implemented and mocked in tests; actual delivery requires mail setup. |
+| Account lifecycle | Registration/sign-in/profile/recovery pages, email OTP activation and new-device checks, one-time password reset grants, rotating HttpOnly refresh and server revocation. A local SMTP test server captures OTPs; actual delivery requires Gmail or another SMTP setup. |
 | Production application | Built shared exports, Fastify SPA hosting, compressed assets, CSP, initial-admin CLI, health/readiness and admin metrics. Database stop/restart recovery is tested against isolated MongoDB. |
 
 Commands, saved browser/Lighthouse summaries and limitations are in [IMPLEMENTATION_AND_VERIFICATION_REPORT.md](IMPLEMENTATION_AND_VERIFICATION_REPORT.md) and [QUALITY.md](QUALITY.md).
+
+## Review of staged and unstaged changes: request 42
+
+The combined working tree was checked against the instructions, with the latest corrections taking priority. The review preserved the user's staging choices and did not stage files or create a commit.
+
+| Requirement group | Implementation checked |
+| --- | --- |
+| Persistent cart and checkout | Account-scoped Zustand/localStorage carts survive route changes and reloads. Authenticated menu cards show quantity controls. Checkout uses Confirm Order and retains saved registration details while allowing order-specific edits. |
+| Dispatch filters, table and settings | Separate Order Status/Delivery Assignment labels and compact dropdowns; compact Filter/Settings controls; separate name/contact cells; no-wrap identifiers/totals/status; centered requested columns; date above time; persistent account-scoped column settings. |
+| Search, pagination and empty states | Custom clear buttons with pointer cursors, suppressed native clear controls, 360 px desktop search fields, right-aligned search actions, courier status filters, pagination tooltips and the centered Dispatch empty state. |
+| Available Deliveries | Full content width, shared status badge colors and right-aligned Request Delivery/Review in Dispatch labels with icons. The introduction uses one line when it fits and wraps when space is reduced by the drawer. |
+| Receipts | Owner/admin authorization, read-only canvas preview, Cancel/X/Download Receipt controls, centered branding/title, numbered item rows, centered headers/numeric cells, clipped rounded table/photos, a pale teal-green header and white item rows. A badge-colored Current Status card sits beside Customer details, totals stay right-aligned, and Order History starts on a separate page. Page-number footers omit the payment notice; preview controls wrap on narrow screens. |
+| Accounts and profiles | Registration photo uploader, read-only self-service email, name/phone/address/photo/password editing, current-password verification, customer/courier approval and immediate audited admin self-edits. Profile contacts align in a desktop row; password fields use a rounded fieldset. |
+| Unsaved profile changes | Visible dirty indicator, shared confirmation for Cancel/Back/navigation/Sign Out, draft preservation on Keep Editing, clearing on Discard and native reload/close warnings. Password drafts are not persisted. |
+| Users administration | Admin-only roles/access editing, Delivery Address, column settings, profile request history and administrative edit history. Profile queries are invalidated after an administrator edits their own account. |
+| Notifications for every role | Private owner/admin scope, role-appropriate messages, aligned name/badge/date/message/actions, bold unread state, persisted read/unread, dropdown-only dismissal and full history. Latest events appear first; themed scrollbars appear only on overflow. |
+| Notification filters and review | Labeled Review Status Filter and Search, URL state, empty-state dropdown layering, steady hover text, timestamps, reviewer name/email, centered comparison headers and red/green changes. Completed requests no longer display the pending-approval explanation. |
+| Navigation and appearance | Saved responsive drawer, copyable TanStack URLs, breadcrumbs, smooth page/theme/language changes, EN/JA resources, local Noto Sans JP, accessible icons/tooltips and branded startup/auth loading. Production direct loads of Profile/Notifications now return HTTP 200. |
+| Documentation, packages and skills | npm version recheck, official API review, synchronized README/dependency/skill versions, AI development credits and no throughput benchmark results in the README/docs. Historical measurement versions remain labeled as historical. |
+
+This review found and corrected missing HTTP 200 handling for the new Profile/Notifications routes, an overflowing courier introduction, stale Profile data after admin self-edits, outdated pending-state review copy and receipt footer wrapping. The dependency recheck also found eight newer releases; their API evidence and exact versions are recorded in DEPENDENCIES.md. Current check results are recorded in the implementation report. Infrastructure/provider requirements below remain separate from these application changes.
+
+## Final staged and unstaged review (2026-10-22)
+
+Rechecked the combined changes against the latest requirements, including receipt requests 44–46. This review found and fixed five additional gaps:
+
+- The cart selector created a fresh empty array while its account changed. It now uses a stable fallback, as required by Zustand 5, while retaining account-scoped storage.
+- A delayed checkout success could clear the cart and navigate after the user switched accounts or started a new sign-in. The API now rejects that stale result before the success callback runs. Two regressions reproduced the previous behavior and pass with the fix; lost-response retries still reuse the order's checkout key.
+- Checkout notes had no maximum length and no inline field error. The client/server share a 500-unit Zod limit matching HTML maxlength, including emoji. The field now shows the linked red error and receives focus when invalid.
+- The Dispatch Settings button extended outside its filter panel at 1024 px after the drawer animation settled. Its dropdown grid now responds to the panel's container width, and filter/search groups can wrap without changing compact button sizes. Desktop browser checks compare actual control bounds to their panel after the drawer settles.
+- The receipt preview added a second `<main>` landmark inside the page's existing main content. It is now a keyboard-focusable, named region; the browser check confirms the preview opens with one visible main landmark. This follows the [HTML Standard's main element constraints](https://html.spec.whatwg.org/multipage/grouping-content.html#the-main-element).
+
+The fresh npm check found Nodemailer 10.2.1 and react-i18next 17.1.2. Both patches were updated after reviewing their installed maintainer changelogs. Nodemailer's official documentation confirms its bundled TypeScript declarations; the obsolete community declarations were removed. Current version references and the frontend skill were synchronized. The current inventory is 67 direct packages across 80 declarations; supported Node 24 declarations remain on the compatible release line.
+
+The final checks and remaining external requirements are recorded in the implementation report. Existing staging choices were preserved.
 
 ## Appearance and language follow-up
 
@@ -70,7 +116,7 @@ The follow-up also removes obsolete checkout phone persistence and fills missing
 | --- | --- |
 | Payments, refunds and jurisdictional tax | Not integrated. Requires country/currency and a payment provider. Current server-calculated pricing is a demo; placing an order does not collect payment. |
 | Geocoding, delivery zones and street navigation | Not integrated. Requires provider, service area and credentials. Current-location pins/device GPS work independently; addresses are not automatically verified/geocoded. |
-| Live recovery email | Configure SMTP and verify sender/domain/delivery. Tests use mocked mail. A durable delivery queue remains an operating enhancement. |
+| Live recovery email | Configure SMTP and verify sender/domain/delivery. Tests deliver to an isolated local SMTP server; delivery to external mailboxes requires the operator's configuration. A durable delivery queue remains an operating enhancement. |
 | Hosting, TLS and supervision | Application support is implemented; live deployment is not performed. Requires hosting target/domain and production credentials. Local Lighthouse cannot certify deployed TLS/HSTS. |
 | Backups, restore drills and alerts | Health/metrics and an operations runbook are provided. No cloud backup schedule, production restore drill, alert destination or retention policy is configured without infrastructure choices. |
 | Multiple API instances | Run one API process. Access/assignment coordination, rate budgets and connection counts are process-local. Transactions/shared coordination, shared limit storage and Socket.IO fanout/adapter are required before horizontal scaling or overlapping API deployments. Configure implemented TRUSTED_PROXY_IPS for the actual proxy topology. |

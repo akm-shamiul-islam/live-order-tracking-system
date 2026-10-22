@@ -1,12 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
 import type { PublicConfig } from '@kitchentodoor/shared';
-import { getPricingSettings } from './runtime-settings.js';
+import { getPricingSettings, getRuntimeSettings } from './runtime-settings.js';
 
 @Controller('api/config')
 export class PublicConfigController {
   @Get()
   getConfig(): PublicConfig {
-    // Explicitly expose public pricing only, never environment variables or secrets.
-    return { pricing: getPricingSettings() };
+    return {
+      pricing: getPricingSettings(),
+      profilePhotoMaxBytes: getRuntimeSettings().PROFILE_PHOTO_MAX_BYTES,
+    };
   }
 }

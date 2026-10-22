@@ -44,6 +44,30 @@ describe('Zustand authentication persistence and tab synchronization', () => {
     expect(getSession()).toEqual({ user: null, token: null });
   });
 
+  it('keeps an approved profile when an older verification response arrives later', async () => {
+    const { getSession, saveSession } = await import('./authSession');
+    saveSession({
+      accessToken: 'token',
+      user: {
+        ...user,
+        name: 'Approved Name',
+        address: 'New Address',
+        photoId: 'approved-photo',
+        profileVersion: 2,
+      },
+    });
+    saveSession({
+      accessToken: 'token',
+      user: { ...user, name: 'Old Name', address: 'Old Address', profileVersion: 1 },
+    });
+    expect(getSession().user).toMatchObject({
+      name: 'Approved Name',
+      address: 'New Address',
+      photoId: 'approved-photo',
+      profileVersion: 2,
+    });
+  });
+
   it('avoids publishing identical profile checks while preserving role and token changes', async () => {
     const { getSession, saveSession, subscribeSession, synchronizeStoredSession } =
       await import('./authSession');

@@ -16,6 +16,7 @@ import {
   type CreateOrderDto,
   type OrderDetails,
   type UserSummary,
+  type AuthChallengeResponse,
 } from '@kitchentodoor/shared';
 import { OrdersService } from './orders.service.js';
 import { OrdersGateway } from './orders.gateway.js';
@@ -23,9 +24,12 @@ import { User, type UserDocument } from '../database/schemas/user.schema.js';
 import { Order, type OrderDocument } from '../database/schemas/order.schema.js';
 import { BoundedSocketAdapter } from '../common/socket-adapter.js';
 import { RecoveryMailer } from '../auth/recovery-mailer.js';
+import { AuthOtpService } from '../auth/auth-otp.service.js';
 import { AuthSession } from '../database/schemas/auth-session.schema.js';
+import { AuthChallenge } from '../database/schemas/auth-challenge.schema.js';
 import bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service.js';
+import { createTestSmtpServer } from '../testing/test-smtp.js';
 
 describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () => {
   let mongo: MongoMemoryServer;
@@ -34,6 +38,8 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
   let userModel: Model<UserDocument>;
   let orderModel: Model<OrderDocument>;
   let base: string;
+  let smtp: Awaited<ReturnType<typeof createTestSmtpServer>>;
+  let directInject: NestFastifyApplication['inject'];
   const sockets: Socket[] = [];
   const actors = new Map<string, UserSummary>();
   const tokens = new Map<string, string>();
@@ -45,6 +51,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
   };
 
   beforeAll(async () => {
+    smtp = await createTestSmtpServer();
     mongo = await MongoMemoryServer.create({
       binary: { downloadDir: join(tmpdir(), 'ktd-mongo-binaries') },
     });
@@ -58,15 +65,23 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
       RATE_LIMIT_MAX: '10000',
       SOCKET_RATE_LIMIT_MAX: '20',
       REGISTER_RATE_LIMIT_MAX: '1000',
+      OTP_REQUEST_RATE_LIMIT_MAX: '1000',
+      OTP_VERIFY_RATE_LIMIT_MAX: '1000',
       LOGIN_RATE_LIMIT_MAX: '1000',
       RESET_RATE_LIMIT_MAX: '1000',
       SOCKET_IP_RATE_LIMIT_MAX: '500',
       SOCKET_RATE_LIMIT_WINDOW_MS: '1000',
       AUTH_COOKIE_SECURE: 'false',
       PASSWORD_HASH_ROUNDS: '10',
-      PASSWORD_RESET_ENABLED: 'true',
-      SMTP_HOST: 'smtp.example.test',
-      SMTP_FROM: 'kitchen@example.test',
+      SMTP_HOST: smtp.host,
+      SMTP_PORT: String(smtp.port),
+      SMTP_SECURE: 'false',
+      SMTP_REQUIRE_TLS: 'false',
+      SMTP_USER: smtp.user,
+      SMTP_PASSWORD: smtp.password,
+      SMTP_FROM: smtp.from,
+      AUTH_OTP_TTL_SECONDS: '600',
+      AUTH_OTP_RESEND_SECONDS: '60',
       PUBLIC_APP_URL: 'https://kitchen.example.test',
       FRONTEND_URL: 'http://localhost:5173,https://kitchen.example.test',
       MONGODB_HEARTBEAT_FREQUENCY_MS: '500',
@@ -80,6 +95,88 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     app.useWebSocketAdapter(new BoundedSocketAdapter(app));
     await app.listen(0, '127.0.0.1');
     base = await app.getUrl();
+    const rawInject = app.inject.bind(app);
+    directInject = rawInject;
+    const deviceIds = new Map<string, string>();
+    const injected = async (input: unknown) => {
+      const options =
+        input && typeof input === 'object'
+          ? (input as { method?: string; url?: string; payload?: unknown; headers?: object })
+          : {};
+      let payload = options.payload;
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload) as unknown;
+        } catch {
+          payload = undefined;
+        }
+      }
+      const body =
+        payload && typeof payload === 'object' && !Array.isArray(payload)
+          ? (payload as Record<string, unknown>)
+          : undefined;
+      const path = typeof options.url === 'string' ? options.url : '';
+      let request = input as Parameters<typeof app.inject>[0];
+      let loginDeviceId: string | undefined;
+      if (options.method === 'POST' && path === '/api/auth/login' && body) {
+        const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+        loginDeviceId =
+          typeof body.deviceId === 'string' ? body.deviceId : deviceIds.get(email) || randomUUID();
+        request = {
+          ...options,
+          payload: { ...body, deviceId: loginDeviceId },
+        } as Parameters<typeof app.inject>[0];
+        if (email) deviceIds.set(email, loginDeviceId);
+      }
+      const response = await rawInject(request);
+      if (
+        options.method === 'POST' &&
+        path === '/api/auth/register' &&
+        response.statusCode === 201 &&
+        body &&
+        typeof body.email === 'string'
+      ) {
+        const challenge = response.json<AuthChallengeResponse>();
+        const deviceId = randomUUID();
+        const code = await smtp.takeOtp(body.email);
+        const verified = await rawInject({
+          method: 'POST',
+          url: '/api/auth/email/verify',
+          payload: { challengeId: challenge.challengeId, code, deviceId },
+        });
+        if (verified.statusCode !== 200)
+          throw new Error(
+            `Test email verification failed: ${verified.statusCode} ${verified.body}`,
+          );
+        deviceIds.set(body.email.trim().toLowerCase(), deviceId);
+        return new Proxy(verified, {
+          get(target, property) {
+            if (property === 'statusCode') return 201;
+            const value = Reflect.get(target, property, target);
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        }) as typeof verified;
+      }
+      if (
+        options.method === 'POST' &&
+        path === '/api/auth/login' &&
+        response.statusCode === 200 &&
+        loginDeviceId
+      ) {
+        const result = response.json<{ status?: string; challengeId?: string }>();
+        if (result.status === 'verification_required' && result.challengeId) {
+          const email = body && typeof body.email === 'string' ? body.email : '';
+          const code = await smtp.takeOtp(email);
+          return rawInject({
+            method: 'POST',
+            url: '/api/auth/login/verify',
+            payload: { challengeId: result.challengeId, code, deviceId: loginDeviceId },
+          });
+        }
+      }
+      return response;
+    };
+    Object.defineProperty(app, 'inject', { configurable: true, value: injected });
     orders = app.get(OrdersService);
     userModel = app.get(getModelToken(User.name));
     orderModel = app.get(getModelToken(Order.name));
@@ -112,6 +209,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
   afterAll(async () => {
     for (const socket of sockets) socket.disconnect();
     await app?.close();
+    await smtp?.close();
     await mongo?.stop();
     vi.unstubAllEnvs();
   });
@@ -140,6 +238,23 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     }>;
   async function create(owner?: string): Promise<OrderDetails> {
     return orders.createOrder(dto, owner ? actor(owner).id : undefined);
+  }
+  async function issueResetGrant(email: string): Promise<string> {
+    const requested = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: { email },
+    });
+    expect(requested.statusCode).toBe(200);
+    const challenge = requested.json<AuthChallengeResponse>();
+    const code = await smtp.takeOtp(email);
+    const verified = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password/verify',
+      payload: { challengeId: challenge.challengeId, code },
+    });
+    expect(verified.statusCode).toBe(200);
+    return verified.json<{ resetToken: string }>().resetToken;
   }
 
   it('persists an owned language preference through registration, login and refresh without exposing account edits', async () => {
@@ -225,6 +340,113 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     });
   });
 
+  it('requires email verification at registration and a code for each new device', async () => {
+    const raw = directInject!;
+    const email = `otp-${randomUUID()}@example.test`;
+    const password = 'OTP-customer#2026!';
+    const firstDevice = randomUUID();
+    const registration = await raw({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { name: 'OTP Customer', email, phone: '555-1234567', password },
+    });
+    expect(registration.statusCode).toBe(201);
+    const registrationChallenge = registration.json<AuthChallengeResponse>();
+    expect(registrationChallenge).toMatchObject({
+      status: 'verification_required',
+      purpose: 'email_verification',
+      email,
+    });
+    expect(await userModel.findOne({ email }).select('emailVerified')).toMatchObject({
+      emailVerified: false,
+    });
+    const blocked = await raw({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email, password, deviceId: firstDevice },
+    });
+    expect(blocked.statusCode).toBe(401);
+    const registrationCode = await smtp.takeOtp(email);
+    const challengeRecord = await app
+      .get<Model<{ codeHash: string }>>(getModelToken(AuthChallenge.name))
+      .findById(registrationChallenge.challengeId)
+      .select('+codeHash');
+    expect(challengeRecord?.codeHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(challengeRecord?.codeHash).not.toContain(registrationCode);
+    const activated = await raw({
+      method: 'POST',
+      url: '/api/auth/email/verify',
+      payload: {
+        challengeId: registrationChallenge.challengeId,
+        code: registrationCode,
+        deviceId: firstDevice,
+      },
+    });
+    expect(activated.statusCode).toBe(200);
+    expect(activated.json<{ user: UserSummary }>().user.email).toBe(email);
+    expect(await userModel.findOne({ email }).select('emailVerified')).toMatchObject({
+      emailVerified: true,
+    });
+
+    const newDevice = randomUUID();
+    const login = await raw({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email, password, deviceId: newDevice },
+    });
+    expect(login.statusCode).toBe(200);
+    const loginChallenge = login.json<AuthChallengeResponse>();
+    expect(loginChallenge).toMatchObject({
+      status: 'verification_required',
+      purpose: 'new_device_login',
+    });
+    const loginCode = await smtp.takeOtp(email);
+    const wrongDevice = await raw({
+      method: 'POST',
+      url: '/api/auth/login/verify',
+      payload: {
+        challengeId: loginChallenge.challengeId,
+        code: loginCode,
+        deviceId: firstDevice,
+      },
+    });
+    expect(wrongDevice.statusCode).toBe(400);
+    const verifiedLogin = await raw({
+      method: 'POST',
+      url: '/api/auth/login/verify',
+      payload: {
+        challengeId: loginChallenge.challengeId,
+        code: loginCode,
+        deviceId: newDevice,
+      },
+    });
+    expect(verifiedLogin.statusCode).toBe(200);
+    expect(verifiedLogin.json<{ user: UserSummary }>().user.email).toBe(email);
+    const trustedAfterVerification = await userModel
+      .findOne({ email })
+      .select('+trustedDeviceHashes')
+      .lean();
+    expect(trustedAfterVerification?.trustedDeviceHashes).toContain(
+      app.get(AuthOtpService).hashDeviceId(newDevice),
+    );
+
+    const logout = await raw({
+      method: 'POST',
+      url: '/api/auth/logout',
+      headers: {
+        authorization: `Bearer ${verifiedLogin.json<{ accessToken: string }>().accessToken}`,
+      },
+    });
+    expect(logout.statusCode).toBe(200);
+    const trustedDeviceLogin = await raw({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email, password, deviceId: newDevice },
+    });
+    expect(trustedDeviceLogin.statusCode).toBe(200);
+    expect(trustedDeviceLogin.json()).toHaveProperty('accessToken');
+  });
+
   it('requires sign-in and protects order identifiers and tracking links by account ownership', async () => {
     const order = await create('customer1');
     expect(order.trackingId).toMatch(/^trk_[\w-]{43}$/);
@@ -277,6 +499,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     expect(ownerReceipt.headers['content-type']).toBe('application/pdf');
     expect(ownerReceipt.headers['content-disposition']).toContain(order.orderNumber);
     expect(ownerReceipt.payload.startsWith('%PDF-')).toBe(true);
+    expect(ownerReceipt.rawPayload.toString('latin1')).toMatch(/\/Subtype\s*\/Image/);
     expect(ownerReceipt.headers['cache-control']).toBe('no-store');
 
     expect((await app.inject({ url: receiptUrl })).statusCode).toBe(401);
@@ -1019,7 +1242,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
   });
 
   it.each(['email', 'role', 'disable and re-enable'] as const)(
-    'invalidates outstanding password reset links when an administrator changes %s',
+    'invalidates outstanding password reset codes when an administrator changes %s',
     async (change) => {
       mail.mockClear();
       const email = `reset-${change.replaceAll(' ', '-')}@example.test`;
@@ -1034,10 +1257,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
         },
       });
       expect(registration.statusCode).toBe(201);
-      await app.inject({ method: 'POST', url: '/api/auth/forgot-password', payload: { email } });
-      await vi.waitFor(() => expect(mail).toHaveBeenCalledOnce());
-      const link = new URL(mail.mock.calls[0]![2].match(/https:\/\/\S+/)![0]);
-      const token = new URLSearchParams(link.hash.slice(1)).get('token')!;
+      const token = await issueResetGrant(email);
       const id = registration.json().user.id as string;
       const user = await userModel.findById(id);
       const update = {
@@ -1204,16 +1424,45 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
         }),
       ),
     );
-    expect(responses[0]!.json()).toEqual(responses[1]!.json());
-    await vi.waitFor(() => expect(mail).toHaveBeenCalledOnce());
-    const text = mail.mock.calls[0]![2];
-    const link = new URL(text.match(/https:\/\/\S+/)![0]);
-    const resetToken = new URLSearchParams(link.hash.slice(1)).get('token')!;
+    expect(responses[0]!.json<AuthChallengeResponse>()).toMatchObject({
+      status: 'verification_required',
+      purpose: 'password_reset',
+      email,
+    });
+    expect(responses[1]!.json<AuthChallengeResponse>()).toMatchObject({
+      status: 'verification_required',
+      purpose: 'password_reset',
+      email: 'missing@example.test',
+    });
+    expect(Object.keys(responses[0]!.json()).sort()).toEqual(
+      Object.keys(responses[1]!.json()).sort(),
+    );
+    const challenge = responses[0]!.json<AuthChallengeResponse>();
+    const resetCode = await smtp.takeOtp(email);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/auth/reset-password/verify',
+          payload: { challengeId: challenge.challengeId, code: '000000' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const verified = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password/verify',
+      payload: { challengeId: challenge.challengeId, code: resetCode },
+    });
+    expect(verified.statusCode).toBe(200);
+    const resetToken = verified.json<{ resetToken: string }>().resetToken;
     expect(resetToken).toMatch(/^reset_[\w-]{43}$/);
-    expect(link.search).toBe('');
-    const stored = await userModel.findOne({ email }).select('+resetTokenHash').lean();
-    expect(stored?.resetTokenHash).toHaveLength(64);
-    expect(JSON.stringify(stored)).not.toContain(resetToken);
+    const storedChallenge = await app
+      .get<Model<{ resetGrantHash: string }>>(getModelToken(AuthChallenge.name))
+      .findById(challenge.challengeId)
+      .select('+resetGrantHash')
+      .lean();
+    expect(storedChallenge?.resetGrantHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(storedChallenge)).not.toContain(resetToken);
     const reset = await Promise.all(
       Array.from({ length: 2 }, () =>
         app.inject({
@@ -1276,14 +1525,7 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
       const authorization = `Bearer ${registered.json().accessToken}`;
       let token: string | undefined;
       if (action === 'password reset') {
-        await app.inject({ method: 'POST', url: '/api/auth/forgot-password', payload: { email } });
-      }
-      await vi.waitFor(() =>
-        expect(mail).toHaveBeenCalledTimes(action === 'password reset' ? 1 : 0),
-      );
-      if (action === 'password reset') {
-        const link = new URL(mail.mock.calls[0]![2].match(/https:\/\/\S+/)![0]);
-        token = new URLSearchParams(link.hash.slice(1)).get('token')!;
+        token = await issueResetGrant(email);
       }
       const cleanup = vi
         .spyOn(app.get<Model<AuthSession>>(getModelToken(AuthSession.name)), 'updateMany')
@@ -1312,6 +1554,9 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
       } finally {
         cleanup.mockRestore();
       }
+      await vi.waitFor(() =>
+        expect(mail).toHaveBeenCalledTimes(action === 'password reset' ? 1 : 0),
+      );
       expect(
         (await app.inject({ url: '/api/auth/me', headers: { authorization } })).statusCode,
       ).toBe(401);

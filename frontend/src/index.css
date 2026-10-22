@@ -243,6 +243,35 @@ body {
     animation: none !important;
   }
 }
+/* Notification copy stays steady while compact action icons keep their hover feedback. */
+.notification-open:hover,
+.notification-open:active,
+.dark .notification-open:hover,
+.dark .notification-open:active {
+  scale: 1;
+  filter: none;
+}
+.notification-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #0d9488 #f1f5f9;
+}
+.dark .notification-scroll {
+  scrollbar-color: #2dd4bf #1e293b;
+}
+.notification-scroll::-webkit-scrollbar-thumb {
+  background: #0d9488;
+  border: 2px solid #f1f5f9;
+  border-radius: 9999px;
+}
+.dark .notification-scroll::-webkit-scrollbar-thumb {
+  background: #2dd4bf;
+  border-color: #1e293b;
+}
+@media (forced-colors: active) {
+  .notification-scroll {
+    scrollbar-color: auto;
+  }
+}
 :lang(ja) {
   --font-sans: 'Noto Sans JP Variable', 'Yu Gothic', Meiryo, system-ui, sans-serif;
   --font-display: 'Noto Sans JP Variable', 'Yu Gothic', Meiryo, system-ui, sans-serif;

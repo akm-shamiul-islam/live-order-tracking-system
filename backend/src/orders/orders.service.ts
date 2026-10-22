@@ -245,7 +245,12 @@ export class OrdersService implements OnModuleInit {
     return this.mapToDetails(order, logs, actor);
   }
 
-  private listFilter(status?: string, search = '', actor?: UserSummary) {
+  private listFilter(
+    status?: string,
+    search = '',
+    actor?: UserSummary,
+    assignment?: 'ALL' | 'ASSIGNED' | 'UNASSIGNED',
+  ) {
     const filter: Record<string, unknown> = status ? { status } : {};
     if (search) {
       const literal = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -253,21 +258,41 @@ export class OrdersService implements OnModuleInit {
         [field]: { $regex: literal, $options: 'i' },
       }));
     }
-    if (actor?.role === UserRole.COURIER) {
-      filter.courierId = actor.id;
-    }
+    if (assignment === 'ASSIGNED') filter.courierId = { $exists: true, $ne: null };
+    if (assignment === 'UNASSIGNED') filter.courierId = null;
+    // Keep actor scope authoritative even if a broader assignment filter is supplied.
+    if (actor?.role === UserRole.COURIER) filter.courierId = actor.id;
     return filter;
   }
 
-  countOrders(status?: string, search = '', actor?: UserSummary) {
-    return this.orderModel.countDocuments(this.listFilter(status, search, actor));
+  countOrders(
+    status?: string,
+    search = '',
+    actor?: UserSummary,
+    assignment?: 'ALL' | 'ASSIGNED' | 'UNASSIGNED',
+  ) {
+    return this.orderModel.countDocuments(this.listFilter(status, search, actor, assignment));
   }
 
-  countMyOrders(phone?: string, ownerId?: string, deliveries = false, search = '') {
-    return this.orderModel.countDocuments(this.historyFilter(phone, ownerId, deliveries, search));
+  countMyOrders(
+    phone?: string,
+    ownerId?: string,
+    deliveries = false,
+    search = '',
+    status?: OrderStatus,
+  ) {
+    return this.orderModel.countDocuments(
+      this.historyFilter(phone, ownerId, deliveries, search, status),
+    );
   }
 
-  private historyFilter(phone?: string, ownerId?: string, deliveries = false, search = '') {
+  private historyFilter(
+    phone?: string,
+    ownerId?: string,
+    deliveries = false,
+    search = '',
+    status?: OrderStatus,
+  ) {
     const filter = deliveries
       ? { courierId: ownerId }
       : {
@@ -276,6 +301,7 @@ export class OrdersService implements OnModuleInit {
         };
     return {
       ...filter,
+      ...(status ? { status } : {}),
       ...(search
         ? { orderNumber: { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } }
         : {}),
@@ -288,9 +314,10 @@ export class OrdersService implements OnModuleInit {
     page = 1,
     search = '',
     actor?: UserSummary,
+    assignment?: 'ALL' | 'ASSIGNED' | 'UNASSIGNED',
   ): Promise<OrderDetails[]> {
     const query = this.orderModel
-      .find(this.listFilter(status, search, actor))
+      .find(this.listFilter(status, search, actor, assignment))
       .sort({ createdAt: -1, _id: -1 });
     if (page > 1) query.skip((page - 1) * limit);
     const orders = await query.limit(limit);
@@ -316,9 +343,10 @@ export class OrdersService implements OnModuleInit {
     deliveries = false,
     actor?: UserSummary,
     search = '',
+    status?: OrderStatus,
   ): Promise<OrderDetails[]> {
     const query = this.orderModel
-      .find(this.historyFilter(phone, ownerId, deliveries, search))
+      .find(this.historyFilter(phone, ownerId, deliveries, search, status))
       .sort({ createdAt: -1, _id: -1 });
     if (page > 1) query.skip((page - 1) * limit);
     const orders = await query.limit(limit);

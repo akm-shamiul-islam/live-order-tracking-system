@@ -13,10 +13,10 @@ import {
   X,
   Bike,
   ChevronRight,
-  LogOut,
   ArrowUpRight,
   UserRound,
   UsersRound,
+  Bell,
 } from 'lucide-react';
 import { UserRole } from '@kitchentodoor/shared';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,6 +27,8 @@ import { useIdleReady } from '../../hooks/useIdleReady';
 import { Spinner } from './Loading';
 import { Tooltip } from '../ui/Tooltip';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { NotificationBell } from '../notifications/NotificationBell';
+import { AccountDropdown } from './AccountDropdown';
 const ConnectionBadge = lazy(() =>
   import('../tracking/ConnectionBadge').then((module) => ({ default: module.ConnectionBadge })),
 );
@@ -38,9 +40,17 @@ interface NavbarProps {
   onLogoutAdmin: () => void;
   navigationOpen: boolean;
   onToggleNavigation: () => void;
+  onOpenProfile: () => void;
 }
 
 const navigationItems = [
+  {
+    to: '/notifications',
+    label: 'Notifications',
+    description: 'Requests, decisions and history',
+    icon: Bell,
+    section: 'Your account',
+  },
   {
     to: '/',
     label: 'Order Food',
@@ -99,8 +109,11 @@ export function Navbar({
   onLogoutAdmin,
   navigationOpen,
   onToggleNavigation,
+  onOpenProfile,
 }: NavbarProps) {
   const c = useCopy();
+
+  const { user } = useAuth();
 
   const pathname = useLocation({ select: (location) => location.pathname });
   const navigate = useNavigate();
@@ -181,12 +194,12 @@ export function Navbar({
               )}
             </button>
           </Tooltip>
-          <Tooltip label={c(isDark ? 'Switch to light mode' : 'Switch to dark mode')}>
+          <Tooltip label={c(isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode')}>
             <button
               type="button"
               onClick={toggleTheme}
               className={iconButton}
-              aria-label={c(isDark ? 'Switch to light mode' : 'Switch to dark mode')}
+              aria-label={c(isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode')}
             >
               {isDark ? (
                 <Sun aria-hidden="true" className="h-5 w-5" />
@@ -195,24 +208,19 @@ export function Navbar({
               )}
             </button>
           </Tooltip>
-          <button
-            type="button"
-            onClick={
-              isAuthenticatedAdmin
-                ? onLogoutAdmin
-                : () => {
-                    void navigate({ to: '/account' });
-                  }
-            }
-            className={`hidden h-10 items-center gap-2 rounded-xl border px-3.5 text-xs font-bold transition-colors sm:inline-flex ${isAuthenticatedAdmin ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/40' : 'border-teal-200 bg-teal-50 text-teal-800 hover:bg-teal-100 dark:border-teal-700/40 dark:bg-teal-500/10 dark:text-teal-200 dark:hover:bg-teal-500/20'}`}
-          >
-            {isAuthenticatedAdmin ? (
-              <LogOut aria-hidden="true" className="h-4 w-4" />
-            ) : (
+          <NotificationBell key={user?.id ?? 'guest'} />
+          {isAuthenticatedAdmin ? (
+            <AccountDropdown onOpenProfile={onOpenProfile} onSignOut={onLogoutAdmin} />
+          ) : (
+            <button
+              type="button"
+              onClick={() => void navigate({ to: '/account' })}
+              className="hidden h-10 items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3.5 text-xs font-bold text-teal-800 transition-colors hover:bg-teal-100 sm:inline-flex dark:border-teal-700/40 dark:bg-teal-500/10 dark:text-teal-200 dark:hover:bg-teal-500/20"
+            >
               <Shield aria-hidden="true" className="h-4 w-4" />
-            )}
-            {isAuthenticatedAdmin ? c('Sign Out') : c('Sign In / Register')}
-          </button>
+              {c('Sign In / Register')}
+            </button>
+          )}
         </div>
       </div>
     </header>
@@ -240,8 +248,8 @@ export function NavigationDrawer({
   const dialogRef = useDialog(open && !desktop);
   const content = (
     <>
-      <div className="flex items-start justify-between gap-3 border-b border-slate-200/70 px-5 py-5 dark:border-slate-800">
-        <div>
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200/70 px-3 py-3 dark:border-slate-800 sm:px-4">
+        <div className="min-w-0 flex-1 px-2 py-2">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-400">
             {c('KitchenToDoor')}{' '}
           </span>
@@ -314,34 +322,28 @@ export function NavigationDrawer({
           );
         })}
       </nav>
-      <div className="m-3.5 mt-auto rounded-2xl border border-teal-100 bg-teal-50/70 p-4 dark:border-teal-500/15 dark:bg-teal-500/5">
-        <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
-          <Shield aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-          {isStaff
-            ? c('Welcome, {{name}}', { name: user?.name || c('Anonymous') })
-            : c('Your next meal awaits')}
-        </div>
-        <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-          {isStaff
-            ? c('Your workspace follows your account access.')
-            : c('Create an account to order and track your delivery.')}
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            onClose();
-            onStaffAction();
-          }}
-          className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-teal-100"
-        >
-          {isStaff ? c('Sign Out') : c('Sign In / Register')}
-          {isStaff ? (
-            <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
-          ) : (
+      {!isStaff && (
+        <div className="m-3.5 mt-auto rounded-2xl border border-teal-100 bg-teal-50/70 p-4 dark:border-teal-500/15 dark:bg-teal-500/5">
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+            <Shield aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+            {c('Your next meal awaits')}
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+            {c('Create an account to order and track your delivery.')}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onStaffAction();
+            }}
+            className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-teal-100"
+          >
+            {c('Sign In / Register')}
             <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
-          )}
-        </button>
-      </div>
+          </button>
+        </div>
+      )}
     </>
   );
   if (desktop)

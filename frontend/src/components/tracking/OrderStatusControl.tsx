@@ -165,7 +165,7 @@ export function OrderStatusControl({ order }: { order: OrderDetails }) {
   return (
     <section
       className="space-y-3 border-t border-slate-200 pt-4 dark:border-slate-700"
-      aria-label={c('Update order status')}
+      aria-label={c('Update Order Status')}
     >
       <h3 className="text-sm font-bold">{c('Update Status')}</h3>
       <p className="text-xs text-slate-600 dark:text-slate-300">
@@ -178,7 +178,7 @@ export function OrderStatusControl({ order }: { order: OrderDetails }) {
       )}
       <div className="flex flex-wrap items-center gap-3">
         <ThemedSelect
-          label={c('Order status')}
+          label={c('Order Status')}
           value={selected}
           options={[order.status, ...allowed].map((status) => ({
             value: status,

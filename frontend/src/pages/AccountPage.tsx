@@ -5,7 +5,7 @@ import {
   LoginSchema,
   RegisterSchema,
   ForgotPasswordSchema,
-  ResetPasswordSchema,
+  ResetPasswordFieldsSchema,
   UserRole,
 } from '@kitchentodoor/shared';
 import { z } from '@kitchentodoor/shared/zod';
@@ -27,10 +27,14 @@ import { useZodForm } from '../hooks/useZodForm';
 import { api, ApiError } from '../lib/api';
 import { FieldError } from '../components/forms/FieldError';
 import { Spinner } from '../components/layout/Loading';
+import { ProfilePhotoUploader } from '../components/profile/ProfilePhotoUploader';
+import { OtpVerificationForm } from '../components/auth/OtpVerificationForm';
 import { safeReturnTo, roleHome, canOpenPage } from '../lib/access';
-import type { AuthResponse } from '@kitchentodoor/shared';
+import type { AuthChallengeResponse, AuthResponse } from '@kitchentodoor/shared';
+import { useAppActions } from '../components/layout/AppActionsContext';
 
-const RegisterFormSchema = RegisterSchema.omit({ role: true })
+const LoginFormSchema = LoginSchema.omit({ deviceId: true });
+const RegisterFormSchema = RegisterSchema.omit({ role: true, photo: true })
   .extend({ address: RegisterSchema.shape.address.default(''), confirmPassword: z.string() })
   .refine((value) => value.password === value.confirmPassword, {
     path: ['confirmPassword'],
@@ -107,9 +111,29 @@ function SignInForm() {
 
   const complete = useAfterSignIn();
   const search = useSearch({ from: '/account' });
-  const form = useZodForm(LoginSchema, { email: '', password: '' }, 'customer-login');
+  const form = useZodForm(LoginFormSchema, { email: '', password: '' }, 'customer-login');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<AuthChallengeResponse | null>(null);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  if (challenge)
+    return (
+      <div className="space-y-4">
+        <OtpVerificationForm
+          challenge={challenge}
+          onComplete={(result) => {
+            if (typeof result !== 'string') complete(result);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setChallenge(null)}
+          className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 underline dark:text-slate-300"
+        >
+          {c('Back to Sign In')}
+        </button>
+      </div>
+    );
   return (
     <form
       noValidate
@@ -124,9 +148,14 @@ function SignInForm() {
         setPending(true);
         setError(null);
         try {
-          complete(await api.auth.login(values.email, values.password));
+          const result = await api.auth.login(values.email, values.password);
+          if ('accessToken' in result) complete(result);
+          else setChallenge(result);
         } catch (cause) {
-          if (cause instanceof ApiError)
+          if (cause instanceof ApiError && cause.message.includes('Verify your email')) {
+            setNeedsEmailVerification(true);
+            setError(cause.message);
+          } else if (cause instanceof ApiError)
             form.setServerErrors(
               cause.status === 401
                 ? { password: 'Check your email and password.' }
@@ -140,8 +169,31 @@ function SignInForm() {
       }}
     >
       <Feedback error={c(error)} />
+      {needsEmailVerification && (
+        <button
+          type="button"
+          disabled={pending || !form.values.email}
+          onClick={async () => {
+            setPending(true);
+            setError(null);
+            try {
+              setChallenge(await api.auth.requestEmailVerification(form.values.email));
+            } catch (cause) {
+              setError(
+                cause instanceof Error ? cause.message : 'The verification code could not be sent.',
+              );
+            } finally {
+              setPending(false);
+            }
+          }}
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-teal-700 px-4 text-sm font-bold text-teal-800 transition hover:bg-teal-50 disabled:opacity-50 dark:border-teal-500 dark:text-teal-200 dark:hover:bg-teal-500/10"
+        >
+          <Mail aria-hidden="true" className="h-4 w-4" />
+          {c('Resend Verification Code')}
+        </button>
+      )}
       <AccountField
-        label={c('Email address')}
+        label={c('Email Address')}
         type="email"
         autoComplete="username"
         spellCheck={false}
@@ -159,6 +211,7 @@ function SignInForm() {
       />
       <Link
         to="/account/forgot"
+        search={search}
         className="inline-block text-sm font-semibold text-teal-800 underline dark:text-teal-200"
       >
         {c('Forgot Password?')}{' '}
@@ -192,7 +245,27 @@ function RegisterForm() {
     'register',
   );
   const [pending, setPending] = useState(false);
+  const [photo, setPhoto] = useState<string | null>();
   const [error, setError] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<AuthChallengeResponse | null>(null);
+  if (challenge)
+    return (
+      <div className="space-y-4">
+        <OtpVerificationForm
+          challenge={challenge}
+          onComplete={(result) => {
+            if (typeof result !== 'string') complete(result);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setChallenge(null)}
+          className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 underline dark:text-slate-300"
+        >
+          {c('Back to Registration')}
+        </button>
+      </div>
+    );
   return (
     <form
       noValidate
@@ -207,15 +280,16 @@ function RegisterForm() {
         setPending(true);
         setError(null);
         try {
-          complete(
-            await api.auth.register(
-              values.name,
-              values.email,
-              values.password,
-              values.phone,
-              values.address,
-            ),
+          const result = await api.auth.register(
+            values.name,
+            values.email,
+            values.password,
+            values.phone,
+            values.address,
+            photo || undefined,
           );
+          if ('accessToken' in result) complete(result);
+          else setChallenge(result);
         } catch (cause) {
           if (cause instanceof ApiError)
             form.setServerErrors(
@@ -235,15 +309,21 @@ function RegisterForm() {
       }}
     >
       <Feedback error={c(error)} />
+      <ProfilePhotoUploader
+        name={form.values.name}
+        value={photo}
+        onChange={setPhoto}
+        disabled={pending}
+      />
       <AccountField
-        label={c('Full name')}
+        label={c('Full Name')}
         autoComplete="name"
         disabled={pending}
         field={form.field('name')}
         error={form.errors.name}
       />
       <AccountField
-        label={c('Email address')}
+        label={c('Email Address')}
         type="email"
         autoComplete="email"
         spellCheck={false}
@@ -314,13 +394,114 @@ function RegisterForm() {
   );
 }
 
-function ForgotForm() {
+function PasswordRecoveryFlow() {
   const c = useCopy();
-
-  const form = useZodForm(ForgotPasswordSchema, { email: '' }, 'forgot');
+  const navigate = useNavigate();
+  const search = useSearch({ from: '/account' });
+  const hash = useLocation({ select: (location) => location.hash });
+  const tokenFromUrl = new URLSearchParams(hash.replace(/^#/, '')).get('token') || '';
+  const emailForm = useZodForm(ForgotPasswordSchema, { email: '' }, 'forgot');
+  const passwordForm = useZodForm(
+    ResetPasswordFieldsSchema,
+    { password: '', confirmPassword: '' },
+    'reset',
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<AuthChallengeResponse | null>(null);
+  const [resetToken, setResetToken] = useState(tokenFromUrl);
   const [success, setSuccess] = useState(false);
+
+  if (challenge && !resetToken)
+    return (
+      <div className="space-y-4">
+        <OtpVerificationForm
+          challenge={challenge}
+          onComplete={(result) => {
+            if (typeof result !== 'string') return;
+            setResetToken(result);
+            void navigate({
+              to: '/account/reset',
+              search,
+              hash: `token=${encodeURIComponent(result)}`,
+              replace: true,
+            });
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setChallenge(null)}
+          className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 underline dark:text-slate-300"
+        >
+          {c('Use a Different Email Address')}
+        </button>
+      </div>
+    );
+
+  if (resetToken)
+    return (
+      <form
+        noValidate
+        aria-busy={pending}
+        className="space-y-5"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (pending || success) return;
+          const values = passwordForm.validate(event.currentTarget);
+          if (!values) return;
+          setPending(true);
+          setError(null);
+          try {
+            await api.auth.resetPassword(resetToken, values.password, values.confirmPassword);
+            setSuccess(true);
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Unable to reset your password.');
+          } finally {
+            setPending(false);
+          }
+        }}
+      >
+        <Feedback
+          error={error}
+          success={
+            success ? 'Your password has been changed. Sign in again with your new password.' : null
+          }
+        />
+        {!success && (
+          <>
+            <AccountField
+              label={c('New password')}
+              type="password"
+              autoComplete="new-password"
+              disabled={pending}
+              field={passwordForm.field('password')}
+              error={passwordForm.errors.password}
+            />
+            <AccountField
+              label={c('Confirm New Password')}
+              type="password"
+              autoComplete="new-password"
+              disabled={pending}
+              field={passwordForm.field('confirmPassword')}
+              error={passwordForm.errors.confirmPassword}
+            />
+            <button disabled={pending} className={buttonClass}>
+              {pending ? <Spinner /> : <KeyRound aria-hidden="true" className="h-4 w-4" />}
+              {pending ? c('Saving Password…') : c('Save New Password')}
+            </button>
+          </>
+        )}
+        <div className="flex flex-wrap justify-between gap-3 text-sm font-bold text-teal-800 underline dark:text-teal-200">
+          <Link to="/account" search={search}>
+            {c('Sign In')}
+          </Link>
+          <Link to="/account/forgot" search={search}>
+            {c('Request a New Code')}
+          </Link>
+        </div>
+      </form>
+    );
+
   return (
     <form
       noValidate
@@ -329,13 +510,13 @@ function ForgotForm() {
       onSubmit={async (event) => {
         event.preventDefault();
         if (pending) return;
-        const values = form.validate(event.currentTarget);
+        const values = emailForm.validate(event.currentTarget);
         if (!values) return;
         setPending(true);
         setError(null);
         try {
-          await api.auth.forgotPassword(values.email);
-          setSuccess(true);
+          const next = await api.auth.forgotPassword(values.email);
+          setChallenge(next);
         } catch (cause) {
           setError(
             cause instanceof Error
@@ -349,29 +530,29 @@ function ForgotForm() {
     >
       <p className="text-sm text-slate-600 dark:text-slate-300">
         {c(
-          'Enter your account email. If it matches an account, you’ll receive a link to choose a new password.',
+          'Enter your account email. If it matches an account, a 6-digit code will be sent to your inbox.',
         )}{' '}
       </p>
       <Feedback
-        error={c(error)}
+        error={error}
         success={
-          success
-            ? 'Check your inbox and spam folder. If no email arrives, contact the kitchen for help.'
+          challenge
+            ? 'If an account matches that email, a verification code has been sent. Check your inbox and spam folder.'
             : null
         }
       />
       <AccountField
-        label={c('Email address')}
+        label={c('Email Address')}
         type="email"
         autoComplete="email"
         spellCheck={false}
-        disabled={pending}
-        field={form.field('email')}
-        error={form.errors.email}
+        disabled={pending || !!challenge}
+        field={emailForm.field('email')}
+        error={emailForm.errors.email}
       />
-      <button disabled={pending} className={buttonClass}>
+      <button disabled={pending || !!challenge} className={buttonClass}>
         {pending ? <Spinner /> : <Mail aria-hidden="true" className="h-4 w-4" />}
-        {pending ? c('Requesting Link…') : c('Send Reset Link')}
+        {pending ? c('Requesting Code…') : c('Send Verification Code')}
       </button>
       <Link
         to="/account"
@@ -383,91 +564,17 @@ function ForgotForm() {
   );
 }
 
-function ResetForm() {
-  const c = useCopy();
-
-  const hash = useLocation({ select: (location) => location.hash });
-  const token = new URLSearchParams(hash.replace(/^#/, '')).get('token') || '';
-  const form = useZodForm(
-    ResetPasswordSchema,
-    { token, password: '', confirmPassword: '' },
-    'reset',
-  );
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  return (
-    <form
-      noValidate
-      aria-busy={pending}
-      className="space-y-5"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        if (pending || success) return;
-        const values = form.validate(event.currentTarget);
-        if (!values) return;
-        setPending(true);
-        setError(null);
-        try {
-          await api.auth.resetPassword(values.token, values.password, values.confirmPassword);
-          setSuccess(true);
-        } catch (cause) {
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : 'Unable to reset your password. Request a new link.',
-          );
-        } finally {
-          setPending(false);
-        }
-      }}
-    >
-      <Feedback
-        error={c(error || form.errors.token)}
-        success={
-          success ? 'Your password has been changed. Sign in again with your new password.' : null
-        }
-      />
-      {!success && (
-        <>
-          <AccountField
-            label={c('New password')}
-            type="password"
-            autoComplete="new-password"
-            disabled={pending}
-            field={form.field('password')}
-            error={form.errors.password}
-          />
-          <AccountField
-            label={c('Confirm new password')}
-            type="password"
-            autoComplete="new-password"
-            disabled={pending}
-            field={form.field('confirmPassword')}
-            error={form.errors.confirmPassword}
-          />
-          <button disabled={pending || !token} className={buttonClass}>
-            {pending ? <Spinner /> : <KeyRound aria-hidden="true" className="h-4 w-4" />}
-            {pending ? c('Saving Password…') : c('Save New Password')}
-          </button>
-        </>
-      )}
-      <div className="flex flex-wrap justify-between gap-3 text-sm font-bold text-teal-800 underline dark:text-teal-200">
-        <Link to="/account">{c('Sign In')}</Link>
-        <Link to="/account/forgot">{c('Request a New Link')}</Link>
-      </div>
-    </form>
-  );
-}
-
 export function AccountPage() {
   const c = useCopy();
 
   const path = useLocation({ select: (location) => location.pathname });
+  const hash = useLocation({ select: (location) => location.hash });
   const { user, logout } = useAuth();
+  const { openProfile } = useAppActions();
   const navigate = useNavigate();
-  const reset = path.endsWith('/reset');
-  const forgot = path.endsWith('/forgot');
+  const hasResetToken = Boolean(new URLSearchParams(hash.replace(/^#/, '')).get('token'));
+  const reset = path.endsWith('/reset') && hasResetToken;
+  const forgot = path.endsWith('/forgot') || (path.endsWith('/reset') && !hasResetToken);
   const register = path.endsWith('/register');
   const title = reset
     ? 'Choose a New Password'
@@ -491,15 +598,17 @@ export function AccountPage() {
         </p>
       </div>
       <div className="glass-panel rounded-3xl p-6 sm:p-8">
-        {reset ? (
-          <ResetForm />
-        ) : forgot ? (
-          <ForgotForm />
+        {reset || forgot ? (
+          <PasswordRecoveryFlow key={reset ? `reset:${hash}` : 'forgot'} />
         ) : user ? (
           <div className="space-y-5">
             <p className="break-words text-sm text-slate-600 dark:text-slate-300">
               {c('Signed in as')} {user.email}
             </p>
+            <button type="button" onClick={openProfile} className={buttonClass}>
+              <UserRound aria-hidden="true" className="h-4 w-4" />
+              {c('Profile')}
+            </button>
             {user.role !== UserRole.ADMIN && (
               <Link to="/orders" className={buttonClass}>
                 <PackageSearch aria-hidden="true" className="inline h-4 w-4 mr-2" />

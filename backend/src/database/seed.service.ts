@@ -32,6 +32,7 @@ export class SeedService implements OnApplicationBootstrap {
       name: 'Kitchen Administrator',
       email: email.data,
       role: UserRole.ADMIN,
+      emailVerified: true,
       passwordHash: await bcrypt.hash(password.data, getRuntimeSettings().PASSWORD_HASH_ROUNDS),
     });
   }
@@ -58,9 +59,27 @@ export class SeedService implements OnApplicationBootstrap {
       );
     }
     const password = getStaffSeedPassword('ADMIN');
-    admin.passwordHash = await bcrypt.hash(password, getRuntimeSettings().PASSWORD_HASH_ROUNDS);
-    admin.tokenVersion = (admin.tokenVersion || 0) + 1;
-    await admin.save();
+    const passwordHash = await bcrypt.hash(password, getRuntimeSettings().PASSWORD_HASH_ROUNDS);
+    const updated = await this.userModel.findOneAndUpdate(
+      {
+        _id: admin._id,
+        role: UserRole.ADMIN,
+        $expr: {
+          $and: [
+            { $eq: [{ $ifNull: ['$tokenVersion', 0] }, admin.tokenVersion ?? 0] },
+            { $eq: [{ $ifNull: ['$profileVersion', 0] }, admin.profileVersion ?? 0] },
+          ],
+        },
+      },
+      {
+        $set: { passwordHash, trustedDeviceHashes: [] },
+        $inc: { tokenVersion: 1, profileVersion: 1 },
+        $unset: { resetTokenHash: 1, resetExpiresAt: 1, resetRequestedAt: 1 },
+      },
+      { returnDocument: 'after', runValidators: true },
+    );
+    if (!updated)
+      throw new Error('The administrator account changed during recovery. Please retry.');
     this.logger.log(
       'Development administrator password reset to the configured ADMIN_DEFAULT_PASSWORD.',
     );
@@ -80,6 +99,7 @@ export class SeedService implements OnApplicationBootstrap {
         email: adminEmail,
         passwordHash,
         role: UserRole.ADMIN,
+        emailVerified: true,
         phone: '+1-555-0100',
       });
       this.logger.log(`🌱 Default admin created: ${adminEmail}`);
@@ -98,6 +118,7 @@ export class SeedService implements OnApplicationBootstrap {
         email: courierEmail,
         passwordHash,
         role: UserRole.COURIER,
+        emailVerified: true,
         phone: '+1-555-0101',
       });
       this.logger.log(`🌱 Default courier created: ${courierEmail}`);

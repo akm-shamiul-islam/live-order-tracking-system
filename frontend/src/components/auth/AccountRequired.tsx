@@ -39,11 +39,11 @@ export function AccountRequired({ children }: { children?: ReactNode }) {
           {c('My Account')}{' '}
         </Link>
       ) : (
-        <div className="flex flex-wrap justify-center gap-3">
+        <div className="flex flex-col justify-center gap-3 sm:flex-row">
           <Link
             to="/account"
             search={{ redirect: location.href }}
-            className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white hover:bg-teal-800"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-teal-800 sm:w-auto"
           >
             <LogIn aria-hidden="true" className="h-4 w-4" />
             {c('Sign In')}{' '}
@@ -51,7 +51,7 @@ export function AccountRequired({ children }: { children?: ReactNode }) {
           <Link
             to="/account/register"
             search={{ redirect: location.href }}
-            className="inline-flex items-center gap-2 rounded-xl border border-teal-600 px-5 py-3 text-sm font-bold text-teal-800 dark:text-teal-200"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-teal-600 px-5 py-3 text-sm font-bold text-teal-800 transition-colors hover:bg-teal-50 dark:text-teal-200 dark:hover:bg-teal-500/10 sm:w-auto"
           >
             <UserRoundPlus aria-hidden="true" className="h-4 w-4" />
             {c('Create Account')}{' '}

@@ -27,6 +27,10 @@ export function AuthSessionSync() {
       'couriers',
       'users',
       'available-deliveries',
+      'profile',
+      'profile-change',
+      'profile-photo',
+      'notifications',
     ]) {
       void queryClient.cancelQueries({ queryKey: [key] });
       queryClient.removeQueries({ queryKey: [key] });
@@ -35,6 +39,10 @@ export function AuthSessionSync() {
 
   useEffect(() => {
     if (!token) {
+      for (const key of ['profile', 'profile-change', 'profile-photo', 'notifications']) {
+        void queryClient.cancelQueries({ queryKey: [key] });
+        queryClient.removeQueries({ queryKey: [key] });
+      }
       queryClient.removeQueries({ queryKey: ['admin-orders'] });
       queryClient.removeQueries({ queryKey: ['auth-session'] });
       queryClient.removeQueries({ queryKey: ['order'] });

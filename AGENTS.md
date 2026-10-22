@@ -6,25 +6,27 @@
 
 ## 1. Pinned Technology Stack Matrix
 
-| Subsystem | Technology | Target Version | Critical Rule / Constraint |
-| :--- | :--- | :--- | :--- |
-| **Workspace** | `Node.js` | `24.x` | Modern ESM runtime; native fetch, crypto, and URL APIs. |
-| **Workspace** | `pnpm` | `12.14.0` | Workspace package manager with strict dependency isolation. |
-| **Workspace** | `TypeScript` | `^7.0.2` | Strict workspace types (`strict: true`, `noUncheckedIndexedAccess: true`). |
-| **Frontend** | `React` / `React DOM` | `^19.3.1` | Native `<dialog>` via `useDialog`, React Actions. No `React.FC`. |
-| **Frontend** | `@tanstack/react-router` | `^1.170.45` | Code-based route tree in `src/router.tsx`. Typed `Link`, `useNavigate`, `useSearch`. |
-| **Frontend** | `tailwindcss` | `^4.3.3` | **Tailwind CSS v4.** No `tailwind.config.js`. Uses `@theme` and `@custom-variant dark`. |
-| **Frontend** | `motion` | `^14.5.0` | **Import strictly from `motion/react`.** Never import `framer-motion`. |
-| **Frontend** | `zustand` | `5.0.15` (pinned) | Vanilla `createStore` singleton (`authStore`) + `useStore(authStore, selector)` hook. |
-| **Frontend** | `@tanstack/react-query` | `^5.104.5` | Object config syntax. In-memory WebSocket cache mutations (`queryClient.setQueryData`). |
-| **Frontend** | `@floating-ui/react` | `0.27.20` | Floating tooltips & popovers with collision detection and clean positioning. |
-| **Frontend** | `i18next` / `react-i18next` | `26.5.3` / `17.1.0` | Client localization (EN/JA) under `frontend/src/locales/`. |
-| **Backend** | `@nestjs/core` / `common`| `^12.2.0` | **Mandatory `@Inject(Service)` on ALL constructor parameters.** |
-| **Backend** | `@nestjs/platform-fastify` | `^12.2.0` | Fastify v5 HTTP adapter. No Express-only middleware. |
-| **Backend** | `mongoose` | `^9.11.2` | Mongoose ODM. Optimistic concurrency control via atomic `findOneAndUpdate`. |
-| **Backend** | `socket.io` | `^4.8.4` | WebSocket Gateway with `WsJwtGuard`, room routing, and `SocketRateLimiter`. |
-| **Shared** | `@kitchentodoor/shared` | Workspace | Shared Zod 4 contracts, DTO types, catalog, and pricing. Dual ESM/source export. |
-| **Validation**| `zod` | `^4.6.7` | Zod 4 contracts in shared package, backend `ZodValidationPipe`, frontend `useZodForm`. |
+| Subsystem                   | Technology                  | Target Version               | Critical Rule / Constraint                                                              |
+| :-------------------------- | :-------------------------- | :--------------------------- | :-------------------------------------------------------------------------------------- |
+| **Workspace**               | `Node.js`                   | `24.x`                       | Modern ESM runtime; native fetch, crypto, and URL APIs.                                 |
+| **Workspace**               | `pnpm`                      | `12.14.0`                    | Workspace package manager with strict dependency isolation.                             |
+| **Workspace**               | `TypeScript`                | `^7.0.2`                     | Strict workspace types (`strict: true`, `noUncheckedIndexedAccess: true`).              |
+| **Frontend**                | `React` / `React DOM`       | `^19.3.1`                    | Native `<dialog>` via `useDialog`, React Actions. No `React.FC`.                        |
+| **Frontend**                | `@tanstack/react-router`    | `^1.170.45`                  | Code-based route tree in `src/router.tsx`. Typed `Link`, `useNavigate`, `useSearch`.    |
+| **Frontend**                | `tailwindcss`               | `^4.3.3`                     | **Tailwind CSS v4.** No `tailwind.config.js`. Uses `@theme` and `@custom-variant dark`. |
+| **Frontend**                | `motion`                    | `^14.6.0`                    | **Import strictly from `motion/react`.** Never import `framer-motion`.                  |
+| **Frontend**                | `zustand`                   | `5.0.16` (pinned)            | Vanilla `createStore` singleton (`authStore`) + `useStore(authStore, selector)` hook.   |
+| **Frontend**                | `@tanstack/react-query`     | `^5.104.5`                   | Object config syntax. In-memory WebSocket cache mutations (`queryClient.setQueryData`). |
+| **Frontend**                | `@floating-ui/react`        | `0.27.20`                    | Floating tooltips & popovers with collision detection and clean positioning.            |
+| **Frontend**                | `i18next` / `react-i18next` | `26.5.5` / `17.1.2`          | Client localization (EN/JA) under `frontend/src/locales/`.                              |
+| **Frontend**                | `lucide-react`              | `^1.61.0`                    | Project-wide SVG icon library.                                                          |
+| **Backend**                 | `@nestjs/core` / `common`   | `^12.2.0`                    | **Mandatory `@Inject(Service)` on ALL constructor parameters.**                         |
+| **Backend**                 | `@nestjs/platform-fastify`  | `^12.2.0`                    | Fastify v5 HTTP adapter. No Express-only middleware.                                    |
+| **Backend**                 | `mongoose`                  | `^9.11.3`                    | Mongoose ODM. Optimistic concurrency control via atomic `findOneAndUpdate`.             |
+| **Backend runtime / build** | `sharp`                     | `0.35.5` (pinned dependency) | Normalizes private profile photos and converts trusted menu photos to receipt JPEGs.    |
+| **Backend**                 | `socket.io`                 | `^4.8.4`                     | WebSocket Gateway with `WsJwtGuard`, room routing, and `SocketRateLimiter`.             |
+| **Shared**                  | `@kitchentodoor/shared`     | Workspace                    | Shared Zod 4 contracts, DTO types, catalog, and pricing. Dual ESM/source export.        |
+| **Validation**              | `zod`                       | `^4.6.7`                     | Zod 4 contracts in shared package, backend `ZodValidationPipe`, frontend `useZodForm`.  |
 
 ---
 
@@ -70,13 +72,13 @@ To prevent context bloat and wasteful token usage:
 Load these skills on demand for detailed guides, checklists, and templates:
 
 - **Frontend Engineering:** [`.agents/skills/ktd-frontend/SKILL.md`](.agents/skills/ktd-frontend/SKILL.md)
-  *Covers React 19, TanStack Router routes, Tailwind v4, Zustand 5, TanStack Query, and `<dialog>` modals.*
+  _Covers React 19, TanStack Router routes, Tailwind v4, Zustand 5, TanStack Query, and `<dialog>` modals._
 - **Backend Architecture:** [`.agents/skills/ktd-backend/SKILL.md`](.agents/skills/ktd-backend/SKILL.md)
-  *Covers NestJS 12, Fastify 5, Mongoose 9 atomic queries, Socket.io gateways, and JWT token versioning.*
+  _Covers NestJS 12, Fastify 5, Mongoose 9 atomic queries, Socket.io gateways, and JWT token versioning._
 - **Shared Contracts & Types:** [`.agents/skills/ktd-shared-contracts/SKILL.md`](.agents/skills/ktd-shared-contracts/SKILL.md)
-  *Covers `@kitchentodoor/shared` Zod 4 contracts, DTO types, state machine, and dual ESM/source exports.*
+  _Covers `@kitchentodoor/shared` Zod 4 contracts, DTO types, state machine, and dual ESM/source exports._
 - **PDF Generation (PDFCN):** [`.agents/skills/ktd-pdf-generation/SKILL.md`](.agents/skills/ktd-pdf-generation/SKILL.md)
-  *Covers PDFCN (`https://www.pdfcn.dev/`) receipt and invoice generation patterns.*
+  _Covers PDFCN (`https://www.pdfcn.dev/`) receipt and invoice generation patterns._
 
 ---
 

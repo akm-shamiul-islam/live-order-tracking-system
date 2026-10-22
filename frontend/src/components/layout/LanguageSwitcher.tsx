@@ -13,7 +13,7 @@ export function LanguageSwitcher() {
       <ThemedSelect
         compact
         label={c('Language')}
-        tooltip={c('Choose language / 言語を選択')}
+        tooltip={c('Choose Language / 言語を選択')}
         value={getLanguage()}
         options={[
           { value: 'en', label: 'EN' },

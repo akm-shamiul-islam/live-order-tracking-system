@@ -1,41 +1,54 @@
 import { useCopy } from '../../lib/i18n';
 import { IconActionLink } from '../ui/IconAction';
 import { formatDateTime } from '../../lib/dateTime';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { paginate } from '@kitchentodoor/shared';
+import { ORDER_STATUS_SEQUENCE, OrderStatus, paginate } from '@kitchentodoor/shared';
 import { z } from '@kitchentodoor/shared/zod';
 import { api, ApiError } from '../../lib/api';
 import { useZodForm } from '../../hooks/useZodForm';
 import { FieldError } from '../forms/FieldError';
-import { Search, Clock, Eye, ShoppingBag, RefreshCw } from 'lucide-react';
+import { SearchClearButton } from '../forms/SearchClearButton';
+import { Bike, Search, Clock, Navigation, ShoppingBag, RefreshCw, ListFilter } from 'lucide-react';
 import { Pagination } from '../layout/Pagination';
 import { useAuth } from '../../hooks/useAuth';
 import { PageSkeleton, Spinner } from '../layout/Loading';
 import { useOrderListUpdates } from '../../hooks/useOrderListUpdates';
 import { clientSettings } from '../../lib/clientSettings';
 import { ReceiptDownloadButton } from './ReceiptDownloadButton';
+import { ThemedSelect } from '../forms/ThemedSelect';
+import { orderStatusBadgeClass } from '../../lib/orderStatusBadge';
 
 const SearchSchema = z.object({ q: z.string().trim().max(100, 'Use at most 100 characters') });
+const historyStatuses = ['ALL', ...ORDER_STATUS_SEQUENCE, OrderStatus.CANCELLED].map((value) => ({
+  value,
+  label: value.replace(/_/g, ' '),
+}));
+type HistoryStatus = 'ALL' | OrderStatus;
+function isHistoryStatus(value: string): value is HistoryStatus {
+  return value === 'ALL' || Object.values(OrderStatus).some((status) => status === value);
+}
 
 export function OrderHistory() {
-  const { q } = useSearch({ from: '/orders' });
-  return <OrderHistoryContent key={q} />;
+  const { q, status } = useSearch({ from: '/orders' });
+  return <OrderHistoryContent key={`${q}:${status}`} />;
 }
 
 function OrderHistoryContent() {
   const c = useCopy();
 
   const { user, isCourier } = useAuth();
-  const { page, size, q } = useSearch({ from: '/orders' });
+  const { page, size, q, status } = useSearch({ from: '/orders' });
   const navigate = useNavigate({ from: '/orders' });
   const form = useZodForm(SearchSchema, { q }, 'history');
+  const [draftStatus, setDraftStatus] = useState(status);
   useOrderListUpdates();
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['my-orders', user?.id, user?.role, q, page, size],
-    queryFn: () => api.orders.getHistoryPage(undefined, page, size, q),
+    queryKey: ['my-orders', user?.id, user?.role, q, status, page, size],
+    queryFn: () =>
+      api.orders.getHistoryPage(undefined, page, size, q, status === 'ALL' ? undefined : status),
     enabled: !!user,
     refetchInterval: clientSettings.VITE_ORDER_LIST_REFRESH_MS,
   });
@@ -76,42 +89,90 @@ function OrderHistoryContent() {
       </div>
 
       {/* Phone lookup form */}
-      <form
-        noValidate
-        onSubmit={handleSearch}
-        className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-start gap-3 shadow-xs"
-      >
-        <div className="w-full min-w-0 flex-1">
-          <label htmlFor="history-q" className="sr-only">
-            {c('Search your order number')}{' '}
+      <div className="glass-panel relative z-20 flex flex-col gap-5 rounded-2xl p-4 shadow-xs sm:p-5 xl:flex-row xl:items-end xl:justify-between">
+        {isCourier && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void navigate({
+                search: (previous) => ({ ...previous, status: draftStatus, page: 1 }),
+              });
+            }}
+            className="w-full xl:w-auto"
+          >
+            <div className="flex items-end gap-2.5">
+              <div className="w-full sm:w-56">
+                <span
+                  id="history-status-label"
+                  className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400"
+                >
+                  {c('Order Status')}
+                </span>
+                <ThemedSelect
+                  label={c('Order Status')}
+                  labelId="history-status-label"
+                  value={draftStatus}
+                  options={historyStatuses}
+                  onChange={(value) => {
+                    if (isHistoryStatus(value)) setDraftStatus(value);
+                  }}
+                  size="small"
+                />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 text-xs font-bold text-white shadow-sm shadow-teal-500/15 transition-[background-color,transform] hover:from-emerald-800 hover:to-teal-800 active:scale-[0.98]"
+              >
+                <ListFilter aria-hidden="true" className="h-4 w-4" />
+                <span>{c('Filter')}</span>
+              </button>
+            </div>
+          </form>
+        )}
+        <form noValidate onSubmit={handleSearch} className="w-full sm:ml-auto sm:w-auto">
+          <label
+            htmlFor="history-q"
+            className="mb-2 block text-[11px] font-bold text-slate-500 dark:text-slate-400"
+          >
+            {c('Search Orders')}{' '}
           </label>
-          <div className="relative">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 flex w-11 items-center justify-center text-slate-400"
+          <div className="flex items-end gap-2.5">
+            <div className="min-w-0 flex-1 sm:w-[360px] sm:flex-none">
+              <div className="relative">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-0 flex w-11 items-center justify-center text-slate-400"
+                >
+                  <Search className="h-4 w-4" />
+                </span>
+                <input
+                  type="text"
+                  role="searchbox"
+                  enterKeyHint="search"
+                  {...form.field('q')}
+                  aria-invalid={searchError ? true : undefined}
+                  aria-describedby={searchError ? 'history-q-error' : undefined}
+                  autoComplete="off"
+                  placeholder={c('Search your order number…')}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-11 text-xs text-slate-800 shadow-xs placeholder:text-slate-400 focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <SearchClearButton
+                  visible={form.values.q.length > 0}
+                  onClear={() => form.setValue('q', '')}
+                />
+              </div>
+              <FieldError id="history-q-error" message={searchError} />
+            </div>
+            <button
+              type="submit"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 text-xs font-bold text-white shadow-sm shadow-teal-500/15 transition-[background-color,transform] hover:from-emerald-800 hover:to-teal-800 active:scale-[0.98]"
             >
-              <Search className="h-4 w-4" />
-            </span>
-            <input
-              type="search"
-              {...form.field('q')}
-              aria-invalid={searchError ? true : undefined}
-              aria-describedby={searchError ? 'history-q-error' : undefined}
-              autoComplete="off"
-              placeholder={c('Search your order number…')}
-              className="h-11 w-full pl-11 pr-4 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
-            />
+              {isFetching ? <Spinner /> : <Search aria-hidden="true" className="h-4 w-4" />}
+              <span>{c('Search')}</span>
+            </button>
           </div>
-          <FieldError id="history-q-error" message={searchError} />
-        </div>
-        <button
-          type="submit"
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white transition-colors shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
-        >
-          {isFetching ? <Spinner /> : <Search aria-hidden="true" className="h-4 w-4" />}
-          <span>{c('Search Orders')}</span>
-        </button>
-      </form>
+        </form>
+      </div>
 
       {/* Orders List */}
       <div className="space-y-4">
@@ -144,8 +205,13 @@ function OrderHistoryContent() {
             </p>
             <Link
               to={isCourier ? '/courier' : '/'}
-              className="mt-4 inline-block font-bold text-teal-800 underline dark:text-teal-200"
+              className="mt-4 inline-flex items-center gap-2 font-bold text-teal-800 underline dark:text-teal-200"
             >
+              {isCourier ? (
+                <Bike aria-hidden="true" className="h-4 w-4" />
+              ) : (
+                <ShoppingBag aria-hidden="true" className="h-4 w-4" />
+              )}
               {isCourier ? c('Find Available Deliveries') : c('Explore Food Menu')}
             </Link>
           </div>
@@ -160,7 +226,9 @@ function OrderHistoryContent() {
                   <span className="font-mono font-bold text-teal-700 dark:text-teal-400 text-sm">
                     {order.orderNumber}
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  <span
+                    className={`whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${orderStatusBadgeClass(order.status)}`}
+                  >
                     {c(order.status.replace(/_/g, ' '))}
                   </span>
                 </div>
@@ -195,7 +263,7 @@ function OrderHistoryContent() {
                   <IconActionLink
                     to={isCourier ? '/courier/$orderId' : '/tracking/$orderId'}
                     orderId={order.id}
-                    icon={Eye}
+                    icon={Navigation}
                     label={isCourier ? c('Manage Delivery') : c('Live Tracking')}
                   />
                 </div>

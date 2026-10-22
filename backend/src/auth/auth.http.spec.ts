@@ -23,6 +23,8 @@ import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { PublicConfigController } from '../config/public-config.controller.js';
 import { AuthSession } from '../database/schemas/auth-session.schema.js';
 import { RecoveryMailer } from './recovery-mailer.js';
+import { AuthOtpService } from './auth-otp.service.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
 
 const users = new Map<string, Record<string, unknown>>();
 const userModel = {
@@ -33,11 +35,26 @@ const userModel = {
     if (user) user.tokenVersion = Number(user.tokenVersion ?? 0) + 1;
     return { modifiedCount: user ? 1 : 0 };
   },
+  deleteOne: async () => ({ deletedCount: 1 }),
   create: async (user: Record<string, unknown>) => {
     const created = { ...user, _id: `user-${users.size}` };
     users.set(String(user.email), created);
     return created;
   },
+};
+
+const otpService = {
+  hashDeviceId: vi.fn<AuthOtpService['hashDeviceId']>(() => 'test-device-hash'),
+  requireConfigured: vi.fn<AuthOtpService['requireConfigured']>(),
+  begin: vi.fn<AuthOtpService['begin']>(async (email, purpose) => ({
+    status: 'verification_required',
+    purpose,
+    challengeId: 'A'.repeat(43),
+    email,
+    expiresAt: new Date(Date.now() + 600_000).toISOString(),
+    resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
+  })),
+  resend: vi.fn<AuthOtpService['resend']>(),
 };
 
 @Module({
@@ -66,6 +83,8 @@ const userModel = {
       },
     },
     { provide: RecoveryMailer, useValue: { send: vi.fn<RecoveryMailer['send']>() } },
+    { provide: AuthOtpService, useValue: otpService },
+    { provide: ProfilesService, useValue: {} },
     {
       provide: OrdersService,
       useValue: {
@@ -105,6 +124,8 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
       email: 'admin@example.com',
       passwordHash: await bcrypt.hash('correct-password', 4),
       role: UserRole.ADMIN,
+      emailVerified: true,
+      trustedDeviceHashes: ['test-device-hash'],
     });
     users.set('existing-customer@example.com', {
       _id: 'customer-id',
@@ -114,6 +135,7 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
     });
     app = await NestFactory.create<NestFastifyApplication>(HttpTestModule, new FastifyAdapter(), {
       logger: false,
+      abortOnError: false,
     });
     adminToken = app.get(JwtService).sign({
       sub: 'admin-id',
@@ -134,7 +156,11 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: '  ADMIN@EXAMPLE.COM  ', password: 'correct-password' },
+      payload: {
+        email: '  ADMIN@EXAMPLE.COM  ',
+        password: 'correct-password',
+        deviceId: '11111111-1111-4111-8111-111111111111',
+      },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
@@ -147,7 +173,11 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/auth/login',
-      payload: { email: 'admin@example.com', password: 'wrong-password' },
+      payload: {
+        email: 'admin@example.com',
+        password: 'wrong-password',
+        deviceId: '11111111-1111-4111-8111-111111111111',
+      },
     });
     expect(response.statusCode).toBe(401);
   });
@@ -233,7 +263,10 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
       },
     });
     expect(response.statusCode).toBe(201);
-    expect(response.json().user.role).toBe(UserRole.CUSTOMER);
+    expect(response.json()).toMatchObject({
+      status: 'verification_required',
+      purpose: 'email_verification',
+    });
   });
 
   it('does not allow an unauthenticated caller to cancel an order', async () => {
@@ -284,7 +317,10 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
   it('returns public pricing without exposing secrets', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/config' });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ pricing: { deliveryFee: 5, taxRate: 0.08 } });
+    expect(response.json()).toEqual({
+      pricing: { deliveryFee: 5, taxRate: 0.08 },
+      profilePhotoMaxBytes: 2_000_000,
+    });
     expect(response.body).not.toContain('http-regression-test-secret');
   });
 
@@ -301,7 +337,11 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
           method: 'POST',
           url: '/api/auth/login',
           remoteAddress: '127.0.0.9',
-          payload: { email: 'admin@example.com', password: 'incorrect-password' },
+          payload: {
+            email: 'admin@example.com',
+            password: 'incorrect-password',
+            deviceId: '11111111-1111-4111-8111-111111111111',
+          },
         });
         statuses.push(response.statusCode);
       }
@@ -384,7 +424,11 @@ describe('Authentication through the NestJS HTTP pipeline', () => {
       const result = await app.inject({
         method: 'POST',
         url: '/api/auth/login',
-        payload: { email: 'admin@example.com', password: 'incorrect-password' },
+        payload: {
+          email: 'admin@example.com',
+          password: 'incorrect-password',
+          deviceId: '11111111-1111-4111-8111-111111111111',
+        },
       });
       status = result.statusCode;
     }

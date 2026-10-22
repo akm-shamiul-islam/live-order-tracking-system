@@ -12,20 +12,22 @@ This skill provides authoritative patterns, version constraints, and checklists 
 
 ## Technology Versions & Constraints
 
-Technology | Version | Import / Usage Rule
-:--- | :--- | :---
-**React** | `19.3.1` | Native `<dialog>` for modals, `useActionState`, Actions. Avoid `React.FC`.
-**TanStack Router** | `^1.170.45` | Code-based route tree in `src/router.tsx`. Use `createRoute`, `lazyRouteComponent`, `Link`, `useNavigate`, `useSearch`.
-**Tailwind CSS** | `^4.3.3` | Tailwind v4 with `@import 'tailwindcss';` and `@custom-variant dark (&:where(.dark, .dark *));`. **No `tailwind.config.js`**.
-**Motion** | `^14.5.0` | Import strictly from `motion/react` (e.g. `import { motion, AnimatePresence } from 'motion/react'`). **Never import `framer-motion`**.
-**Zustand** | `5.0.15` (pinned) | Vanilla `createStore` singleton in `src/lib/authSession.ts` + `useStore(authStore, selector)` in `src/hooks/useAuth.ts`.
-**TanStack Query** | `^5.104.5` | Object config syntax (`useQuery({ queryKey: [...], queryFn: ... })`). Real-time cache updates with `queryClient.setQueryData`.
-**Zod** | `^4.6.7` | Client-side validation via `useZodForm`, field-level errors linked via `aria-describedby` to `<FieldError />`.
-**Floating UI** | `0.27.20` | Tooltip & popover positioning from `@floating-ui/react`.
-**i18n** | `26.5.3` / `17.1.0` | `i18next` & `react-i18next` localization with namespace bundles in `src/locales/`.
-**Lucide Icons** | `^1.60.0` | Clean Feather-style SVGs from `lucide-react`.
+| Technology          | Version             | Import / Usage Rule                                                                                                                                                    |
+| :------------------ | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **React**           | `19.3.1`            | Native `<dialog>` for modals, `useActionState`, Actions. Avoid `React.FC`.                                                                                             |
+| **TanStack Router** | `^1.170.45`         | Code-based route tree in `src/router.tsx`. Use `createRoute`, `lazyRouteComponent`, `Link`, `useNavigate`, `useSearch`.                                                |
+| **Tailwind CSS**    | `^4.3.3`            | Tailwind v4 with `@import 'tailwindcss';` and `@custom-variant dark (&:where(.dark, .dark *));`. **No `tailwind.config.js`**.                                          |
+| **Motion**          | `^14.6.0`           | Import strictly from `motion/react` (e.g. `import { motion, AnimatePresence } from 'motion/react'`). **Never import `framer-motion`**.                                 |
+| **Zustand**         | `5.0.16` (pinned)   | Vanilla stores in `src/lib/authSession.ts` and `src/lib/cart.ts`, consumed with `useStore`. Keep localStorage synchronization explicit; do not add persist middleware. |
+| **TanStack Query**  | `^5.104.5`          | Object config syntax (`useQuery({ queryKey: [...], queryFn: ... })`). Real-time cache updates with `queryClient.setQueryData`.                                         |
+| **Zod**             | `^4.6.7`            | Client-side validation via `useZodForm`, field-level errors linked via `aria-describedby` to `<FieldError />`.                                                         |
+| **Floating UI**     | `0.27.20`           | Tooltip & popover positioning from `@floating-ui/react`.                                                                                                               |
+| **i18n**            | `26.5.5` / `17.1.2` | `i18next` & `react-i18next` localization with namespace bundles in `src/locales/`.                                                                                     |
+| **Lucide Icons**    | `^1.61.0`           | SVG icons from `lucide-react`.                                                                                                                                         |
 
 ---
+
+Zustand selectors must return stable references. Use a shared empty array/object fallback during account changes, rather than allocating a new fallback on each snapshot read. See the [official v5 migration guidance](https://github.com/pmndrs/zustand/blob/main/docs/reference/migrations/migrating-to-v5.md).
 
 ## Directory Architecture
 
@@ -36,7 +38,7 @@ frontend/src/
 │   ├── auth/              # AuthSessionSync, StaffOnly, AccountRequired
 │   ├── customer/          # MenuCatalog, CartDrawer, CheckoutModal, OrderHistory
 │   ├── forms/             # FieldError, custom form controls
-│   ├── layout/            # Navbar, AppDrawer, AppActionsContext, Pagination
+│   ├── layout/            # Navbar, NavigationDrawer, AppActionsContext, Pagination
 │   └── tracking/          # OrderTimeline (6-stage stepper), LiveMapTracker, CourierSimulator
 ├── hooks/
 │   ├── useAuth.ts         # User/token selectors & auth actions
@@ -47,6 +49,7 @@ frontend/src/
 ├── lib/
 │   ├── api.ts             # Typed REST API client & ApiError with fieldErrors
 │   ├── authSession.ts     # Zustand session store & cross-tab storage listener
+│   ├── cart.ts            # Account-scoped Zustand cart & explicit localStorage sync
 │   ├── queryClient.ts     # Singleton QueryClient instance
 │   └── socket.ts          # Singleton Socket.io client with auth reconnection
 ├── pages/                 # Route page components (MenuPage, TrackingPage, etc.)
@@ -62,6 +65,7 @@ frontend/src/
 Follow this exact pattern when introducing a new route/page:
 
 ### Step A: Define the Page Component in `src/pages/<Name>Page.tsx`
+
 ```tsx
 import { useSearch } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -83,11 +87,11 @@ export function MyFeaturePage() {
         </h1>
       </div>
       {isLoading ? (
-        <div role="status" className="p-8 text-center text-sm text-slate-400">Loading…</div>
-      ) : (
-        <div className="glass-panel p-6 rounded-2xl">
-          {/* Render content */}
+        <div role="status" className="p-8 text-center text-sm text-slate-400">
+          Loading…
         </div>
+      ) : (
+        <div className="glass-panel p-6 rounded-2xl">{/* Render content */}</div>
       )}
     </section>
   );
@@ -95,6 +99,7 @@ export function MyFeaturePage() {
 ```
 
 ### Step B: Add Search Schema in `src/lib/listSearch.ts` (if URL state is needed)
+
 ```typescript
 import { z } from '@kitchentodoor/shared/zod';
 import { PageNumberSchema, PageSizeSchema } from '@kitchentodoor/shared';
@@ -107,6 +112,7 @@ export const MyFeatureSearchSchema = z.object({
 ```
 
 ### Step C: Register the Route in `src/router.tsx`
+
 ```typescript
 import { MyFeatureSearchSchema } from './lib/listSearch';
 
@@ -131,6 +137,7 @@ rootRoute.addChildren([
 ## 2. Navigation & Links
 
 Always use typed `<Link>` elements instead of click handlers with state for page transitions:
+
 ```tsx
 import { Link } from '@tanstack/react-router';
 
@@ -140,7 +147,7 @@ import { Link } from '@tanstack/react-router';
   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white transition active:scale-95"
 >
   Track Order
-</Link>
+</Link>;
 ```
 
 ---
@@ -148,6 +155,7 @@ import { Link } from '@tanstack/react-router';
 ## 3. Form Validation with `useZodForm`
 
 Always pair form inputs with `<FieldError />` and `aria-describedby` for accessible, inline feedback:
+
 ```tsx
 import { useZodForm } from '../../hooks/useZodForm';
 import { FieldError } from '../forms/FieldError';
@@ -166,7 +174,10 @@ export function MyForm() {
   return (
     <form noValidate onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="my-form-email" className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+        <label
+          htmlFor="my-form-email"
+          className="block text-xs font-bold text-slate-700 dark:text-slate-300"
+        >
           Email Address
         </label>
         <input
@@ -176,7 +187,10 @@ export function MyForm() {
         />
         <FieldError id="my-form-email-error" message={form.errors.email} />
       </div>
-      <button type="submit" className="px-5 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-xs">
+      <button
+        type="submit"
+        className="px-5 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-xs"
+      >
         Submit
       </button>
     </form>
@@ -189,6 +203,7 @@ export function MyForm() {
 ## 4. Modal Dialogs with `useDialog`
 
 KitchenToDoor uses native `<dialog>` elements for focus containment, Escape key dismissal, and backdrop blur:
+
 ```tsx
 import { useDialog } from '../../hooks/useDialog';
 import { X } from 'lucide-react';
@@ -205,8 +220,14 @@ export function CustomModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
       className="fixed inset-0 m-auto z-50 w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 text-slate-900 dark:text-slate-100 shadow-2xl backdrop:bg-slate-950/60 backdrop:backdrop-blur-sm"
     >
       <div className="flex items-center justify-between mb-4">
-        <h2 id="modal-title" className="font-display font-bold text-lg">Modal Title</h2>
-        <button onClick={onClose} aria-label="Close modal" className="p-1 rounded-lg text-slate-400 hover:text-slate-600">
+        <h2 id="modal-title" className="font-display font-bold text-lg">
+          Modal Title
+        </h2>
+        <button
+          onClick={onClose}
+          aria-label="Close modal"
+          className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+        >
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -216,13 +237,12 @@ export function CustomModal({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 }
 ```
 
-```
-
 ---
 
 ## 5. Themed Dropdown with `ThemedSelect`
 
 Avoid native `<select>` styling bugs by using the accessible `<ThemedSelect />` component:
+
 ```tsx
 import { ThemedSelect } from '../forms/ThemedSelect';
 
@@ -232,7 +252,13 @@ const statusOptions = [
   { value: 'PREPARING', label: 'Preparing' },
 ];
 
-export function StatusFilterDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function StatusFilterDropdown({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <ThemedSelect
       label="Order status"
@@ -255,21 +281,22 @@ Every view under `/orders`, `/tracking`, `/dispatch`, or `/courier` mounts `<Bre
 
 ## 7. View Transitions & Smooth Navigation
 
-Route changes utilize native browser View Transitions wrapped in `startPageTransition`:
+Route commits use the router's `startViewTransition` hook and the shared browser helper. Do not pass a `navigateWith` option to TanStack Router:
+
 ```typescript
 import { startPageTransition } from './lib/pageTransition';
 
-// In router configuration:
-router = createRouter({
-  routeTree,
-  defaultPreload: 'intent',
-  navigateWith: (opts) =>
-    startPageTransition(
-      () => opts.navigate(),
-      router.state.location.pathname,
-      opts.to,
-    ),
-});
+router.startViewTransition = (update) => {
+  const disabled = router.shouldViewTransition === false;
+  router.shouldViewTransition = undefined;
+  return disabled
+    ? update()
+    : startPageTransition(
+        update,
+        router.state.resolvedLocation?.pathname,
+        router.latestLocation.pathname,
+      );
+};
 ```
 
 ---
@@ -277,4 +304,5 @@ router = createRouter({
 ## Reference Documents
 
 For complete templates and reference implementations, consult:
+
 - [`references/new-page-template.md`](./references/new-page-template.md)

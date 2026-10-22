@@ -27,6 +27,10 @@ function readStoredSession(): AuthSession | undefined {
 }
 
 export const authStore = createStore<AuthSession>()(() => readStoredSession() ?? emptySession);
+export const authProgressStore = createStore<{
+  action: 'login' | 'register' | 'logout' | null;
+  intent: number;
+}>()(() => ({ action: null, intent: 0 }));
 export const logoutFeedbackStore = createStore<{ failed: boolean; pending: boolean }>()(() => ({
   failed: false,
   pending: false,
@@ -42,6 +46,25 @@ export function subscribeSession(listener: () => void) {
 
 function updateSession(next: AuthSession) {
   const current = getSession();
+  if (
+    current.user &&
+    next.user &&
+    current.user.id === next.user.id &&
+    (current.user.profileVersion ?? 0) > (next.user.profileVersion ?? 0)
+  )
+    next = {
+      ...next,
+      user: {
+        ...next.user,
+        name: current.user.name,
+        email: current.user.email,
+        phone: current.user.phone,
+        address: current.user.address,
+        photoId: current.user.photoId,
+        role: current.user.role,
+        profileVersion: current.user.profileVersion,
+      },
+    };
   if (
     current.user &&
     next.user &&
@@ -67,6 +90,8 @@ function updateSession(next: AuthSession) {
       current.user.email === next.user.email &&
       current.user.phone === next.user.phone &&
       current.user.address === next.user.address &&
+      current.user.photoId === next.user.photoId &&
+      current.user.profileVersion === next.user.profileVersion &&
       current.user.language === next.user.language &&
       current.user.languageVersion === next.user.languageVersion &&
       current.user.role === next.user.role,

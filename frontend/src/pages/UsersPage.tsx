@@ -2,7 +2,17 @@ import { useCopy } from '../lib/i18n';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Pencil, Search, Users, X, RefreshCw, Save } from 'lucide-react';
+import {
+  Pencil,
+  Search,
+  Users,
+  X,
+  RefreshCw,
+  Save,
+  ListFilter,
+  Settings2,
+  History,
+} from 'lucide-react';
 import {
   ROLE_LABELS,
   UpdateUserSchema,
@@ -16,13 +26,26 @@ import { useAuth } from '../hooks/useAuth';
 import { useDialog } from '../hooks/useDialog';
 import { useZodForm } from '../hooks/useZodForm';
 import { ThemedSelect } from '../components/forms/ThemedSelect';
+import { SearchClearButton } from '../components/forms/SearchClearButton';
 import { FieldError } from '../components/forms/FieldError';
 import { Pagination } from '../components/layout/Pagination';
 import { Spinner, TableSkeleton } from '../components/layout/Loading';
 import { IconAction } from '../components/ui/IconAction';
+import {
+  USER_COLUMNS,
+  UserColumnSettings,
+  readUserColumns,
+} from '../components/admin/UserColumnSettings';
+import { ProfileHistoryModal } from '../components/notifications/ProfileHistoryModal';
+import { getSession, saveSession } from '../lib/authSession';
 
 const roleOptions = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
-const profileSchema = UpdateUserSchema.pick({ name: true, email: true, phone: true }).required();
+const profileSchema = UpdateUserSchema.pick({
+  name: true,
+  email: true,
+  phone: true,
+  address: true,
+}).required();
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900';
 const buttonClass =
@@ -36,7 +59,7 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
   const queryClient = useQueryClient();
   const form = useZodForm(
     profileSchema,
-    { name: user.name, email: user.email, phone: user.phone || '' },
+    { name: user.name, email: user.email, phone: user.phone || '', address: user.address || '' },
     'edit-user',
   );
   const [role, setRole] = useState<UserRole>(user.role);
@@ -74,11 +97,16 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
               expectedUpdatedAt: user.updatedAt,
             });
             await Promise.all(
-              ['users', 'couriers', 'admin-orders'].map((key) =>
+              ['users', 'couriers', 'admin-orders', ...(self ? ['profile'] : [])].map((key) =>
                 queryClient.invalidateQueries({ queryKey: [key] }),
               ),
             );
-            if (self) await api.auth.getMe().catch(() => undefined);
+            if (self) {
+              const fresh = await api.auth.getMe().catch(() => undefined);
+              const session = getSession();
+              if (fresh && session.token && session.user?.id === fresh.id)
+                saveSession({ accessToken: session.token, user: fresh });
+            }
             onClose();
           } catch (cause) {
             if (cause instanceof ApiError) form.setServerErrors(cause.fieldErrors, element);
@@ -114,10 +142,10 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
           <div key={field} className="space-y-2">
             <label htmlFor={`edit-user-${field}`} className="block text-sm font-semibold">
               {field === 'name'
-                ? c('Full name')
+                ? c('Full Name')
                 : field === 'email'
-                  ? c('Email address')
-                  : c('Phone number')}
+                  ? c('Email Address')
+                  : c('Phone Number')}
             </label>
             <input
               {...form.field(field)}
@@ -141,6 +169,19 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
               if (parsed.success) setRole(parsed.data);
             }}
           />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-user-address" className="block text-sm font-semibold">
+            {c('Delivery Address')}
+          </label>
+          <textarea
+            {...form.field('address')}
+            rows={3}
+            maxLength={500}
+            disabled={pending}
+            className={`${inputClass} h-auto py-3`}
+          />
+          <FieldError id="edit-user-address-error" message={form.errors.address} />
         </div>
         <div className="space-y-2">
           <p className="text-sm font-semibold">{c('Account Status')}</p>
@@ -181,64 +222,123 @@ function EditUserModal({ user, onClose }: { user: ManagedUser; onClose: () => vo
   );
 }
 
-function UserFilters({ q, role }: { q: string; role: 'ALL' | UserRole }) {
+function UserFilters({
+  q,
+  role,
+  onOpenSettings,
+}: {
+  q: string;
+  role: 'ALL' | UserRole;
+  onOpenSettings: () => void;
+}) {
   const c = useCopy();
 
   const navigate = useNavigate({ from: '/users' });
   const [search, setSearch] = useState(q);
   const [selected, setSelected] = useState(role);
   return (
-    <form
-      className="glass-panel flex flex-col gap-3 rounded-2xl p-4 sm:flex-row"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void navigate({
-          search: (previous) => ({ ...previous, q: search.trim(), role: selected, page: 1 }),
-        });
-      }}
-    >
-      <ThemedSelect
-        label={c('Filter users by role')}
-        value={selected}
-        options={[{ value: 'ALL', label: 'All Roles' }, ...roleOptions]}
-        onChange={(value) => {
-          if (value === 'ALL') setSelected(value);
-          else {
-            const parsed = UserRoleSchema.safeParse(value);
-            if (parsed.success) setSelected(parsed.data);
-          }
+    <div className="glass-panel relative z-30 flex flex-col gap-5 overflow-visible rounded-2xl p-4 sm:p-5 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
+      <form
+        className="flex flex-wrap items-end gap-2.5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void navigate({ search: (previous) => ({ ...previous, role: selected, page: 1 }) });
         }}
-      />
-      <div className="relative min-w-0 flex-1">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0 h-11 w-11 p-3.5 text-slate-500"
-        />
-        <label htmlFor="users-search" className="sr-only">
-          {c('Search users by name, email, or phone')}{' '}
+      >
+        <div className="relative z-40 w-full sm:w-56 sm:flex-none">
+          <span
+            id="users-role-label"
+            className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400"
+          >
+            {c('User Role')}
+          </span>
+          <ThemedSelect
+            label={c('User Role')}
+            labelId="users-role-label"
+            value={selected}
+            options={[{ value: 'ALL', label: 'All Roles' }, ...roleOptions]}
+            onChange={(value) => {
+              if (value === 'ALL') setSelected(value);
+              else {
+                const parsed = UserRoleSchema.safeParse(value);
+                if (parsed.success) setSelected(parsed.data);
+              }
+            }}
+            size="small"
+          />
+        </div>
+        <button
+          type="submit"
+          className="inline-flex h-11 w-fit shrink-0 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 text-xs font-bold text-white transition-colors hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500"
+        >
+          <ListFilter aria-hidden="true" className="h-4 w-4" />
+          {c('Filter')}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="inline-flex h-11 w-fit shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-colors hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-teal-500/10"
+        >
+          <Settings2 aria-hidden="true" className="h-4 w-4" />
+          {c('Settings')}
+        </button>
+      </form>
+      <form
+        className="w-full sm:ml-auto sm:w-auto"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void navigate({ search: (previous) => ({ ...previous, q: search.trim(), page: 1 }) });
+        }}
+      >
+        <label
+          htmlFor="users-search"
+          className="mb-1.5 block text-[11px] font-bold text-slate-500 dark:text-slate-400"
+        >
+          {c('Search Users')}
         </label>
-        <input
-          id="users-search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          maxLength={100}
-          placeholder={c('Search name, email, or phone…')}
-          className={`${inputClass} pl-11`}
-        />
-      </div>
-      <button className={buttonClass}>
-        <Search aria-hidden="true" className="h-4 w-4" />
-        {c('Search Users')}{' '}
-      </button>
-    </form>
+        <div className="flex w-full items-center gap-2.5">
+          <div className="relative min-w-0 flex-1 sm:w-[360px] sm:flex-none">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0 h-11 w-11 p-3.5 text-slate-500"
+            />
+            <input
+              id="users-search"
+              type="text"
+              role="searchbox"
+              enterKeyHint="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              maxLength={100}
+              placeholder={c('Search name, email, or phone…')}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-11 text-xs text-slate-800 shadow-xs placeholder:text-slate-400 focus:border-teal-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <SearchClearButton visible={search.length > 0} onClear={() => setSearch('')} />
+          </div>
+          <button className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 px-4 text-xs font-bold text-white shadow-sm shadow-teal-500/15 transition-[background-color,transform] hover:from-emerald-800 hover:to-teal-800 active:scale-[0.98]">
+            <Search aria-hidden="true" className="h-4 w-4" />
+            {c('Search')}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
 export function UsersPage() {
+  const { user } = useAuth();
+  return <UserAdminWorkspace key={user?.id} />;
+}
+
+function UserAdminWorkspace() {
   const c = useCopy();
 
   const { page, size, q, role } = useSearch({ from: '/staff/users' });
   const navigate = useNavigate({ from: '/users' });
+  const { user: actor } = useAuth();
+  const [columns, setColumns] = useState(() => readUserColumns(actor?.id || 'admin'));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyUser, setHistoryUser] = useState<ManagedUser>();
   const [editing, setEditing] = useState<ManagedUser>();
   const result = useQuery({
     queryKey: ['users', page, size, q, role],
@@ -271,7 +371,12 @@ export function UsersPage() {
           {c('Refresh')}{' '}
         </button>
       </div>
-      <UserFilters key={`${q}:${role}`} q={q} role={role} />
+      <UserFilters
+        key={`${q}:${role}`}
+        q={q}
+        role={role}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       {result.error ? (
         <div role="alert" className="glass-panel rounded-2xl p-6 text-rose-800 dark:text-rose-200">
           {c(result.error.message)}
@@ -289,43 +394,72 @@ export function UsersPage() {
             <caption className="sr-only">{c('Registered users and account access')}</caption>
             <thead className="bg-slate-100 text-xs uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               <tr>
-                {['Name', 'Email', 'Phone', 'Role', 'Account', 'Actions'].map((label) => (
-                  <th key={label} scope="col" className="px-5 py-4 text-center">
+                {USER_COLUMNS.filter(({ key }) => columns.includes(key)).map(({ key, label }) => (
+                  <th key={key} scope="col" className="px-5 py-4 text-center whitespace-nowrap">
                     {c(label)}
                   </th>
                 ))}
+                <th scope="col" className="px-5 py-4 text-center">
+                  {c('Actions')}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {result.isLoading ? (
-                <TableSkeleton columns={6} />
+                <TableSkeleton columns={columns.length + 1} />
               ) : result.data?.users.length ? (
                 result.data.users.map((user) => (
                   <tr key={user.id} className="hover:bg-teal-50/50 dark:hover:bg-slate-800/40">
-                    <td className="px-5 py-4 font-bold">{user.name}</td>
-                    <td className="px-5 py-4">{user.email}</td>
-                    <td className="px-5 py-4 text-center">{user.phone || '—'}</td>
+                    {columns.includes('name') && (
+                      <td className="px-5 py-4 font-bold">{user.name}</td>
+                    )}
+                    {columns.includes('email') && <td className="px-5 py-4">{user.email}</td>}
+                    {columns.includes('phone') && (
+                      <td className="px-5 py-4 text-center whitespace-nowrap">
+                        {user.phone || '—'}
+                      </td>
+                    )}
+                    {columns.includes('address') && (
+                      <td className="min-w-52 max-w-xs break-words px-5 py-4">
+                        {user.address || '—'}
+                      </td>
+                    )}
+                    {columns.includes('role') && (
+                      <td className="px-5 py-4 text-center">
+                        <span className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-bold text-teal-900 dark:bg-teal-500/10 dark:text-teal-200">
+                          {c(ROLE_LABELS[user.role])}
+                        </span>
+                      </td>
+                    )}
+                    {columns.includes('account') && (
+                      <td className="px-5 py-4 text-center">
+                        {user.disabled ? c('Disabled') : c('Active')}
+                      </td>
+                    )}
                     <td className="px-5 py-4 text-center">
-                      <span className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-bold text-teal-900 dark:bg-teal-500/10 dark:text-teal-200">
-                        {c(ROLE_LABELS[user.role])}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      {user.disabled ? c('Disabled') : c('Active')}
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <IconAction
-                        onClick={() => setEditing(user)}
-                        aria-label={c('Edit {{name}}', { name: user.name })}
-                        icon={Pencil}
-                        label={c('Edit User')}
-                      />
+                      <div className="flex items-center justify-center gap-2">
+                        <IconAction
+                          onClick={() => setEditing(user)}
+                          aria-label={c('Edit {{name}}', { name: user.name })}
+                          icon={Pencil}
+                          label={c('Edit User')}
+                        />
+                        <IconAction
+                          onClick={() => setHistoryUser(user)}
+                          icon={History}
+                          label={c('Profile Change History')}
+                          aria-label={c('View History for {{name}}', { name: user.name })}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="p-10 text-center text-slate-600 dark:text-slate-300">
+                  <td
+                    colSpan={columns.length + 1}
+                    className="p-10 text-center text-slate-600 dark:text-slate-300"
+                  >
                     {c('No users match these filters.')}{' '}
                   </td>
                 </tr>
@@ -348,6 +482,21 @@ export function UsersPage() {
       )}
       {editing && (
         <EditUserModal key={editing.id} user={editing} onClose={() => setEditing(undefined)} />
+      )}
+      {settingsOpen && actor && (
+        <UserColumnSettings
+          userId={actor.id}
+          columns={columns}
+          onSave={setColumns}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+      {historyUser && (
+        <ProfileHistoryModal
+          userId={historyUser.id}
+          name={historyUser.name}
+          onClose={() => setHistoryUser(undefined)}
+        />
       )}
     </div>
   );

@@ -52,6 +52,16 @@ export function useZodForm<T extends Record<string, string>>(
     };
   }
 
+  function setValue(name: keyof T & string, value: string) {
+    const next = { ...values, [name]: value };
+    setValues(next);
+    setErrors((previous) => {
+      const nextErrors = { ...previous };
+      delete nextErrors[name];
+      return nextErrors;
+    });
+  }
+
   function validate(form: HTMLFormElement): T | null {
     const result = schema.safeParse(values);
     if (result.success) {
@@ -76,5 +86,10 @@ export function useZodForm<T extends Record<string, string>>(
     focusFirstError(form, relevant);
   }
 
-  return { values, errors, field, validate, setServerErrors };
+  function reset() {
+    setValues(initialValues);
+    setErrors({});
+  }
+
+  return { values, errors, field, setValue, validate, setServerErrors, reset };
 }

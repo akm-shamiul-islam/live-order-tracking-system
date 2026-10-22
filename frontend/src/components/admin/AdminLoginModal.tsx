@@ -6,8 +6,14 @@ import { useDialog } from '../../hooks/useDialog';
 import { useZodForm } from '../../hooks/useZodForm';
 import { FieldError } from '../forms/FieldError';
 import { ApiError } from '../../lib/api';
-import { LoginSchema, UserRole } from '@kitchentodoor/shared';
+import {
+  LoginSchema,
+  UserRole,
+  type AuthChallengeResponse,
+  type AuthResponse,
+} from '@kitchentodoor/shared';
 import { X, Shield, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { OtpVerificationForm } from '../auth/OtpVerificationForm';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -19,13 +25,30 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
   const c = useCopy();
 
   const { login, logout } = useAuth();
-  const form = useZodForm(LoginSchema, { email: '', password: '' }, 'staff');
+  const form = useZodForm(
+    LoginSchema.omit({ deviceId: true }),
+    { email: '', password: '' },
+    'staff',
+  );
   const [showPassword, setShowPassword] = useState(false);
+  const [challenge, setChallenge] = useState<AuthChallengeResponse | null>(null);
   const dialogRef = useDialog(isOpen);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
+
+  const finishLogin = (result: AuthResponse) => {
+    if (result.user.role !== UserRole.ADMIN && result.user.role !== UserRole.COURIER) {
+      void logout();
+      setChallenge(null);
+      setError('This sign-in is for kitchen staff and couriers. Please use your staff account.');
+      return;
+    }
+    setError(null);
+    onLoginSuccess(result.user.role);
+    onClose();
+  };
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,14 +61,11 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
 
     try {
       const result = await login(values.email, values.password);
-      if (result.user.role !== UserRole.ADMIN && result.user.role !== UserRole.COURIER) {
-        void logout();
-        setError('This sign-in is for kitchen staff and couriers. Please use your staff account.');
+      if (!('accessToken' in result)) {
+        setChallenge(result);
         return;
       }
-      setError(null);
-      onLoginSuccess(result.user.role);
-      onClose();
+      finishLogin(result);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 401) {
         form.setServerErrors(
@@ -120,76 +140,97 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
           </div>
         )}
 
-        <form
-          noValidate
-          onSubmit={handleSubmit}
-          aria-busy={loading}
-          aria-describedby={error ? 'staff-login-error' : undefined}
-          className="space-y-4"
-        >
-          <div>
-            <label
-              htmlFor="staff-email"
-              className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+        {challenge ? (
+          <div className="space-y-4">
+            <OtpVerificationForm
+              challenge={challenge}
+              onComplete={(result) => {
+                if (typeof result !== 'string') finishLogin(result);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setChallenge(null);
+                setError(null);
+              }}
+              className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 underline dark:text-slate-300"
             >
-              {c('Email Address')}{' '}
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input
-                type="email"
-                {...form.field('email')}
-                autoComplete="username"
-                spellCheck={false}
-                disabled={loading}
-                required
-                placeholder={c('admin@kitchentodoor.io')}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
-              />
-            </div>
-            <FieldError id="staff-email-error" message={form.errors.email} />
+              {c('Back to Sign In')}
+            </button>
           </div>
-
-          <div>
-            <label
-              htmlFor="staff-password"
-              className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
-            >
-              {c('Password')}{' '}
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                {...form.field('password')}
-                autoComplete="current-password"
-                disabled={loading}
-                required
-                placeholder={c('Enter password')}
-                className="w-full pl-10 pr-12 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((visible) => !visible)}
-                aria-label={showPassword ? c('Hide password') : c('Show password')}
-                aria-pressed={showPassword}
-                className="absolute right-2 top-1.5 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <FieldError id="staff-password-error" message={form.errors.password} />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center gap-2 py-3 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white transition shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
+        ) : (
+          <form
+            noValidate
+            onSubmit={handleSubmit}
+            aria-busy={loading}
+            aria-describedby={error ? 'staff-login-error' : undefined}
+            className="space-y-4"
           >
-            {loading ? <Spinner /> : <Shield aria-hidden="true" className="h-4 w-4" />}
-            {loading ? c('Signing In…') : c('Sign In')}
-          </button>
-        </form>
+            <div>
+              <label
+                htmlFor="staff-email"
+                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+              >
+                {c('Email Address')}{' '}
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="email"
+                  {...form.field('email')}
+                  autoComplete="username"
+                  spellCheck={false}
+                  disabled={loading}
+                  required
+                  placeholder={c('admin@kitchentodoor.io')}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
+                />
+              </div>
+              <FieldError id="staff-email-error" message={form.errors.email} />
+            </div>
+
+            <div>
+              <label
+                htmlFor="staff-password"
+                className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+              >
+                {c('Password')}{' '}
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  {...form.field('password')}
+                  autoComplete="current-password"
+                  disabled={loading}
+                  required
+                  placeholder={c('Enter password')}
+                  className="w-full pl-10 pr-12 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? c('Hide password') : c('Show password')}
+                  aria-pressed={showPassword}
+                  className="absolute right-2 top-1.5 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <FieldError id="staff-password-error" message={form.errors.password} />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex w-full items-center justify-center gap-2 py-3 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white transition shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? <Spinner /> : <Shield aria-hidden="true" className="h-4 w-4" />}
+              {loading ? c('Signing In…') : c('Sign In')}
+            </button>
+          </form>
+        )}
       </div>
     </dialog>
   );

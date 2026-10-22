@@ -12,11 +12,11 @@ This skill governs the `@kitchentodoor/shared` package, which acts as the single
 
 ## Technology Versions & Constraints
 
-Technology | Version | Monorepo Usage Rule
-:--- | :--- | :---
-**Zod** | `^4.6.7` | Contract definitions, schema parsing, and type inference.
-**TypeScript** | `^7.0.2` | Strict workspace types (`strict: true`, `noUncheckedIndexedAccess: true`).
-**Shared Package** | Workspace | Dual export: Source exports for development; compiled ESM in `dist/` for production.
+| Technology         | Version   | Monorepo Usage Rule                                                                  |
+| :----------------- | :-------- | :----------------------------------------------------------------------------------- |
+| **Zod**            | `^4.6.7`  | Contract definitions, schema parsing, and type inference.                            |
+| **TypeScript**     | `^7.0.2`  | Strict workspace types (`strict: true`, `noUncheckedIndexedAccess: true`).           |
+| **Shared Package** | Workspace | Dual export: Source exports for development; compiled ESM in `dist/` for production. |
 
 ---
 
@@ -31,9 +31,9 @@ shared/
 │   │   ├── order.schema.ts        # CreateOrderSchema, UpdateOrderStatusSchema
 │   │   ├── public-config.schema.ts# PublicConfigSchema
 │   │   ├── telemetry.schema.ts    # CourierLocationUpdateSchema
-│   │   └── user.schema.ts         # UserRole enum, UserUpdateSchema
+│   │   └── user.schema.ts         # UserRoleSchema, role labels, user-management schemas
 │   ├── catalog.ts                 # Single source of truth for food items & base prices
-│   ├── enums.ts                   # OrderStatus, UserRole, ORDER_STATUS_SEQUENCE
+│   ├── enums.ts                   # OrderStatus/UserRole const objects and transition helpers
 │   ├── index.ts                   # Barrel re-export file
 │   ├── pagination.ts              # PageNumberSchema, PageSizeSchema, paginate()
 │   ├── pricing.ts                 # calculatePricing() with cent-based rounding
@@ -49,12 +49,18 @@ shared/
 ## 1. Dual Export Architecture (CRITICAL)
 
 In `shared/package.json`:
+
 ```json
 {
   "name": "@kitchentodoor/shared",
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "exports": {
+    "./zod": {
+      "types": "./src/zod.ts",
+      "development": "./src/zod.ts",
+      "default": "./dist/zod.js"
+    },
     ".": {
       "types": "./src/index.ts",
       "development": "./src/index.ts",
@@ -72,10 +78,10 @@ In `shared/package.json`:
 
 ## 2. Defining Schemas & DTO Types
 
-Always define the Zod schema first and derive the TypeScript type using `z.infer`:
+Always define the Zod schema first and derive the TypeScript type using `z.infer`. Import the shared Zod instance so application workspaces resolve the same dependency:
 
 ```typescript
-import { z } from 'zod';
+import { z } from '@kitchentodoor/shared/zod';
 
 export const MyFeatureSchema = z.object({
   title: z.string().trim().min(3, 'Title must be at least 3 characters').max(100),
@@ -90,20 +96,22 @@ export type MyFeatureDto = z.infer<typeof MyFeatureSchema>;
 
 ## 3. Order Status State Machine (`enums.ts`)
 
-KitchenToDoor orders progress through an immutable state sequence:
+Order statuses and their allowed sequence are defined in `shared/src/enums.ts` using const objects and arrays (not TypeScript `enum`s):
 
 ```typescript
-export enum OrderStatus {
-  PLACED = 'PLACED',
-  CONFIRMED = 'CONFIRMED',
-  PREPARING = 'PREPARING',
-  READY_FOR_PICKUP = 'READY_FOR_PICKUP',
-  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
-  DELIVERED = 'DELIVERED',
-  CANCELLED = 'CANCELLED',
-}
+export const OrderStatus = {
+  PLACED: 'PLACED',
+  CONFIRMED: 'CONFIRMED',
+  PREPARING: 'PREPARING',
+  READY_FOR_PICKUP: 'READY_FOR_PICKUP',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  DELIVERED: 'DELIVERED',
+  CANCELLED: 'CANCELLED',
+} as const;
 
-export const ORDER_STATUS_SEQUENCE: readonly OrderStatus[] = [
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export const ORDER_STATUS_SEQUENCE: OrderStatus[] = [
   OrderStatus.PLACED,
   OrderStatus.CONFIRMED,
   OrderStatus.PREPARING,
@@ -114,15 +122,17 @@ export const ORDER_STATUS_SEQUENCE: readonly OrderStatus[] = [
 ```
 
 **State Progression Rules:**
+
 1. An order can advance only to the immediately next status in `ORDER_STATUS_SEQUENCE`.
 2. An order cannot transition backward.
 3. Once `DELIVERED` or `CANCELLED`, an order is terminal: no further status or telemetry updates are permitted.
-4. Couriers can only advance orders assigned to them from `READY_FOR_PICKUP` to `OUT_FOR_DELIVERY` and then to `DELIVERED`.
+4. Couriers can advance each stage in order only for deliveries assigned to them. Administrators may manage all orders. Cancellation requires an explanation.
 
 ---
 
 ## 4. Financial Calculations (`pricing.ts`)
 
 Prices are strictly calculated on the backend from `MENU_ITEMS` to prevent client tampering.
+
 - Uses integer cent arithmetic to eliminate floating-point rounding errors.
 - Always use `calculatePricing(items, settings)` when determining order totals.

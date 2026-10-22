@@ -8,6 +8,7 @@ export const ClientSettingsSchema = z.object({
   VITE_QUERY_RETRY_COUNT: z.coerce.number().int().min(0).default(1),
   VITE_SESSION_STALE_TIME_MS: z.coerce.number().int().min(0).default(60_000),
   VITE_ORDER_LIST_REFRESH_MS: positiveInteger(15_000),
+  VITE_NOTIFICATIONS_POLL_MS: positiveInteger(15_000),
   VITE_SOCKET_ACK_TIMEOUT_MS: positiveInteger(5000),
   VITE_SOCKET_RECONNECT_ATTEMPTS: positiveInteger(15),
   VITE_SOCKET_RECONNECT_DELAY_MS: positiveInteger(1000),

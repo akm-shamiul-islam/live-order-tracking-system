@@ -46,6 +46,7 @@ import { ReceiptService } from '../receipts/receipt.service.js';
 const getListOrdersQuerySchema = () =>
   z.object({
     status: z.enum(OrderStatus).optional(),
+    assignment: z.enum(['ALL', 'ASSIGNED', 'UNASSIGNED']).optional(),
     page: PageNumberSchema.optional(),
     search: z.string().trim().max(100).default(''),
     limit: z.coerce
@@ -59,6 +60,7 @@ const getHistoryQuerySchema = () =>
   z.object({
     phone: PhoneSchema.optional(),
     q: z.string().trim().max(100).default(''),
+    status: z.enum(OrderStatus).optional(),
     page: PageNumberSchema.optional(),
     limit: z.coerce.number().int().min(1).max(getRuntimeSettings().ORDER_LIST_MAX_LIMIT).optional(),
   });
@@ -114,7 +116,12 @@ export class OrdersController {
       query.page === undefined
         ? undefined
         : paginate(
-            await this.ordersService.countOrders(query.status, query.search, user),
+            await this.ordersService.countOrders(
+              query.status,
+              query.search,
+              user,
+              query.assignment,
+            ),
             query.page,
             query.limit,
           );
@@ -124,6 +131,7 @@ export class OrdersController {
       pagination?.page,
       query.search,
       user,
+      query.assignment,
     );
     return { success: true, count: orders.length, orders, ...(pagination ? { pagination } : {}) };
   }
@@ -151,6 +159,7 @@ export class OrdersController {
               user.id,
               user.role === UserRole.COURIER,
               query.q,
+              query.status,
             ),
             query.page,
             limit,
@@ -163,6 +172,7 @@ export class OrdersController {
       user.role === UserRole.COURIER,
       user,
       query.q,
+      query.status,
     );
     return { success: true, count: orders.length, orders, ...(pagination ? { pagination } : {}) };
   }

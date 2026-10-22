@@ -57,4 +57,4 @@ Run one API process with the current access/assignment coordinator. Before horiz
 - Stale assignment or edit: refetch and retry the current record; do not overwrite another admin's changes.
 - Lost device location: verify browser permission, HTTPS, assigned courier, OUT_FOR_DELIVERY stage and timestamp freshness.
 
-Live payment, geocoding, SMTP delivery, deployment credentials/domain and operating-country choices still need configuration before those services can be validated.
+Authenticated SMTP delivery must be configured before production startup; account verification, new-device sign-in and recovery depend on it. Gmail App Password setup is documented in [Configuration](CONFIGURATION.md#email-otp-and-gmail-smtp). For sustained production mail, use OAuth 2.0 or a transactional provider with delivery monitoring. Live payment, geocoding, deployment credentials/domain and operating-country choices still need configuration before those services can be validated.

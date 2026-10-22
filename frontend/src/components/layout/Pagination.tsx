@@ -8,6 +8,7 @@ import {
   type PaginationInfo,
 } from '@kitchentodoor/shared';
 import { ThemedSelect } from '../forms/ThemedSelect';
+import { Tooltip } from '../ui/Tooltip';
 
 type PaginationProps = {
   pagination: PaginationInfo;
@@ -34,11 +35,11 @@ export function Pagination(props: PaginationProps) {
     else props.onPageSizeChange(PageSizeSchema.parse(value));
   };
   const { page, pageSize, total, totalPages } = pagination;
-  const pages = [...new Set([1, page - 1, page, page + 1, totalPages])]
-    .filter((number) => number >= 1 && number <= totalPages)
-    .sort((a, b) => a - b);
+  const pages = [...new Set([1, page - 1, page, page + 1, totalPages])].filter(
+    (number) => number >= 1 && number <= totalPages,
+  );
   const controlClass =
-    'inline-flex h-10 min-w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-35 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-500/50 dark:hover:bg-teal-500/10 dark:hover:text-teal-200 dark:disabled:hover:border-slate-700 dark:disabled:hover:bg-slate-900';
+    'inline-flex h-10 min-w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-35 aria-disabled:hover:border-slate-200 aria-disabled:hover:bg-white aria-disabled:hover:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-500/50 dark:hover:bg-teal-500/10 dark:hover:text-teal-200 dark:aria-disabled:hover:border-slate-700 dark:aria-disabled:hover:bg-slate-900 dark:aria-disabled:hover:text-slate-300';
   return (
     <nav
       aria-label={c('Pagination')}
@@ -51,7 +52,7 @@ export function Pagination(props: PaginationProps) {
           </span>
           <div className="w-20">
             <ThemedSelect
-              label={c('Items per page')}
+              label={c('Items Per Page')}
               value={String(pageSize)}
               options={sizes}
               onChange={changeSize}
@@ -73,63 +74,83 @@ export function Pagination(props: PaginationProps) {
           {c('Page {{page}} of {{total}}', { page, total: totalPages })}
         </span>
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label={c('First page')}
-            disabled={disabled || page <= 1}
-            onClick={() => onPageChange(1)}
-            className={`${controlClass} hidden sm:inline-flex`}
-          >
-            <ChevronsLeft aria-hidden="true" className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={c('Previous page')}
-            disabled={disabled || page <= 1}
-            onClick={() => onPageChange(page - 1)}
-            className={controlClass}
-          >
-            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-          </button>
+          <Tooltip label={c('First Page')}>
+            <button
+              type="button"
+              aria-label={c('First Page')}
+              aria-disabled={disabled || page <= 1}
+              onClick={() => {
+                if (!disabled && page > 1) onPageChange(1);
+              }}
+              className={`${controlClass} hidden sm:inline-flex`}
+            >
+              <ChevronsLeft aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label={c('Previous Page')}>
+            <button
+              type="button"
+              aria-label={c('Previous Page')}
+              aria-disabled={disabled || page <= 1}
+              onClick={() => {
+                if (!disabled && page > 1) onPageChange(page - 1);
+              }}
+              className={controlClass}
+            >
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </Tooltip>
           {pages.map((number, index) => (
             <span key={number} className="hidden items-center gap-1.5 sm:inline-flex">
               {index > 0 && number - (pages[index - 1] ?? 0) > 1 && (
                 <span className="px-1 text-slate-400">…</span>
               )}
-              <button
-                type="button"
-                aria-label={c('Page {{number}}', { number })}
-                aria-current={page === number ? 'page' : undefined}
-                disabled={disabled}
-                onClick={() => onPageChange(number)}
-                className={
-                  page === number
-                    ? 'inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 text-xs font-bold text-white shadow-sm shadow-teal-500/20 hover:from-emerald-800 hover:to-teal-800'
-                    : `${controlClass} text-xs font-semibold`
-                }
-              >
-                {number}
-              </button>
+              <Tooltip label={c('Page {{number}}', { number })}>
+                <button
+                  type="button"
+                  aria-label={c('Page {{number}}', { number })}
+                  aria-current={page === number ? 'page' : undefined}
+                  aria-disabled={disabled}
+                  onClick={() => {
+                    if (!disabled) onPageChange(number);
+                  }}
+                  className={
+                    page === number
+                      ? `inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 text-xs font-bold text-white shadow-sm shadow-teal-500/20 hover:from-emerald-800 hover:to-teal-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-50`
+                      : `${controlClass} text-xs font-semibold`
+                  }
+                >
+                  {number}
+                </button>
+              </Tooltip>
             </span>
           ))}
-          <button
-            type="button"
-            aria-label={c('Next page')}
-            disabled={disabled || page >= totalPages}
-            onClick={() => onPageChange(page + 1)}
-            className={controlClass}
-          >
-            <ChevronRight aria-hidden="true" className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={c('Last page')}
-            disabled={disabled || page >= totalPages}
-            onClick={() => onPageChange(totalPages)}
-            className={`${controlClass} hidden sm:inline-flex`}
-          >
-            <ChevronsRight aria-hidden="true" className="h-4 w-4" />
-          </button>
+          <Tooltip label={c('Next Page')}>
+            <button
+              type="button"
+              aria-label={c('Next Page')}
+              aria-disabled={disabled || page >= totalPages}
+              onClick={() => {
+                if (!disabled && page < totalPages) onPageChange(page + 1);
+              }}
+              className={controlClass}
+            >
+              <ChevronRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label={c('Last Page')}>
+            <button
+              type="button"
+              aria-label={c('Last Page')}
+              aria-disabled={disabled || page >= totalPages}
+              onClick={() => {
+                if (!disabled && page < totalPages) onPageChange(totalPages);
+              }}
+              className={`${controlClass} hidden sm:inline-flex`}
+            >
+              <ChevronsRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       </div>
     </nav>

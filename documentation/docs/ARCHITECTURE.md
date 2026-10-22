@@ -1,6 +1,6 @@
 # Architecture
 
-KitchenToDoor is a pnpm workspace with a React application, a NestJS/Fastify API and shared TypeScript/Zod contracts. Supported runtime: Node 24 and pnpm 12.14.0. Current versions include React 19.3.1, Tailwind CSS 4.3.3, Zustand 5.0.15, TanStack Router 1.170.45, Query 5.104.5, Zod 4.6.7, Motion 14.5.0, NestJS 12.2.0, Fastify 5.12.7, Mongoose 9.11.2 and Socket.IO 4.8.4. See [DEPENDENCIES.md](DEPENDENCIES.md) for the complete inventory.
+KitchenToDoor is a pnpm workspace with a React application, a NestJS/Fastify API and shared TypeScript/Zod contracts. Supported runtime: Node 24 and pnpm 12.14.0. Current versions include React 19.3.1, Tailwind CSS 4.3.3, Zustand 5.0.16, TanStack Router 1.170.45, Query 5.104.5, Zod 4.6.7, Motion 14.6.0, NestJS 12.2.0, Fastify 5.12.7, Mongoose 9.11.3 and Socket.IO 4.8.4. See [DEPENDENCIES.md](DEPENDENCIES.md) for the complete inventory.
 
 ## TypeScript source and tooling
 
@@ -12,12 +12,12 @@ The early initializer is authored in `frontend/src/theme.ts`. Vite's current [tr
 
 ## Accounts and workspaces
 
-| Account | Pages and permissions |
-| --- | --- |
-| Visitor | Menu and account/recovery pages. Ordering, history, tracking and staff workspaces require sign-in. |
-| User (`CUSTOMER`) | Register without choosing a privileged role, order food, and read only orders linked to their user ID. |
-| Courier (`COURIER`) | View available delivery summaries, request assignment, and manage approved assignments. |
-| Admin (`ADMIN`) | View dispatch, approve/decline requests, assign couriers and edit users. |
+| Account             | Pages and permissions                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| Visitor             | Menu and account/recovery pages. Ordering, history, tracking and staff workspaces require sign-in.     |
+| User (`CUSTOMER`)   | Register without choosing a privileged role, order food, and read only orders linked to their user ID. |
+| Courier (`COURIER`) | View available delivery summaries, request assignment, and manage approved assignments.                |
+| Admin (`ADMIN`)     | View dispatch, approve/decline requests, Assign Couriers and edit users.                               |
 
 The drawer hides inaccessible links; `AccountRequired` also gates direct URLs. Backend JWT/role guards and record checks authorize private reads, mutations, socket joins and protected broadcasts. The UI is not an authorization boundary, as explained in [TanStack's route documentation](https://tanstack.com/router/latest/docs/guide/authenticated-routes).
 
@@ -34,14 +34,15 @@ flowchart LR
 
 ## Frontend state
 
-| State | Owner |
-| --- | --- |
-| User and access token | Vanilla Zustand singleton; selective React subscriptions through `useAuth`. |
-| Orders, delivery summaries, users, pricing and session verification | TanStack Query. Account-specific keys and cancellation/removal of private caches on identity changes. |
-| Page, order, filters and pagination | TanStack Router URLs, real links, refresh and browser history. |
-| Cart, dialogs and form drafts | React state. Root layout retains the cart during SPA sign-in/registration. |
-| Navigation drawer | React state initialized from localStorage; defaults open and persists both states under kitchentodoor.navigation.open. |
-| Theme and language | Device theme in `ktd_theme`; EN/JA in `ktd_language`, with a scoped account preference and monotonic `languageVersion` in MongoDB. |
+| State                                                               | Owner                                                                                                                              |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| User and access token                                               | Vanilla Zustand singleton; selective React subscriptions through `useAuth`.                                                        |
+| Orders, delivery summaries, users, pricing and session verification | TanStack Query. Account-specific keys and cancellation/removal of private caches on identity changes.                              |
+| Page, order, filters and pagination                                 | TanStack Router URLs, real links, refresh and browser history.                                                                     |
+| Cart                                                               | Account-scoped vanilla Zustand store with explicit localStorage and cross-tab synchronization.                                    |
+| Dialogs and form drafts                                             | React state. Account changes dismiss open account/checkout dialogs; profile drafts stay in memory.                               |
+| Navigation drawer                                                   | React state initialized from localStorage; defaults open and persists both states under kitchentodoor.navigation.open.             |
+| Theme and language                                                  | Device theme in `ktd_theme`; EN/JA in `ktd_language`, with a scoped account preference and monotonic `languageVersion` in MongoDB. |
 
 `authSession.ts` explicitly persists the existing `ktd_token`/`ktd_user` keys; Zustand persist middleware is not used. Storage events synchronize tabs. `/auth/me` refreshes the saved profile at startup, focus and the configured verification interval. Passwords and refresh tokens never enter Zustand or localStorage.
 
@@ -55,16 +56,16 @@ The installed [RouterCore implementation](https://github.com/TanStack/router/blo
 
 The main element is the single named `page-content` participant. Its outgoing snapshot fades for 140 ms and its incoming snapshot for 220 ms. Opacity-only animations and fixed snapshot geometry avoid stretching text between pages with different heights. The root snapshot stays live, keeping the header and drawer steady; the overlay does not capture pointer events. This adds no animation dependency or artificial navigation delay.
 
-| Navigation or update | Presentation |
-| --- | --- |
-| Drawer destinations, account pages, tracking links | Page fade after route commit; existing route skeletons handle loading. |
-| Browser Back/Forward | Same fade for pathname changes on browsers supporting transition types. |
-| Filters, search, pagination and live data | Immediate updates with current component/form state preserved. |
+| Navigation or update                                              | Presentation                                                            |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Drawer destinations, account pages, tracking links                | Page fade after route commit; existing route skeletons handle loading.  |
+| Browser Back/Forward                                              | Same fade for pathname changes on browsers supporting transition types. |
+| Filters, search, pagination and live data                         | Immediate updates with current component/form state preserved.          |
 | Direct entry, reduced motion or unsupported transition APIs/types | Normal rendering; reduced-motion CSS also disables snapshot animations. |
 
 ## Appearance, localization and controls
 
-English and Japanese resources live in `frontend/src/locales/en.json` and `ja.json`, with `ui` and `food` namespaces. i18next 26.5.4 uses its typed selector API through `useCopy`; react-i18next 17.1.0 subscribes React to language changes. English is bundled once, and Japanese loads on demand. Initialization restores the local language before mounting React, sets `html.lang` and preserves the current route and form/cart state. Prices remain USD demonstration amounts. User-entered names, addresses, cancellation notes and other content remain unchanged.
+English and Japanese resources live in `frontend/src/locales/en.json` and `ja.json`, with `ui` and `food` namespaces. i18next 26.5.5 uses its typed selector API through `useCopy`; react-i18next 17.1.2 subscribes React to language changes. English is bundled once, and Japanese loads on demand. Initialization restores the local language before mounting React, sets `html.lang` and preserves the current route and form/cart state. Prices remain USD demonstration amounts. User-entered names, addresses, cancellation notes and other content remain unchanged.
 
 Registration records the selected language. Authenticated `PATCH /api/auth/preferences` accepts only an `en`/`ja` language for the current account; strict shared Zod validation rejects account IDs, role fields and unsupported languages. An atomic update increments `languageVersion`. Login, refresh and `/auth/me` return the preference, with `en`/0 fallback for older documents. The session store preserves a newer language revision when an older profile response arrives.
 
@@ -81,14 +82,14 @@ Floating UI 0.27.20 supplies hover/focus/Escape behavior, collision-aware positi
 ## Authentication and user management
 
 - Registration accepts an optional delivery address, persisted on the user document and returned in the authenticated profile for registration, login, refresh and `/auth/me`. Existing users without an address remain valid. Zustand persists and synchronizes it with the rest of the profile, including address-only updates. Addresses are omitted from JWT claims and the courier directory.
-- Checkout initializes editable name, phone and address fields from that profile. Submitting **Deliver** stores the edited details on the owned order without changing registered defaults. Nonblank saved addresses and required checkout addresses share validation; the 500 UTF-16-unit cap matches HTML `maxlength` and Mongoose. Address edits clear an attached location pin and invalidate pending geolocation callbacks.
+- Checkout initializes editable name, phone and address fields from that profile. Submitting **Confirm Order** stores the edited details on the owned order without changing registered defaults. Nonblank saved addresses and required checkout addresses share validation; the 500 UTF-16-unit cap matches HTML `maxlength` and Mongoose. Address edits clear an attached location pin and invalidate pending geolocation callbacks.
 - bcryptjs 3.0.3 hashes passwords with a configurable work factor, default 12.
 - Access JWTs default to 15 minutes. Each private request/event checks the current user, disabled flag, token version and session, instead of trusting an old role claim.
 - Opaque refresh secrets rotate through an HttpOnly, SameSite=Strict cookie scoped to `/api/auth`; only hashes are stored. Recognized token reuse revokes its session. Sessions have absolute expiry and a MongoDB TTL index.
 - Logout revokes all sessions through token versioning. Email/role/access changes also increment the version and remove pending reset hashes, expiry and cooldown in the same write. Admin edits use `updatedAt` compare-and-set and append bounded management history inside that update. Both access and refresh verification compare the current version; a failed auxiliary session cleanup cannot reactivate old credentials or turn an acknowledged password change into an error.
 - Admins cannot disable/demote their own account. Active deliveries must be reassigned/completed before removing courier access.
 - A shared `AccountAccessCoordinator` bounds access/assignment changes to one in-flight operation in the supported single API process. Contention returns a readable 409. User edits and assignments recheck current administrator/courier records inside this boundary. Multiple API processes require shared coordination or database transactions; the local coordinator does not provide distributed atomicity.
-- Nodemailer 10.1.7 delivers configured SMTP recovery mail. Reset tokens are hashed, expiring and consumed atomically; the browser receives the token in a URL fragment. Recovery is disabled until configured. SMTP delivery is not a durable job queue.
+- Nodemailer 10.2.1 delivers branded English/Japanese OTP mail for account verification, new-device sign-in and password recovery. OTP challenges store keyed code hashes, expire through a MongoDB TTL index, cap attempts and enforce a resend delay. Password-reset grants are hashed, single-use and bound to the account email/security version. New registrations stay inactive until verified; existing accounts are treated as verified. New devices are remembered by a bounded per-user hash list. SMTP delivery is not backed by a durable job queue.
 - Development seeds missing configured staff and preserves existing passwords. Production startup does not seed users; explicit first-admin provisioning requires operator credentials and refuses an existing administrator or occupied email.
 
 ## Orders, assignment and audit
@@ -108,6 +109,28 @@ Statuses advance sequentially from PLACED through DELIVERED. Admins and the assi
 ### Customer PDF receipts
 
 `GET /api/orders/:orderId/receipt?language=en|ja` requires a current authenticated customer or administrator session and has a configurable per-IP receipt limit. The controller calls the same actor-aware `OrdersService.getOrderById` lookup as order details; a customer who requests another customer's ID or private tracking token receives 404. Couriers cannot use this endpoint. The API renders a tagged PDF with PDFCN's Forme renderer and serves it as a private no-store attachment. It uses saved order/catalog prices, customer delivery details, status/cancellation history and canonical EN/JA strings. Native Forme tables repeat their header on continuation pages. English/Japanese fonts are embedded locally; no order content is sent to a PDF service. The interface offers downloads from My Orders and order details and cancels a pending download if the view is closed.
+
+
+
+## Profiles, approvals and notifications
+
+`ProfilesModule` supplies authenticated `/api/profile`, private photo and `/api/notifications` endpoints. A strict shared schema allows name, phone, address, photo and password changes; self-service email, role and account-status edits are rejected. Customer/courier changes remain pending, while an administrator’s own profile edits are applied immediately with the same audit history. Registration photos use a durable user reference until their review record is created.
+
+The top-right avatar disclosure shows the current identity, Profile and Sign Out on themed slate surfaces with teal accents. Profile opens in the shared native dialog; the drawer retains its KitchenToDoor/Explore heading. Its contact fields use Name, Email, Phone order with matching one/two/three-column contact and password layouts. The address spans all columns. A pending photo can be previewed by its owner without changing the approved profile. The legacy `/profile` URL remains available.
+
+Profile drafts compare contact fields, password fields and photo changes against the loaded profile. Opening the editor always fetches the current revision and shows its loader until that fetch completes, using `refetchOnMount: 'always'` and `isFetchedAfterMount`. TanStack Router's asynchronous `useBlocker` and an application Sign Out guard share one discard decision in the standard modal. Keep Editing preserves the inputs; Discard resets them without submitting. A committed route change closes the modal; rejected navigation leaves it open. Account changes dismiss account and checkout dialogs. Successful saves release the guard before any session redirect. A dirty draft installs the browser's native `beforeunload` warning for reload/close; browsers control its text and may omit it on mobile. Focus/reconnect refetches are disabled for both observers of the shared profile query (editor and account dropdown), and language/preference timestamps do not remount the draft. Neither password drafts nor profile drafts are persisted to localStorage.
+
+Profile requests store safe before/proposed snapshots and a private pending password hash. A unique partial index permits one pending/applying request per user. Approval first records an `APPLYING` decision, then conditionally updates the user’s profile version and request ID. The recovery loop finalizes interrupted writes without applying changes twice. Newer profile/password/access edits prevent stale requests from overwriting them. Password approval increments the session version and clears reset links; finalized requests discard the pending hash.
+
+Notification rows derive from these durable request records. Access is limited to the owner or current admins. Both `readBy` and `dismissedBy` are private, per-account markers. `PATCH /api/notifications/:id/dismiss` marks the item read and hides it only in the acting account's dropdown; history and other recipients remain intact. Explicitly marking it unread restores it to the dropdown. A final decision clears dismissal/read markers for the new event. Updates accept an optional `expectedUpdatedAt` guard so stale clicks cannot consume a newer decision, and read/dismiss writes preserve event timestamps and ordering.
+
+The header polls at `VITE_NOTIFICATIONS_POLL_MS` and refreshes on open/focus. Its badge counts unread, non-dismissed events; the dropdown requests `view=dropdown`, while the paginated Notifications page retains dismissed records. Review-status filters and literal, escaped name/email/feedback search are applied within the same owner/admin scope before pagination. Rows sort by event update time and ID descending. TanStack Query updates only the acting account's cached rows, then reconciles counts and detail queries with the API. Users history combines these requests with the existing configurable administrative field audit.
+
+Messages distinguish a customer's/courier's own request and decision from an administrator's review task. Review decisions now capture the reviewer ID, name and email as an audit snapshot; only name/email enter authorized notification responses. Earlier records without a reviewer email display that it was not recorded, rather than guessing an identity from a non-unique name. Changed previous values are red and requested values green, with column labels conveying the distinction independently of color.
+
+Sharp 0.35.5 validates raster formats, upload bytes and decoded pixels, strips metadata, and writes normalized square WebP photos. Photo bytes and both old/proposed photo IDs remain accessible only to the owner and administrators. Public configuration allowlists only the upload byte limit and pricing.
+
+Receipt generation continues to use PDFCN/Forme 0.28.0. Trusted catalog JPEGs are loaded as data URIs before entering the WASM renderer. PDF.js 6.4.299 provides a separate lazy-loaded read-only canvas/text preview with its matching local worker. It avoids browser PDF-plugin settings and creates no editing/annotation controls. The original authenticated PDF Blob supplies the download.
 
 ## Location and realtime updates
 

@@ -1,6 +1,6 @@
 import { useCopy } from '../../lib/i18n';
 import { IconAction, IconActionLink } from '../ui/IconAction';
-import { ClipboardList, Settings2, UserRoundPlus } from 'lucide-react';
+import { ClipboardList, SearchX, Settings2, UserRoundPlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -15,10 +15,17 @@ import {
 import { ArrowRight, Eye, RefreshCw } from 'lucide-react';
 import { Pagination } from '../layout/Pagination';
 import { DispatchFilters } from './DispatchFilters';
+import {
+  DISPATCH_COLUMNS,
+  DispatchColumnSettings,
+  readDispatchColumns,
+  type DispatchColumn,
+} from './DispatchColumnSettings';
 import { useAuth } from '../../hooks/useAuth';
 import { TableSkeleton, Spinner } from '../layout/Loading';
 import { useOrderListUpdates } from '../../hooks/useOrderListUpdates';
 import { clientSettings } from '../../lib/clientSettings';
+import { orderStatusBadgeClass } from '../../lib/orderStatusBadge';
 
 const createdAtFormatter = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric',
@@ -48,6 +55,90 @@ function OrderCreatedAt({ value }: { value: string }) {
   );
 }
 
+type Copy = (
+  value: string | null | undefined,
+  variables?: Record<string, string | number>,
+) => string;
+
+function renderDispatchCell(column: DispatchColumn, order: OrderDetails, c: Copy) {
+  switch (column) {
+    case 'orderNumber':
+      return (
+        <td
+          key={column}
+          className="whitespace-nowrap px-4 py-4 text-center font-mono font-bold text-teal-700 dark:text-teal-400"
+        >
+          {order.orderNumber}
+        </td>
+      );
+    case 'customerName':
+      return (
+        <td
+          key={column}
+          className="whitespace-nowrap px-4 py-4 text-center font-semibold text-slate-900 dark:text-slate-100"
+        >
+          {order.customer.name}
+        </td>
+      );
+    case 'customerPhone':
+      return (
+        <td
+          key={column}
+          className="whitespace-nowrap px-4 py-4 text-center font-mono text-[11px] text-slate-600 dark:text-slate-300"
+        >
+          {order.customer.phone}
+        </td>
+      );
+    case 'items':
+      return (
+        <td
+          key={column}
+          className="max-w-xs min-w-48 whitespace-normal px-4 py-4 text-left leading-relaxed text-slate-600 dark:text-slate-300"
+        >
+          {order.items.map((item) => `${c(item.name)} (x${item.quantity})`).join(', ')}
+        </td>
+      );
+    case 'total':
+      return (
+        <td
+          key={column}
+          className="whitespace-nowrap px-4 py-4 text-center font-mono font-bold text-slate-900 dark:text-slate-100"
+        >
+          ${order.pricing.total.toFixed(2)}
+        </td>
+      );
+    case 'status':
+      return (
+        <td key={column} className="whitespace-nowrap px-4 py-4 text-center">
+          <span
+            className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${orderStatusBadgeClass(order.status)}`}
+          >
+            {c(order.status.replace(/_/g, ' '))}
+          </span>
+        </td>
+      );
+    case 'assignment':
+      return (
+        <td
+          key={column}
+          className="whitespace-nowrap px-4 py-4 text-center text-slate-600 dark:text-slate-300"
+        >
+          {order.courierId ? c('Assigned') : c('Unassigned')}
+        </td>
+      );
+    case 'created':
+      return (
+        <td
+          key={column}
+          className="whitespace-nowrap px-4 py-4 text-center font-mono text-[11px] text-slate-600 dark:text-slate-300"
+        >
+          <OrderCreatedAt value={order.createdAt} />
+        </td>
+      );
+  }
+  return null;
+}
+
 export function AdminOrdersTable() {
   const c = useCopy();
 
@@ -55,6 +146,7 @@ export function AdminOrdersTable() {
   const { user } = useAuth();
   const {
     status: selectedStatus,
+    assignment: selectedAssignment,
     q: searchQuery,
     page,
     size,
@@ -62,12 +154,22 @@ export function AdminOrdersTable() {
   const navigate = useNavigate({ from: '/dispatch' });
   const [advancingId, setAdvancingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [columnPreference, setColumnPreference] = useState(() => ({
+    userId: user?.id,
+    columns: readDispatchColumns(user?.id),
+  }));
+  const visibleColumns =
+    columnPreference.userId === user?.id ? columnPreference.columns : readDispatchColumns(user?.id);
+  const saveVisibleColumns = (columns: DispatchColumn[]) =>
+    setColumnPreference({ userId: user?.id, columns });
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin-orders', selectedStatus, searchQuery, page, size],
+    queryKey: ['admin-orders', selectedStatus, selectedAssignment, searchQuery, page, size],
     queryFn: () =>
       api.orders.getPage({
         status: selectedStatus === 'ALL' ? undefined : selectedStatus,
+        assignment: selectedAssignment,
         search: searchQuery,
         page,
         pageSize: size,
@@ -105,27 +207,6 @@ export function AdminOrdersTable() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'PLACED':
-        return 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800';
-      case 'CONFIRMED':
-        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
-      case 'PREPARING':
-        return 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800';
-      case 'READY_FOR_PICKUP':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800';
-      case 'OUT_FOR_DELIVERY':
-        return 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800';
-      case 'DELIVERED':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800';
-      case 'CANCELLED':
-        return 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-300';
-    }
-  };
-
   return (
     <div className="space-y-6">
       {(error || actionError) && (
@@ -157,59 +238,76 @@ export function AdminOrdersTable() {
       </div>
 
       <DispatchFilters
-        key={`${selectedStatus}:${searchQuery}`}
+        key={`${selectedStatus}:${selectedAssignment}:${searchQuery}`}
         status={selectedStatus}
+        assignment={selectedAssignment}
         search={searchQuery}
-        onFilter={(status) =>
+        onFilter={(status, assignment) =>
           void navigate({
             search: (previous) => ({
               ...previous,
-              status: status as typeof selectedStatus,
+              status,
+              assignment,
               page: 1,
             }),
           })
         }
         onSearch={(q) => void navigate({ search: (previous) => ({ ...previous, q, page: 1 }) })}
+        onOpenSettings={() => setColumnsOpen(true)}
       />
+      {columnsOpen && (
+        <DispatchColumnSettings
+          userId={user?.id}
+          visibleColumns={visibleColumns}
+          onClose={() => setColumnsOpen(false)}
+          onSave={saveVisibleColumns}
+        />
+      )}
 
       {/* Responsive Orders Table */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full min-w-max text-xs">
             <thead className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th scope="col" className="py-3.5 px-4 text-center">
-                  {c('Order #')}{' '}
-                </th>
-                <th scope="col" className="py-3.5 px-4 text-center">
-                  {c('Customer')}{' '}
-                </th>
-                <th scope="col" className="py-3.5 px-4 text-center">
-                  {c('Order items')}{' '}
-                </th>
-                <th scope="col" className="py-3.5 px-4 text-center">
-                  {c('Total')}{' '}
-                </th>
-                <th scope="col" className="py-3.5 px-4 text-center">
-                  {c('Current Status')}{' '}
-                </th>
-                <th scope="col" className="py-3.5 px-4 text-center">
-                  {c('Created')}{' '}
-                </th>
-                <th scope="col" className="py-3.5 px-4 text-center">
+                {DISPATCH_COLUMNS.filter(({ key }) => visibleColumns.includes(key)).map(
+                  ({ key, label }) => (
+                    <th key={key} scope="col" className="whitespace-nowrap px-4 py-3.5 text-center">
+                      {c(label)}{' '}
+                    </th>
+                  ),
+                )}
+                <th scope="col" className="whitespace-nowrap px-4 py-3.5 text-center">
                   {c('Actions')}{' '}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
               {isLoading ? (
-                <TableSkeleton />
+                <TableSkeleton columns={visibleColumns.length + 1} />
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-400">
-                    {error
-                      ? c('Orders could not be loaded. Please try Refresh List.')
-                      : c('No orders match your search.')}
+                  <td
+                    colSpan={visibleColumns.length + 1}
+                    className="px-6 py-10 text-center text-slate-400"
+                  >
+                    {error ? (
+                      <p className="mx-auto max-w-lg text-sm text-slate-600 dark:text-slate-300">
+                        {c('Orders could not be loaded. Please try Refresh List.')}
+                      </p>
+                    ) : (
+                      <div className="flex min-h-36 flex-col items-center justify-center gap-2.5 text-center">
+                        <span className="grid h-12 w-12 place-items-center rounded-2xl border border-teal-700/15 bg-teal-50 text-teal-700 dark:border-teal-400/20 dark:bg-teal-500/10 dark:text-teal-300">
+                          <SearchX aria-hidden="true" className="h-6 w-6" />
+                        </span>
+                        <p className="font-display text-lg font-bold text-slate-800 dark:text-slate-100">
+                          {c('No orders match your search.')}{' '}
+                        </p>
+                        <p className="max-w-md text-sm text-slate-500 dark:text-slate-400">
+                          {c('Try adjusting your search or delivery filters.')}{' '}
+                        </p>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -233,35 +331,7 @@ export function AdminOrdersTable() {
                       key={order.id}
                       className="hover:bg-teal-50/40 dark:hover:bg-slate-800/30 transition-colors"
                     >
-                      <td className="py-4 px-4 font-mono font-bold text-teal-700 dark:text-teal-400 text-center">
-                        {order.orderNumber}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">
-                          {order.customer.name}
-                        </div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-300 font-mono">
-                          {order.customer.phone}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 max-w-xs truncate text-slate-600 dark:text-slate-300">
-                        {order.items.map((i) => `${c(i.name)} (x${i.quantity})`).join(', ')}
-                      </td>
-                      <td className="py-4 px-4 font-mono font-bold text-slate-900 dark:text-slate-100 text-center">
-                        ${order.pricing.total.toFixed(2)}
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${getStatusBadge(
-                            order.status,
-                          )}`}
-                        >
-                          {c(order.status.replace(/_/g, ' '))}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-slate-600 dark:text-slate-300 font-mono text-[11px] text-center">
-                        <OrderCreatedAt value={order.createdAt} />
-                      </td>
+                      {visibleColumns.map((column) => renderDispatchCell(column, order, c))}
                       <td className="py-4 px-4 align-middle text-center">
                         <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                           <IconActionLink
@@ -305,7 +375,7 @@ export function AdminOrdersTable() {
                                   ? c('Delivery Requests ({{count}})', { count: requestCount })
                                   : order.courierId
                                     ? c('Manage Delivery')
-                                    : c('Assign courier')
+                                    : c('Assign Courier')
                               }
                             />
                           )}

@@ -23,11 +23,16 @@ import {
   RegisterSchema,
   ForgotPasswordSchema,
   ResetPasswordSchema,
+  OtpVerificationSchema,
+  PasswordResetOtpVerificationSchema,
+  OtpResendSchema,
   LanguagePreferenceSchema,
   type Language,
+  type AuthFlowResponse,
+  type AuthChallengeResponse,
 } from '@kitchentodoor/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe.js';
-import type { LoginDto, RegisterDto } from '@kitchentodoor/shared';
+import type { LoginDto, RegisterDto, OtpVerificationDto } from '@kitchentodoor/shared';
 import { Throttle } from '@nestjs/throttler';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { isAllowedOrigin } from '../common/cors.js';
@@ -60,14 +65,20 @@ export class AuthController {
       ttl: () => getRuntimeSettings().LOGIN_RATE_LIMIT_TTL_MS,
     },
   })
+  @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
   async login(
     @Body(new ZodValidationPipe(LoginSchema)) body: LoginDto,
     @Res({ passthrough: true }) response: CookieResponse,
-  ): Promise<AuthResponse> {
-    const { refreshToken, ...auth } = await this.authService.login(body);
-    this.setRefresh(response, refreshToken);
-    return auth;
+  ): Promise<AuthFlowResponse> {
+    const result = await this.authService.login(body);
+    if ('refreshToken' in result) {
+      const { refreshToken, ...auth } = result;
+      this.setRefresh(response, refreshToken);
+      return auth;
+    }
+    this.setRefresh(response, '');
+    return result;
   }
 
   @Post('register')
@@ -77,14 +88,15 @@ export class AuthController {
       ttl: () => getRuntimeSettings().REGISTER_RATE_LIMIT_TTL_MS,
     },
   })
+  @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body(new ZodValidationPipe(RegisterSchema)) body: RegisterDto,
     @Res({ passthrough: true }) response: CookieResponse,
-  ): Promise<AuthResponse> {
-    const { refreshToken, ...auth } = await this.authService.register(body);
-    this.setRefresh(response, refreshToken);
-    return auth;
+  ): Promise<AuthChallengeResponse> {
+    const challenge = await this.authService.register(body);
+    this.setRefresh(response, '');
+    return challenge;
   }
 
   @Get('me')
@@ -156,11 +168,95 @@ export class AuthController {
     },
   })
   async forgotPassword(@Body(new ZodValidationPipe(ForgotPasswordSchema)) body: { email: string }) {
-    await this.authService.forgotPassword(body.email);
-    return {
-      success: true,
-      message: 'If an account matches that email, a password reset link will be sent.',
-    };
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Post('otp/resend')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @Throttle({
+    default: {
+      limit: () => getRuntimeSettings().OTP_REQUEST_RATE_LIMIT_MAX,
+      ttl: () => getRuntimeSettings().RATE_LIMIT_TTL_MS,
+    },
+  })
+  async resendOtp(@Body(new ZodValidationPipe(OtpResendSchema)) body: { challengeId: string }) {
+    return this.authService.resendOtp(body.challengeId);
+  }
+
+  @Post('email/verification/request')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @Throttle({
+    default: {
+      limit: () => getRuntimeSettings().OTP_REQUEST_RATE_LIMIT_MAX,
+      ttl: () => getRuntimeSettings().RATE_LIMIT_TTL_MS,
+    },
+  })
+  async requestEmailVerification(
+    @Body(new ZodValidationPipe(ForgotPasswordSchema)) body: { email: string },
+  ) {
+    return this.authService.requestEmailVerification(body.email);
+  }
+
+  @Post('email/verify')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @Throttle({
+    default: {
+      limit: () => getRuntimeSettings().OTP_VERIFY_RATE_LIMIT_MAX,
+      ttl: () => getRuntimeSettings().RATE_LIMIT_TTL_MS,
+    },
+  })
+  async verifyEmail(
+    @Body(new ZodValidationPipe(OtpVerificationSchema)) body: OtpVerificationDto,
+    @Res({ passthrough: true }) response: CookieResponse,
+  ): Promise<AuthResponse> {
+    const { refreshToken, ...auth } = await this.authService.verifyEmail(
+      body.challengeId,
+      body.code,
+      body.deviceId,
+    );
+    this.setRefresh(response, refreshToken);
+    return auth;
+  }
+
+  @Post('login/verify')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @Throttle({
+    default: {
+      limit: () => getRuntimeSettings().OTP_VERIFY_RATE_LIMIT_MAX,
+      ttl: () => getRuntimeSettings().RATE_LIMIT_TTL_MS,
+    },
+  })
+  async verifyLogin(
+    @Body(new ZodValidationPipe(OtpVerificationSchema)) body: OtpVerificationDto,
+    @Res({ passthrough: true }) response: CookieResponse,
+  ): Promise<AuthResponse> {
+    const { refreshToken, ...auth } = await this.authService.verifyNewDevice(
+      body.challengeId,
+      body.code,
+      body.deviceId,
+    );
+    this.setRefresh(response, refreshToken);
+    return auth;
+  }
+
+  @Post('reset-password/verify')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @Throttle({
+    default: {
+      limit: () => getRuntimeSettings().OTP_VERIFY_RATE_LIMIT_MAX,
+      ttl: () => getRuntimeSettings().RATE_LIMIT_TTL_MS,
+    },
+  })
+  async verifyPasswordReset(
+    @Body(new ZodValidationPipe(PasswordResetOtpVerificationSchema))
+    body: { challengeId: string; code: string },
+  ) {
+    return this.authService.verifyPasswordResetCode(body.challengeId, body.code);
   }
 
   @Post('reset-password')

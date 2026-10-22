@@ -5,7 +5,6 @@ import {
   Inject,
   Logger,
   BadRequestException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -17,12 +16,15 @@ import {
   type LoginDto,
   type RegisterDto,
   type AuthResponse,
+  type AuthChallengeResponse,
   type UserSummary,
   UserRole,
 } from '@kitchentodoor/shared';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { AuthSession, type AuthSessionDocument } from '../database/schemas/auth-session.schema.js';
 import { RecoveryMailer } from './recovery-mailer.js';
+import { ProfilesService } from '../profiles/profiles.service.js';
+import { AuthOtpService } from './auth-otp.service.js';
 
 type IssuedSession = AuthResponse & { refreshToken: string };
 const tokenHash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -35,26 +37,35 @@ export class AuthService {
     @Inject(JwtService) private readonly jwtService: JwtService,
     @InjectModel(AuthSession.name) private readonly sessionModel: Model<AuthSessionDocument>,
     @Inject(RecoveryMailer) private readonly recoveryMailer: RecoveryMailer,
+    @Inject(ProfilesService) private readonly profiles: ProfilesService,
+    @Inject(AuthOtpService) private readonly otp: AuthOtpService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<UserDocument | null> {
-    const user = await this.userModel.findOne({ email: email.trim().toLowerCase() });
+    const user = await this.userModel.findOne(
+      { email: email.trim().toLowerCase() },
+      '+trustedDeviceHashes',
+    );
     if (!user || user.disabled) return null;
     const isMatch = await bcrypt.compare(pass, user.passwordHash);
     if (!isMatch) return null;
     return user;
   }
 
-  async login(loginDto: LoginDto): Promise<IssuedSession> {
+  async login(loginDto: LoginDto): Promise<IssuedSession | AuthChallengeResponse> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
-
-    return this.issueSession(user);
+    if (user.emailVerified === false)
+      throw new UnauthorizedException('Verify your email address before signing in.');
+    const deviceHash = this.otp.hashDeviceId(loginDto.deviceId);
+    if (user.trustedDeviceHashes?.includes(deviceHash)) return this.issueSession(user);
+    return this.otp.begin(user.email, 'new_device_login', user._id.toString(), loginDto.deviceId);
   }
 
-  async register(registerDto: RegisterDto): Promise<IssuedSession> {
+  async register(registerDto: RegisterDto): Promise<AuthChallengeResponse> {
+    this.otp.requireConfigured();
     const existing = await this.userModel.findOne({ email: registerDto.email.toLowerCase() });
     if (existing) {
       throw new ConflictException('A user with this email address already exists');
@@ -63,24 +74,41 @@ export class AuthService {
     const salt = await bcrypt.genSalt(getRuntimeSettings().PASSWORD_HASH_ROUNDS);
     const passwordHash = await bcrypt.hash(registerDto.password, salt);
 
+    const userId = new Types.ObjectId();
+    const registrationPhotoId = registerDto.photo
+      ? await this.profiles.preparePhoto(userId.toString(), registerDto.photo)
+      : undefined;
     let newUser: UserDocument;
     try {
       newUser = await this.userModel.create({
+        _id: userId,
+        registrationPhotoId,
         name: registerDto.name,
         email: registerDto.email.toLowerCase(),
         passwordHash,
         role: UserRole.CUSTOMER,
+        emailVerified: false,
+        trustedDeviceHashes: [],
         phone: registerDto.phone,
         address: registerDto.address || undefined,
         language: registerDto.language ?? 'en',
       });
     } catch (error) {
+      if (registrationPhotoId)
+        await this.profiles.discardPhoto(registrationPhotoId).catch(() => undefined);
       if (error && typeof error === 'object' && 'code' in error && error.code === 11000)
         throw new ConflictException('A user with this email address already exists');
       throw error;
     }
 
-    return this.issueSession(newUser);
+    try {
+      return await this.otp.begin(newUser.email, 'email_verification', newUser._id.toString());
+    } catch (error) {
+      await this.userModel.deleteOne({ _id: newUser._id }).catch(() => undefined);
+      if (registrationPhotoId)
+        await this.profiles.discardPhoto(registrationPhotoId).catch(() => undefined);
+      throw error;
+    }
   }
 
   private summary(user: UserDocument): UserSummary {
@@ -91,6 +119,8 @@ export class AuthService {
       role: user.role,
       phone: user.phone,
       address: user.address,
+      photoId: user.photoId || null,
+      profileVersion: user.profileVersion ?? 0,
       language: user.language ?? 'en',
       languageVersion: user.languageVersion ?? 0,
     };
@@ -111,6 +141,88 @@ export class AuthService {
       user: this.summary(user),
       refreshToken,
     };
+  }
+
+  async verifyEmail(challengeId: string, code: string, deviceId: string): Promise<IssuedSession> {
+    const challenge = await this.otp.verify(challengeId, code, 'email_verification', deviceId);
+    if (!challenge.userId)
+      throw new BadRequestException('This verification request is no longer available.');
+    const user = await this.userModel
+      .findOneAndUpdate(
+        {
+          _id: challenge.userId,
+          email: challenge.email,
+          tokenVersion: challenge.userTokenVersion ?? 0,
+          disabled: { $ne: true },
+          emailVerified: { $ne: true },
+        },
+        { $set: { emailVerified: true, emailVerifiedAt: new Date() } },
+        { returnDocument: 'after', runValidators: true },
+      )
+      .select('+registrationPhotoId +trustedDeviceHashes');
+    if (!user)
+      throw new BadRequestException('This account is already active or no longer available.');
+    if (user.registrationPhotoId)
+      await this.profiles.registrationPhoto(user).catch(() => {
+        this.logger.warn('The registration photo review will be created after storage recovers.');
+      });
+    await this.rememberDevice(user, this.otp.hashDeviceId(deviceId));
+    return this.issueSession(user);
+  }
+
+  async verifyNewDevice(
+    challengeId: string,
+    code: string,
+    deviceId: string,
+  ): Promise<IssuedSession> {
+    const challenge = await this.otp.verify(challengeId, code, 'new_device_login', deviceId);
+    if (!challenge.userId)
+      throw new BadRequestException('This verification request is no longer available.');
+    const user = await this.userModel.findById(challenge.userId).select('+trustedDeviceHashes');
+    if (
+      !user ||
+      user.disabled ||
+      user.email !== challenge.email ||
+      (user.tokenVersion || 0) !== (challenge.userTokenVersion ?? 0) ||
+      user.emailVerified === false
+    )
+      throw new UnauthorizedException('Your account is unavailable. Please sign in again.');
+    // verify() binds the supplied device ID to the challenge's stored hash.
+    // Hash that validated ID here instead of reading the schema-hidden field
+    // from findOneAndUpdate's returned document.
+    await this.rememberDevice(user, this.otp.hashDeviceId(deviceId));
+    return this.issueSession(user);
+  }
+
+  private async rememberDevice(user: UserDocument, deviceHash: string): Promise<void> {
+    const result = await this.userModel.updateOne(
+      {
+        _id: user._id,
+        tokenVersion: user.tokenVersion || 0,
+        disabled: { $ne: true },
+        emailVerified: { $ne: false },
+        trustedDeviceHashes: { $ne: deviceHash },
+      },
+      {
+        $push: {
+          trustedDeviceHashes: {
+            $each: [deviceHash],
+            $slice: -getRuntimeSettings().AUTH_TRUSTED_DEVICES_MAX,
+          },
+        },
+      },
+    );
+    if (!result.matchedCount) {
+      const alreadyTrusted = await this.userModel.exists({
+        _id: user._id,
+        tokenVersion: user.tokenVersion || 0,
+        disabled: { $ne: true },
+        emailVerified: { $ne: false },
+        trustedDeviceHashes: deviceHash,
+      });
+      if (alreadyTrusted) return;
+      throw new UnauthorizedException('Your account changed. Please sign in again.');
+    }
   }
 
   private signAccess(user: UserDocument, sessionId: string): string {
@@ -251,67 +363,77 @@ export class AuthService {
     }
   }
 
-  async forgotPassword(email: string): Promise<void> {
-    if (!getRuntimeSettings().PASSWORD_RESET_ENABLED)
-      throw new ServiceUnavailableException(
-        'Password recovery is temporarily unavailable. Please contact the kitchen.',
-      );
-    // Return the same response without awaiting account lookup or SMTP delivery.
-    void this.deliverReset(email).catch(() =>
-      this.logger.warn(
-        'Password recovery could not be delivered. Check the configured mail service.',
-      ),
+  async forgotPassword(email: string): Promise<AuthChallengeResponse> {
+    this.otp.requireConfigured();
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await this.userModel.findOne({
+      email: normalizedEmail,
+      disabled: { $ne: true },
+      emailVerified: { $ne: false },
+    });
+    // Unknown and disabled accounts receive the same response shape. A dummy challenge
+    // also keeps later verification/resend requests indistinguishable from real accounts.
+    return this.otp.begin(
+      normalizedEmail,
+      'password_reset',
+      user?._id.toString() || null,
+      undefined,
+      Boolean(user),
+      false,
     );
   }
 
-  private async deliverReset(email: string): Promise<void> {
-    const settings = getRuntimeSettings();
-    const token = `reset_${randomBytes(32).toString('base64url')}`;
-    const user = await this.userModel.findOneAndUpdate(
-      {
-        email,
-        disabled: { $ne: true },
-        $or: [
-          { resetRequestedAt: { $exists: false } },
-          { resetRequestedAt: { $lt: new Date(Date.now() - settings.PASSWORD_RESET_INTERVAL_MS) } },
-        ],
-      },
-      {
-        $set: {
-          resetTokenHash: tokenHash(token),
-          resetExpiresAt: new Date(Date.now() + settings.PASSWORD_RESET_TTL_MS),
-          resetRequestedAt: new Date(),
-        },
-      },
-      { returnDocument: 'after' },
+  async requestEmailVerification(email: string): Promise<AuthChallengeResponse> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await this.userModel.findOne({
+      email: normalizedEmail,
+      disabled: { $ne: true },
+      emailVerified: false,
+    });
+    return this.otp.begin(
+      normalizedEmail,
+      'email_verification',
+      user?._id.toString() || null,
+      undefined,
+      Boolean(user),
+      false,
+      undefined,
+      user?.language,
     );
-    if (!user) return;
-    const url = new URL('/account/reset', settings.PUBLIC_APP_URL);
-    url.hash = new URLSearchParams({ token }).toString();
-    await this.recoveryMailer.send(
-      user.email,
-      'Reset your KitchenToDoor password',
-      `Open this link to choose a new password:\n\n${url.toString()}\n\nThis link expires in ${Math.ceil(settings.PASSWORD_RESET_TTL_MS / 60_000)} minutes and can be used once. If you did not request it, you can ignore this email.`,
-    );
+  }
+
+  async resendOtp(challengeId: string): Promise<AuthChallengeResponse> {
+    return this.otp.resend(challengeId);
+  }
+
+  async verifyPasswordResetCode(
+    challengeId: string,
+    code: string,
+  ): Promise<{ resetToken: string }> {
+    const challenge = await this.otp.verify(challengeId, code, 'password_reset');
+    return { resetToken: await this.otp.createResetGrant(challenge) };
   }
 
   async resetPassword(token: string, password: string): Promise<void> {
     const passwordHash = await bcrypt.hash(password, getRuntimeSettings().PASSWORD_HASH_ROUNDS);
+    const reset = await this.otp.consumeResetGrant(token);
     const user = await this.userModel.findOneAndUpdate(
       {
-        resetTokenHash: tokenHash(token),
-        resetExpiresAt: { $gt: new Date() },
+        _id: reset.userId,
+        email: reset.email,
+        tokenVersion: reset.userTokenVersion,
         disabled: { $ne: true },
+        emailVerified: { $ne: false },
       },
       {
-        $set: { passwordHash },
+        $set: { passwordHash, trustedDeviceHashes: [] },
         $unset: { resetTokenHash: 1, resetExpiresAt: 1 },
-        $inc: { tokenVersion: 1 },
+        $inc: { tokenVersion: 1, profileVersion: 1 },
       },
       { returnDocument: 'after' },
     );
     if (!user)
-      throw new BadRequestException('This reset link is invalid or expired. Request a new link.');
+      throw new BadRequestException('This reset code is invalid or expired. Request a new code.');
     await this.markSessionsRevoked(user._id.toString());
     void this.recoveryMailer
       .send(

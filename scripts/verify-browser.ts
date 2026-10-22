@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import {
   createIsolatedRuntime,
   unusedPort,
@@ -14,6 +16,7 @@ import {
 import { launchBrowser, waitFor, type Browser, type BrowserPage } from './lib/browser.ts';
 import type {
   AuthResponse,
+  AuthChallengeResponse,
   ClientToServerEvents,
   OrderDetails,
   ServerToClientEvents,
@@ -35,6 +38,7 @@ interface BrowserSession {
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 const frontendRequire = createRequire(new URL('../frontend/package.json', import.meta.url));
+const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const proxyPort = await unusedPort();
 const proxyOrigin = `http://127.0.0.1:${proxyPort}`;
 const runtime = await createIsolatedRuntime({
@@ -184,6 +188,18 @@ try {
     await input('#customer-login-email', email);
     await input('#customer-login-password', password);
     await clickText('Sign In');
+    await waitFor(
+      () =>
+        evaluate(
+          'Boolean(document.querySelector("#email-otp-code") || localStorage.getItem("ktd_token"))',
+        ),
+      'Sign-in challenge or authenticated session',
+    );
+    if (await evaluate('Boolean(document.querySelector("#email-otp-code"))')) {
+      const code = await runtime.takeOtp(email);
+      await input('#email-otp-code', code);
+      await clickText('Verify and Sign In');
+    }
     await waitFor(async () => Boolean((await session()).user), 'Signed-in account');
   }
 
@@ -232,13 +248,13 @@ try {
     ),
     'Food Menu',
   );
-  await select('Items per page', '16');
+  await select('Items Per Page', '16');
   await waitFor(
     () => evaluate('document.querySelectorAll("main article").length === 16'),
-    'Sixteen menu items per page',
+    'Sixteen menu Items Per Page',
   );
   assert.equal(await evaluate('new URL(location.href).searchParams.get("size")'), '16');
-  await click('button[role="combobox"][aria-label="Items per page"]');
+  await click('button[role="combobox"][aria-label="Items Per Page"]');
   assert.deepEqual(
     await evaluate(
       '[...document.querySelectorAll("[role=option]")].map(element=>element.textContent.trim())',
@@ -312,13 +328,13 @@ try {
   await waitText('Made fresh.');
   await waitForPageTransitions();
   await evaluate('window.ktdPageTransitions=[]');
-  await select('Items per page', '16');
+  await select('Items Per Page', '16');
   await waitFor(
     () => evaluate('document.querySelectorAll("main article").length===16'),
     'Menu filter update',
   );
   assert.equal(await evaluate('window.ktdPageTransitions.length'), 0);
-  await select('Items per page', '8');
+  await select('Items Per Page', '8');
   await waitFor(
     () => evaluate('document.querySelectorAll("main article").length===8'),
     'Default menu page size',
@@ -380,7 +396,7 @@ try {
       return transition;
     };
   })()`);
-  await click('button[aria-label="Switch to dark mode"]');
+  await click('button[aria-label="Switch to Dark Mode"]');
   await waitFor(
     () => evaluate('document.documentElement.classList.contains("dark")'),
     'Dark theme',
@@ -396,7 +412,7 @@ try {
     () => evaluate('window.ktdAppearanceTransitions.every(t=>t.finished)'),
     'Theme transition finishes',
   );
-  await click('button[aria-label="Switch to light mode"]');
+  await click('button[aria-label="Switch to Light Mode"]');
   await waitFor(
     () => evaluate('!document.documentElement.classList.contains("dark")'),
     'Light theme',
@@ -457,7 +473,7 @@ try {
 
   // Earlier synthetic clicks do not move the pointer or emit mouseleave.
   // Reproduce a real pointer leaving the theme trigger before tabbing back.
-  await hover('button[aria-label="Switch to dark mode"]');
+  await hover('button[aria-label="Switch to Dark Mode"]');
   await hover('button[aria-label^="View cart"]');
   await waitFor(
     () =>
@@ -488,7 +504,7 @@ try {
   await waitFor(
     () =>
       evaluate(
-        'Boolean(document.querySelector("[role=tooltip]")?.textContent.includes("Switch to dark mode"))',
+        'Boolean(document.querySelector("[role=tooltip]")?.textContent.includes("Switch to Dark Mode"))',
       ),
     'Keyboard theme tooltip',
   );
@@ -562,6 +578,19 @@ try {
   await evaluate('scrollTo({top:0,behavior:"instant"})');
   await screenshot('registration-desktop');
   await clickText('Create Account');
+  await waitFor(
+    () => evaluate('Boolean(document.querySelector("#email-otp-code"))'),
+    'Registration email verification form',
+  );
+  assert(
+    await evaluate(
+      'document.body.textContent.includes("Code expires in")&&document.body.textContent.includes("Request another code in")&&[...document.querySelectorAll("button")].some(button=>button.textContent.includes("Resend Verification Code")&&button.disabled)',
+    ),
+    'Registration shows OTP expiry and resend countdown',
+  );
+  const registrationCode = await runtime.takeOtp(email);
+  await input('#email-otp-code', registrationCode);
+  await clickText('Verify Email');
   await waitFor(async () => (await session()).user?.role === 'CUSTOMER', 'Default customer role');
   await waitFor(() => evaluate('location.pathname === "/"'), 'Checkout return location');
   await click('header button[aria-label^="View cart"]');
@@ -580,6 +609,17 @@ try {
   await input('#checkout-name', 'Delivery Recipient');
   await input('#checkout-phone', '555-7654321');
   await input('#checkout-address', '123 Browser Test Street');
+  await input('#checkout-note', 'n'.repeat(501));
+  await clickText('Confirm Order');
+  await waitFor(
+    () =>
+      evaluate(
+        `(()=>{const input=document.querySelector('#checkout-note');const error=document.querySelector('#checkout-note-error');return input.getAttribute('aria-invalid')==='true'&&document.activeElement===input&&error?.textContent.includes('Use at most 500 characters')&&getComputedStyle(input).borderColor==='rgb(244, 63, 94)'})()`,
+      ),
+    'Checkout note validation and red field border',
+  );
+  await input('#checkout-note', 'Ring the doorbell on arrival.');
+  pass('Checkout notes use shared limits, inline field errors and focus on invalid input');
   await page.send('Browser.setPermission', {
     permission: { name: 'geolocation' },
     setting: 'granted',
@@ -638,7 +678,7 @@ try {
   );
   // Drop the response after the API has committed, then retry the same checkout.
   await dropNext('/api/orders', 'Response');
-  await clickText('Deliver');
+  await clickText('Confirm Order');
   await waitFor(
     () =>
       evaluate(
@@ -646,7 +686,7 @@ try {
       ),
     'Lost checkout response feedback',
   );
-  await clickText('Deliver');
+  await clickText('Confirm Order');
   await waitText('Order Details');
   let customer = await session();
   assert(customer.token, 'Checkout requires a signed-in customer');
@@ -777,7 +817,7 @@ try {
   await click('#site-navigation a[href="/users"]');
   await waitText('Manage customer accounts');
   await input('#users-search', email);
-  await clickText('Search Users');
+  await clickText('Search');
   await waitText(email);
   await evaluate(
     `(()=>{const row=[...document.querySelectorAll('tbody tr')].find(element=>element.textContent.includes(${JSON.stringify(email)}));row.querySelector('button').click()})()`,
@@ -805,11 +845,11 @@ try {
   await waitFor(() => evaluate('!document.querySelector("dialog[open]")'), 'Saved role editor');
   assert.equal((await api('/auth/me', { token: customer.token })).status, 401);
   await input('#users-search', nextEmail);
-  await clickText('Search Users');
+  await clickText('Search');
   await waitText(nextEmail);
   assert.equal(
     await evaluate(
-      '(()=>{const table=document.querySelector("table");return [...table.querySelectorAll("th")].every(th=>getComputedStyle(th).textAlign==="center")&&[...table.querySelectorAll("tbody tr")].every(row=>[2,3,4,5].every(i=>getComputedStyle(row.cells[i]).textAlign==="center"))})()',
+      '(()=>{const table=document.querySelector("table");const headers=[...table.querySelectorAll("th")];const centered=["Phone","Role","Account","Actions"].map(label=>headers.findIndex(th=>th.textContent.trim()===label));return headers.every(th=>getComputedStyle(th).textAlign==="center")&&centered.every(index=>index>=0)&&[...table.querySelectorAll("tbody tr")].every(row=>centered.every(index=>getComputedStyle(row.cells[index]).textAlign==="center"))})()',
     ),
     true,
   );
@@ -826,6 +866,27 @@ try {
     usesFullContentWidth,
     'Available Deliveries uses the remaining width with its drawer open',
   );
+  await page.send('Emulation.setDeviceMetricsOverride', {
+    width: 1280,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await waitFor(
+    () => evaluate('document.querySelector(".app-content").getAnimations().length === 0'),
+    'Desktop drawer settles at the narrower viewport',
+  );
+  assert.equal(
+    await evaluate('document.documentElement.scrollWidth <= innerWidth'),
+    true,
+    'Available Deliveries must wrap its description when the open drawer leaves less room',
+  );
+  await page.send('Emulation.setDeviceMetricsOverride', {
+    width: 1600,
+    height: 1000,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
   const links = await evaluate<string[]>(
     '[...document.querySelectorAll("#site-navigation a")].map(element=>element.getAttribute("href"))',
   );
@@ -871,12 +932,12 @@ try {
   );
   await waitText('Update Status');
   for (const status of ['CONFIRMED', 'PREPARING', 'READY FOR PICKUP', 'OUT FOR DELIVERY']) {
-    await select('Order status', status);
+    await select('Order Status', status);
     await clickText('Update Status');
     await waitFor(
       () =>
         evaluate(
-          `document.querySelector('button[aria-label="Order status"]')?.textContent.includes(${JSON.stringify(status)}) && [...document.querySelectorAll('button')].some(element=>element.textContent.trim()==='Update Status'&&element.disabled)`,
+          `document.querySelector('button[aria-label="Order Status"]')?.textContent.includes(${JSON.stringify(status)}) && [...document.querySelectorAll('button')].some(element=>element.textContent.trim()==='Update Status'&&element.disabled)`,
         ),
       'Updated delivery stage',
     );
@@ -898,7 +959,7 @@ try {
   assert.equal(located.body.order.courierCoordinates?.lat, 40.713);
   await clickText('Stop Sharing');
   await waitText('Location sharing is off.');
-  await select('Order status', 'CANCELLED');
+  await select('Order Status', 'CANCELLED');
   await clickText('Update Status');
   await waitFor(
     () => evaluate('Boolean(document.querySelector("#cancel-order-reason"))'),
@@ -972,7 +1033,7 @@ try {
   await screenshot('courier-mobile');
   await goto('/', 'Made fresh.');
   if (await evaluate('!document.documentElement.classList.contains("dark")'))
-    await click('button[aria-label="Switch to dark mode"]');
+    await click('button[aria-label="Switch to Dark Mode"]');
   await goto('/', 'Made fresh.');
   assert.equal(await evaluate('document.documentElement.classList.contains("dark")'), true);
   assert.equal(
@@ -994,6 +1055,15 @@ try {
 
   const documentResponse = await fetch(app.base + '/users', { headers: { Accept: 'text/html' } });
   assert.equal(documentResponse.status, 200);
+  const profileResponses = await Promise.all(
+    ['/profile', '/notifications', '/notifications?status=PENDING&q=Test'].map((path) =>
+      fetch(app.base + path, { headers: { Accept: 'text/html' } }),
+    ),
+  );
+  for (const response of profileResponses) {
+    assert.equal(response.status, 200, `Direct page loads must succeed: ${response.url}`);
+    assert.match(response.headers.get('content-type') ?? '', /text\/html/);
+  }
   const csp = documentResponse.headers.get('content-security-policy');
   assert(csp, 'Production responses must include the content security policy');
   assert.match(csp, /script-src 'self'/);
@@ -1013,13 +1083,172 @@ try {
   assert.match(compressed.headers.get('cache-control') ?? '', /immutable/);
   pass('Production direct URLs, API/asset 404s, strict CSP and compressed immutable assets');
 
+  const recoveryEmail = 'otp-recovery-browser@example.test';
+  const originalPassword = 'Old-recovery#2026!';
+  const registrationDevice = randomUUID();
+  const registrationChallenge = await api<AuthChallengeResponse>('/auth/register', {
+    method: 'POST',
+    body: {
+      name: 'OTP Recovery Browser',
+      email: recoveryEmail,
+      phone: '555-1234567',
+      password: originalPassword,
+    },
+  });
+  assert.equal(registrationChallenge.status, 201);
+  const activationCode = await runtime.takeOtp(recoveryEmail);
+  const activation = await api<AuthResponse>('/auth/email/verify', {
+    method: 'POST',
+    body: {
+      challengeId: registrationChallenge.body.challengeId,
+      code: activationCode,
+      deviceId: registrationDevice,
+    },
+  });
+  assert.equal(activation.status, 200);
+  const resetRequest = await api<AuthChallengeResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: { email: recoveryEmail },
+  });
+  const missingResetRequest = await api<AuthChallengeResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: { email: 'missing-otp-browser@example.test' },
+  });
+  assert.equal(resetRequest.body.purpose, 'password_reset');
+  assert.equal(missingResetRequest.body.purpose, 'password_reset');
+  assert.deepEqual(
+    Object.keys(resetRequest.body).sort(),
+    Object.keys(missingResetRequest.body).sort(),
+  );
+  const resetCode = await runtime.takeOtp(recoveryEmail);
+  const wrongCode = resetCode === '000000' ? '000001' : '000000';
+  assert.equal(
+    (
+      await api('/auth/reset-password/verify', {
+        method: 'POST',
+        body: { challengeId: resetRequest.body.challengeId, code: wrongCode },
+      })
+    ).status,
+    400,
+  );
+  const resetGrant = await api<{ resetToken: string }>('/auth/reset-password/verify', {
+    method: 'POST',
+    body: { challengeId: resetRequest.body.challengeId, code: resetCode },
+  });
+  assert.equal(resetGrant.status, 200);
+  assert.match(resetGrant.body.resetToken, /^reset_[\w-]{43}$/);
+  const changedPassword = 'New-recovery#2026!';
+  assert.equal(
+    (
+      await api('/auth/reset-password', {
+        method: 'POST',
+        body: {
+          token: resetGrant.body.resetToken,
+          password: changedPassword,
+          confirmPassword: changedPassword,
+        },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await api('/auth/me', { token: activation.body.accessToken })).status,
+    401,
+    'Password reset revokes existing sessions',
+  );
+  assert.equal(
+    (
+      await api<AuthChallengeResponse>('/auth/login', {
+        method: 'POST',
+        body: { email: recoveryEmail, password: originalPassword, deviceId: randomUUID() },
+      })
+    ).status,
+    401,
+  );
+  const resetLoginDevice = randomUUID();
+  const resetLogin = await api<AuthChallengeResponse>('/auth/login', {
+    method: 'POST',
+    body: { email: recoveryEmail, password: changedPassword, deviceId: resetLoginDevice },
+  });
+  assert.equal(resetLogin.body.purpose, 'new_device_login');
+  const resetLoginCode = await runtime.takeOtp(recoveryEmail);
+  assert.equal(
+    (
+      await api<AuthResponse>('/auth/login/verify', {
+        method: 'POST',
+        body: {
+          challengeId: resetLogin.body.challengeId,
+          code: resetLoginCode,
+          deviceId: resetLoginDevice,
+        },
+      })
+    ).status,
+    200,
+  );
+  pass(
+    'Email OTP activation, unknown-device sign-in, password reset, session revocation and non-enumerating reset responses',
+  );
+
+  await goto('/account/forgot', 'Reset Your Password');
+  assert.equal(await evaluate('Boolean(document.querySelector("#forgot-email"))'), true);
+  assert.equal(await evaluate('Boolean(document.querySelector("#reset-password"))'), false);
+  assert.equal(await has('Send Verification Code'), true);
+  await input('#forgot-email', recoveryEmail);
+  await clickText('Send Verification Code');
+  await waitFor(
+    () => evaluate('Boolean(document.querySelector("#email-otp-code"))'),
+    'Reset OTP form',
+  );
+  const browserResetCode = await runtime.takeOtp(recoveryEmail);
+  await input('#email-otp-code', browserResetCode === '000000' ? '000001' : '000000');
+  await clickText('Verify Code');
+  await waitFor(
+    () =>
+      evaluate(
+        'document.querySelector("#email-otp-code")?.getAttribute("aria-invalid") === "true" && Boolean(document.querySelector("#email-otp-code-error")?.textContent)',
+      ),
+    'Incorrect OTP has a linked inline field error',
+  );
+  await waitFor(
+    () =>
+      evaluate(
+        'getComputedStyle(document.querySelector("#email-otp-code")).borderTopColor === "rgb(244, 63, 94)"',
+      ),
+    'Incorrect OTP uses the themed red field border after its transition',
+  );
+  await input('#email-otp-code', browserResetCode);
+  await clickText('Verify Code');
+  await waitFor(
+    () =>
+      evaluate(
+        'location.pathname === "/account/reset" && Boolean(document.querySelector("#reset-password") && document.querySelector("#reset-confirmPassword"))',
+      ),
+    'Password reset form after OTP verification',
+  );
+  const browserChangedPassword = 'Browser-recovery#2026!';
+  await input('#reset-password', browserChangedPassword);
+  await input('#reset-confirmPassword', browserChangedPassword);
+  await clickText('Save New Password');
+  await waitText('Your password has been changed. Sign in again with your new password.');
+  await clickText('Request a New Code', 'a');
+  await waitFor(
+    () =>
+      evaluate(
+        'location.pathname === "/account/forgot" && Boolean(document.querySelector("#forgot-email")) && !document.querySelector("#reset-password")',
+      ),
+    'Restart recovery clears the previous reset grant and password form',
+  );
+  pass(
+    'Forgot-password browser flow validates OTP inline, saves the password, and restarts with only the email field',
+  );
+
   let viteLog = '';
   const viteCli = join(dirname(frontendRequire.resolve('vite/package.json')), 'bin/vite.js');
   vite = spawn(
     process.execPath,
     [viteCli, '--host', '127.0.0.1', '--port', String(proxyPort), '--strictPort'],
     {
-      cwd: resolve('frontend'),
+      cwd: join(projectRoot, 'frontend'),
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, API_PROXY_TARGET: app.base },
@@ -1042,11 +1271,21 @@ try {
   const developmentHtml = await (await fetch(proxyOrigin)).text();
   assert.match(developmentHtml, /<script id="theme-init">/);
   assert(!developmentHtml.includes('<!-- theme-init -->'));
-  const proxyLogin = await api<AuthResponse>('/auth/login', {
+  const proxyDeviceId = randomUUID();
+  const proxyLogin = await api<AuthChallengeResponse>('/auth/login', {
     method: 'POST',
-    body: { email: 'dispatcher@example.test', password: app.password },
+    body: { email: 'dispatcher@example.test', password: app.password, deviceId: proxyDeviceId },
   });
-  const proxyToken = proxyLogin.body.accessToken;
+  const proxyCode = await runtime.takeOtp('dispatcher@example.test');
+  const proxyVerified = await api<AuthResponse>('/auth/login/verify', {
+    method: 'POST',
+    body: {
+      challengeId: proxyLogin.body.challengeId,
+      code: proxyCode,
+      deviceId: proxyDeviceId,
+    },
+  });
+  const proxyToken = proxyVerified.body.accessToken;
   async function connect(expectFailure = false) {
     const socket: AppSocket = io(proxyOrigin, {
       transports: ['websocket'],
@@ -1089,7 +1328,7 @@ try {
   );
 
   const measuredAt = new Date().toISOString();
-  const output = resolve(`documentation/quality/browser-${measuredAt.slice(0, 10)}.json`);
+  const output = join(projectRoot, `documentation/quality/browser-${measuredAt.slice(0, 10)}.json`);
   await mkdir(dirname(output), { recursive: true });
   await writeFile(
     output,

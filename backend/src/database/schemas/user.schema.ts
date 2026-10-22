@@ -28,6 +28,29 @@ export class User {
   @Prop({ type: Number, default: 0 })
   tokenVersion: number;
 
+  // Existing accounts predate verification, so absent fields migrate as verified.
+  // New public registrations explicitly set this false before sending a code.
+  @Prop({ type: Boolean, default: true, index: true })
+  emailVerified: boolean;
+
+  @Prop({ type: Date })
+  emailVerifiedAt?: Date;
+
+  @Prop({ type: [String], default: [], select: false })
+  trustedDeviceHashes: string[];
+
+  @Prop({ type: Number, default: 0 })
+  profileVersion: number;
+
+  @Prop({ type: String })
+  photoId?: string;
+
+  @Prop({ type: String, select: false })
+  registrationPhotoId?: string;
+
+  @Prop({ type: String, select: false })
+  lastProfileChangeId?: string;
+
   @Prop({ type: Boolean, default: false })
   disabled: boolean;
 

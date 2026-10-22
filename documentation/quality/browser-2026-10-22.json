@@ -1,0 +1,28 @@
+{
+  "measuredAt": "2026-10-22T18:11:53.658Z",
+  "chrome": "Chrome/156.0.8078.47",
+  "node": "v24.18.1",
+  "checks": [
+    "Guest pages and protected drawer links require sign-in",
+    "Drawer defaults open and persists both states; breadcrumbs and menu page sizes match navigation",
+    "Drawer pages crossfade with a stable shell; history, filters, reduced motion and unsupported browsers remain usable",
+    "Theme/language crossfades, Japanese forms/navigation, inline validation and draft preservation",
+    "Themed cart/theme tooltips support hover, keyboard focus, Escape and viewport boundaries",
+    "Checkout notes use shared limits, inline field errors and focus on invalid input",
+    "A lost checkout response can be retried without creating a duplicate order",
+    "A language preference persists in MongoDB and returns after sign-out, guest changes and sign-in",
+    "Registration saves an optional address; checkout prefills contact details, accepts edits and clears stale map pins",
+    "Expired access token refreshes through the real HttpOnly browser cookie",
+    "Customer registration, red field errors, cart continuity, checkout, location pin and owned history",
+    "Failed server sign-out clears local access, displays a warning and retries revocation",
+    "Admin Users search, profile editing and courier promotion revoke the previous session",
+    "Couriers request delivery, cannot self-assign, and cannot open admin pages",
+    "Admin approval, assigned-only history, sequential courier status changes, real GPS sharing and required cancellation reason",
+    "Responsive drawers, focus containment, reduced motion, dark menu, image loading and browser runtime",
+    "Production direct URLs, API/asset 404s, strict CSP and compressed immutable assets",
+    "Email OTP activation, unknown-device sign-in, password reset, session revocation and non-enumerating reset responses",
+    "Forgot-password browser flow validates OTP inline, saves the password, and restarts with only the email field",
+    "Vite WebSocket proxy gives one actionable outage warning and recovers after an API restart"
+  ],
+  "method": "Compiled production app, isolated synthetic MongoDB, browser-driven forms and navigation, real API/Socket.IO, and an isolated Vite server restart test. No development database or existing dev server is used."
+}

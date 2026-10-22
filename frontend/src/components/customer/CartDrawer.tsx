@@ -1,15 +1,11 @@
 import { useCopy } from '../../lib/i18n';
-import { MenuItem } from './MenuCatalog';
+import type { CartItem } from '../../lib/cart';
 import { X, Plus, Minus, Trash2, ArrowRight, ShoppingBag, RefreshCw } from 'lucide-react';
 import { useDialog } from '../../hooks/useDialog';
 import { calculatePricing } from '@kitchentodoor/shared';
 import { usePublicSettings } from '../../hooks/usePublicSettings';
 import { FoodImage } from './FoodImage';
 import { LoadingState } from '../layout/Loading';
-
-export interface CartItem extends MenuItem {
-  quantity: number;
-}
 
 interface CartDrawerProps {
   isOpen: boolean;

@@ -1,6 +1,6 @@
 import { useCopy } from '../../lib/i18n';
 import { useRef, useState } from 'react';
-import { CartItem } from './CartDrawer';
+import type { CartItem } from '../../lib/cart';
 import { CreateOrderSchema, calculatePricing, type Coordinates } from '@kitchentodoor/shared';
 import { api, ApiError } from '../../lib/api';
 import { CheckoutFormSchema } from '../../lib/formSchemas';
@@ -322,10 +322,12 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             <input
               type="text"
               {...form.field('note')}
+              maxLength={500}
               disabled={loading}
               placeholder={c('e.g. Extra napkins, leave by door buzzer 402')}
               className="w-full px-4 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
             />
+            <FieldError id="checkout-note-error" message={form.errors.note} />
           </div>
 
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
@@ -345,7 +347,7 @@ export function CheckoutModal({ isOpen, onClose, cartItems, onOrderSuccess }: Ch
             >
               <CheckCircle2 className="w-4 h-4" />
               {loading && <Spinner />}
-              <span>{loading ? c('Placing Order…') : c('Deliver')}</span>
+              <span>{loading ? c('Placing Order…') : c('Confirm Order')}</span>
             </button>
           </div>
         </form>
