@@ -1,6 +1,10 @@
-# 🍳 KitchenToDoor: Real-Time Order & Telemetry Platform
+# 🍳 KitchenToDoor
 
 > Fresh from the kitchen, tracked to your door.
+
+**A full-stack TypeScript application connecting customer ordering, kitchen dispatch and live courier tracking—with reusable engineering skills for your next project.**
+
+[Explore the features](#overview) · [Run locally](#quick-start) · [Reuse the skills](#reusable-feature-skills) · [Architecture](documentation/docs/ARCHITECTURE.md) · [Verification](documentation/docs/QUALITY.md)
 
 <p align="left">
   <img src="https://img.shields.io/badge/Node.js-v24.18.1-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
@@ -25,11 +29,15 @@
 
 ## Overview
 
-KitchenToDoor connects customer ordering, kitchen dispatch and courier delivery in one application.
+Follow an order from the menu to the doorstep through three connected workspaces:
 
-- **Customer accounts:** register as a normal user, order from 27 dishes in seven categories, view only your own order history and tracking, and download bilingual order receipt PDFs.
-- **Admin workspace:** manage dispatch orders, delivery requests, courier assignments, account access and profile approvals. Users includes saved column settings and change history.
-- **Courier workspace:** request an available delivery, wait for admin approval, then manage assigned deliveries and share device GPS with consent.
+| Customer                                                                                                   | Administrator                                                                                               | Courier                                                                                |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Register and verify email, browse 27 dishes in seven categories, keep a persistent bag and place an order. | Review incoming orders, approve delivery requests, assign couriers and advance dispatch stages.             | Request available deliveries, receive an assignment and manage each delivery stage.    |
+| Track your own orders, preview bilingual receipts and request profile/photo changes.                       | Review profile changes with before/after comparisons, feedback and an audit history; manage account access. | Share real device GPS with consent during an active delivery and see review decisions. |
+
+The details make the application useful as a reference project:
+
 - **Order updates:** sequential statuses, cancellation with a required explanation, atomic audit history and authenticated Socket.IO updates.
 - **Friendly navigation:** shareable URLs, breadcrumbs, a role-aware drawer that opens by default and remembers its state, themed filters, menu page sizes of 8/16/32/60 (other lists: 10/25/50/100), responsive dark/light themes and inline Zod field errors.
 - **Loading feedback:** initial/route/table skeletons, action spinners and a full-page glass loading screen during sign-in, registration and sign-out. Food photos and fonts are hosted locally.
@@ -41,9 +49,60 @@ KitchenToDoor connects customer ordering, kitchen dispatch and courier delivery 
 
 Prices are realistic USD demonstration amounts. Ordering does not collect payment. Street geocoding, delivery zones and jurisdiction-specific tax require the chosen providers and operating location. Device GPS and optional customer current-location pins work independently of geocoding.
 
+## How the application fits together
+
+```mermaid
+flowchart LR
+    Web["React interface<br/>Customer · Admin · Courier"] <-->|"HTTP + authorized Socket.IO"| API["NestJS + Fastify"]
+    Contracts["Shared Zod schemas<br/>Types · Pricing · Events"] -.-> Web
+    Contracts -.-> API
+    API --> DB["MongoDB<br/>Orders · Sessions · Review history"]
+    API --> Mail["Nodemailer + SMTP<br/>Verification · Recovery codes"]
+    API --> PDF["Forme document rendering<br/>Trusted data + local assets"]
+    PDF --> Preview["PDF.js browser preview"]
+```
+
+Order events update the browser's query cache immediately; polling and reconnect refetches reconcile missed updates. Profile-review notifications use durable database records with HTTP polling/open/focus refresh. Receipts are generated from an authorized server snapshot and displayed with no editing controls.
+
+## Engineering decisions to explore
+
+| Problem                                              | Implemented approach                                                                                                         | Where to look                                                                                                                                                    |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A checkout succeeds but its response is lost         | Account-scoped retry keys and a database uniqueness constraint prevent duplicate orders.                                     | [Order service](backend/src/orders/orders.service.ts), [checkout state](frontend/src/lib/checkoutAttempt.ts)                                                     |
+| Two staff members update the same delivery           | Conditional atomic updates preserve valid status progression and audit history.                                              | [Order service](backend/src/orders/orders.service.ts)                                                                                                            |
+| Access changes while a tracking page remains open    | Session/version checks and recipient authorization prevent stale room membership from granting continued access.             | [Socket gateway](backend/src/orders/orders.gateway.ts), [session service](backend/src/auth/auth.service.ts)                                                      |
+| A process stops halfway through profile approval     | A durable applying state and an applied-request marker allow recovery without applying the change twice.                     | [Profile service](backend/src/profiles/profiles.service.ts)                                                                                                      |
+| Focus or reconnect triggers a background refresh     | Profile queries skip focus/reconnect refetches, and version-aware shared summaries reject older account details.             | [Profile editor](frontend/src/pages/ProfilePage.tsx), [session store](frontend/src/lib/authSession.ts)                                                           |
+| A polished interface must stay usable across devices | Persistent layouts, reduced-motion fallbacks, keyboard tooltips and bounded responsive dialogs accompany the visual effects. | [Transition skill](documentation/reusable-skills/smooth-app-transitions/SKILL.md), [table skill](documentation/reusable-skills/responsive-admin-tables/SKILL.md) |
+
+For a technical interview, demonstrate a customer order, courier request/admin assignment, live status update, profile review and receipt preview. Then explain one concurrency decision and show its verification. The [quality guide](documentation/docs/QUALITY.md) records isolated workflow checks and dated Lighthouse results, including their limits; those historical scores are not presented as measurements of every later build.
+
 ## AI-assisted development
 
-This project uses ChatGPT Codex and Google Gemini to assist with implementation, review and documentation. Repository guidance in `AGENTS.md` and the scoped skills under `.agents/skills/` keep work aligned with the project architecture and installed package versions. AI suggestions are checked against official package documentation and the repository's type, test and lint checks.
+This project uses ChatGPT Codex and Google Gemini to assist with implementation, review and documentation. [AGENTS.md](AGENTS.md), the [TypeScript guide](documentation/docs/TYPESCRIPT_GUIDE.md) and scoped [workspace skills](.agents/skills/) supply architecture, version and implementation context. Runtime schemas, type checks, targeted tests and browser verification make the resulting behavior reviewable.
+
+The reusable catalog captures that workflow: inspect the receiving project, adapt the feature to its framework and design tokens, identify configuration, implement the behavior and verify meaningful acceptance criteria. Each skill connects product details with the server/state rules needed to preserve them. This gives an interviewer or contributor concrete code, tradeoffs and verification to discuss alongside the use of AI tools.
+
+## Reusable feature skills
+
+Take an individual folder from [the skill catalog](documentation/reusable-skills/README.md) into another project, or provide its Markdown directly to an LLM. Each skill includes configuration, framework adaptation, acceptance criteria and a map to the implementation here. UI-related skills also explain how to follow the receiving project's design and theme.
+
+| #   | Skill                                                                                                 | Reusable capability                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 1   | [Smooth app transitions](documentation/reusable-skills/smooth-app-transitions/SKILL.md)               | Route fades and coordinated language/theme crossfades                                         |
+| 2   | [Approval notifications](documentation/reusable-skills/approval-notifications/SKILL.md)               | Durable admin reviews, feedback, unread state and history                                     |
+| 3   | [Persistent language switching](documentation/reusable-skills/persistent-language-switching/SKILL.md) | Guest/account locale preferences, retry and preserved drafts; includes Next.js adaptation     |
+| 4   | [Responsive admin tables](documentation/reusable-skills/responsive-admin-tables/SKILL.md)             | Breadcrumbs, filter/search/settings, column preferences, badges, icon tooltips and pagination |
+| 5   | [Profile state and validation](documentation/reusable-skills/profile-state-and-validation/SKILL.md)   | Shared avatars/account state, private uploads, field errors and draft protection              |
+| 6   | [Light/dark appearance](documentation/reusable-skills/light-dark-appearance/SKILL.md)                 | Persistent theme action, Sun/Moon icons, tooltip and smooth switching                         |
+| 7   | [Secure auth sessions](documentation/reusable-skills/secure-auth-sessions/SKILL.md)                   | Typed authentication, bcrypt/JWT, refresh rotation and current authorization                  |
+| 8   | [NestJS/Fastify production API](documentation/reusable-skills/nestjs-fastify-production-api/SKILL.md) | Validated modules, atomic persistence, bounded resources and operations                       |
+| 9   | [Typed Socket.IO realtime](documentation/reusable-skills/typed-socketio-realtime/SKILL.md)            | Authorized tracking with a secure adaptation path for chat                                    |
+| 10  | [Nodemailer OTP and recovery](documentation/reusable-skills/nodemailer-otp-recovery/SKILL.md)         | Branded OTP flows and a specified recovery-link extension                                     |
+| 11  | [PDFCN documents and preview](documentation/reusable-skills/pdfcn-documents-and-preview/SKILL.md)     | Forme/Takumi selection, trusted generation and browser preview                                |
+| 12  | [TypeScript quality gates](documentation/reusable-skills/typescript-quality-gates/SKILL.md)           | Testing, lint/format, isolated integration, performance checks and Git gates                  |
+
+The skills preserve behavior across stacks while following the receiving project's colors, typography and components. UI-only features need no secrets; backend skills identify server versus public configuration. **Recovery links, chat and Takumi are documented adaptation paths; the running application currently uses OTP recovery, order tracking and Forme.** A preview has no editing UI, but downloaded PDF copies can still be altered outside the application.
 
 ## Technology stack
 
@@ -97,7 +156,7 @@ Choose **EN / JA** beside the cart to switch language. Guest preferences stay in
 
 ## Accounts and ordering
 
-1. Open **My Account → Create an Account**. You can save an optional delivery address during registration. New accounts are normal customers; registration cannot choose admin/courier privileges. Enter the code sent by email to activate the account before signing in.
+1. Open **My Account → Create an Account**. You can save an optional delivery address during registration. New accounts are normal customers; registration cannot choose admin/courier privileges. Enter the code sent by email to activate the account and complete sign-in.
 2. Add food to the bag and continue to checkout. The cart survives navigation and reloads. Checkout fills in your saved name, phone number and address. Edit any details for this delivery and click **Confirm Order**; these edits do not change your registered defaults. A delivery address is required. You can attach a current-location pin if you are at that address; editing the address clears the pin.
 3. **My Orders** shows only your orders. Choose **View Receipt PDF** to open a read-only preview, then **Download Receipt** in its footer. Receipts include food thumbnails, saved prices, delivery details, order status/history and the configured time zone. They are order summaries; the app does not collect payment.
 4. Admins see new orders in **Dispatch Station**. **Users → Edit** changes profiles and roles using a themed dropdown. Email/access changes sign the affected user out; they sign in again with their current details.
@@ -170,7 +229,7 @@ pnpm build
 pnpm --filter @kitchentodoor/backend start
 ```
 
-Configure production settings before starting: NODE_ENV=production, SERVE_FRONTEND=true, a real database, JWT secret, HTTPS PUBLIC_APP_URL/FRONTEND_URL and AUTH_COOKIE_SECURE=true. Fastify serves built pages, API and sockets from one origin, including compressed assets and direct page URLs.
+Configure production settings before starting: NODE_ENV=production, SERVE_FRONTEND=true, a real database, JWT secret, authenticated SMTP_HOST/SMTP_USER/SMTP_PASSWORD/SMTP_FROM, HTTPS PUBLIC_APP_URL/FRONTEND_URL and AUTH_COOKIE_SECURE=true. Production startup requires SMTP for account verification. Fastify serves built pages, API and sockets from one origin, including compressed assets and direct page URLs.
 
 On a fresh production database, configure separate BOOTSTRAP_ADMIN_EMAIL/PASSWORD, run `pnpm auth:bootstrap-admin` after building, then remove the bootstrap password. Existing administrators manage roles through Users. [Operations](documentation/docs/OPERATIONS.md) covers supervision, TLS/proxy configuration, backups, readiness, metrics and scaling requirements. Live hosting, payment/geocoding providers and SMTP delivery require your infrastructure configuration.
 
@@ -194,8 +253,12 @@ pnpm lint
 
 Integration, browser and Lighthouse commands create isolated synthetic databases and stop their own processes; they do not use development orders. The first integration run may download a MongoDB binary. Browser checks require Chrome; see [quality commands](documentation/docs/QUALITY.md).
 
+The current Lighthouse private-page harness needs an authentication update: it posts email/password without the required device ID and does not complete a possible new-device OTP challenge. For a public-page audit, select `LIGHTHOUSE_PAGES=menu-mobile,menu-desktop` before running the audit command; build first. Existing Lighthouse reports remain dated results for their recorded builds. The [quality-gates reference](documentation/reusable-skills/typescript-quality-gates/references/kitchentodoor.md) describes the harness correction needed for authenticated scenarios.
+
 - **pre-commit:** lint/fix and format staged TypeScript files through lint-staged.
 - **pre-push:** TypeScript source policy, workspace/tooling typechecking and maintained source tests.
+
+Local hooks can be bypassed. Required GitHub CI checks and branch protection are recommended in the [quality-gates skill](documentation/reusable-skills/typescript-quality-gates/SKILL.md); this repository does not currently include a GitHub Actions workflow.
 
 ## Workspace
 
@@ -217,4 +280,7 @@ frontend/src/
   router.tsx     Typed page URLs and access layouts
 shared/src/      Catalog, prices, roles, Zod and socket contracts
 scripts/         TypeScript browser, Lighthouse and maintenance tools
+documentation/
+  reusable-skills/  Twelve portable feature skills and implementation references
+  docs/            Architecture, configuration, quality and operations guides
 ```
