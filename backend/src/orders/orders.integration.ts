@@ -1401,6 +1401,112 @@ describe('Real MongoDB, HTTP and Socket.IO authorization and consistency', () =>
     expect((await app.inject({ url: '/api/auth/me', headers: freshHeaders })).statusCode).toBe(401);
   });
 
+  it('keeps an activated account when registration email delivery fails after verification', async () => {
+    const email = 'late-registration-mail@example.test';
+    let deliveredCode: string | undefined;
+    let failDelivery: ((error: Error) => void) | undefined;
+    const delivery = vi
+      .spyOn(app.get(RecoveryMailer), 'sendOtp')
+      .mockImplementationOnce(async (_email, _purpose, code) => {
+        deliveredCode = code;
+        await new Promise<void>((_resolve, reject) => {
+          failDelivery = reject;
+        });
+      });
+    const pendingRegistration = Promise.resolve(
+      directInject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: {
+          name: 'Late Mail Customer',
+          email,
+          password: 'Original-password123!',
+          phone: '555-1234',
+        },
+      }),
+    );
+    try {
+      await vi.waitFor(() => expect(failDelivery).toBeTypeOf('function'));
+      const challenge = await app
+        .get<Model<AuthChallenge>>(getModelToken(AuthChallenge.name))
+        .findOne({ email, purpose: 'email_verification' });
+      if (!challenge || !failDelivery || !deliveredCode)
+        throw new Error('Expected a pending verification email');
+      const verified = await directInject({
+        method: 'POST',
+        url: '/api/auth/email/verify',
+        payload: { challengeId: challenge._id, code: deliveredCode, deviceId: randomUUID() },
+      });
+      expect(verified.statusCode).toBe(200);
+      failDelivery(new Error('Synthetic SMTP acknowledgement failure'));
+      expect((await pendingRegistration).statusCode).toBe(503);
+      expect(await userModel.findOne({ email }).select('emailVerified')).toMatchObject({
+        emailVerified: true,
+      });
+      expect(
+        (
+          await app.inject({
+            url: '/api/auth/me',
+            headers: {
+              authorization: `Bearer ${verified.json<{ accessToken: string }>().accessToken}`,
+            },
+          })
+        ).statusCode,
+      ).toBe(200);
+    } finally {
+      failDelivery?.(new Error('Finish synthetic email failure'));
+      await pendingRegistration;
+      delivery.mockRestore();
+    }
+  });
+
+  it('rejects a delayed reset grant from an earlier verified code after a new code is verified', async () => {
+    const user = await userModel.create({
+      name: 'Reset Generation Customer',
+      email: 'reset-generation@example.test',
+      passwordHash: await bcrypt.hash('Original-password123!', 10),
+      emailVerified: true,
+    });
+    const otp = app.get(AuthOtpService);
+    const first = await otp.begin(user.email, 'password_reset', user._id.toString());
+    const oldCode = await smtp.takeOtp(user.email);
+    const oldVerified = await otp.verify(first.challengeId, oldCode, 'password_reset');
+    const second = await otp.begin(user.email, 'password_reset', user._id.toString());
+    const freshCode = await smtp.takeOtp(user.email);
+    const freshVerified = await otp.verify(second.challengeId, freshCode, 'password_reset');
+    // Resume the first request at the grant exchange after the second request has verified.
+    await expect(otp.createResetGrant(oldVerified, oldCode)).rejects.toThrow(
+      'This password reset code has already been used.',
+    );
+    const freshToken = await otp.createResetGrant(freshVerified, freshCode);
+    await expect(otp.consumeResetGrant(freshToken)).resolves.toMatchObject({
+      userId: user._id.toString(),
+    });
+  });
+
+  it('issues only one reset grant when the same verified code is exchanged concurrently', async () => {
+    const user = await userModel.create({
+      name: 'Reset Exchange Customer',
+      email: 'reset-exchange@example.test',
+      passwordHash: await bcrypt.hash('Original-password123!', 10),
+      emailVerified: true,
+    });
+    const otp = app.get(AuthOtpService);
+    const challenge = await otp.begin(user.email, 'password_reset', user._id.toString());
+    const code = await smtp.takeOtp(user.email);
+    const verified = await otp.verify(challenge.challengeId, code, 'password_reset');
+    const exchanges = await Promise.allSettled([
+      otp.createResetGrant(verified, code),
+      otp.createResetGrant(verified, code),
+    ]);
+    expect(exchanges.filter((exchange) => exchange.status === 'fulfilled')).toHaveLength(1);
+    const success = exchanges.find((exchange) => exchange.status === 'fulfilled');
+    if (!success) throw new Error('Expected one reset grant');
+    await expect(otp.consumeResetGrant(success.value)).resolves.toMatchObject({
+      userId: user._id.toString(),
+    });
+  });
+
   it('delivers a private one-time password reset and invalidates existing credentials atomically', async () => {
     mail.mockClear();
     const email = 'recovery@example.test';

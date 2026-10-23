@@ -1,5 +1,5 @@
 import { z } from './zod.js';
-import type { OrderDetails } from './schemas/order.schema.js';
+import { OrderDetailsSchema } from './schemas/order.schema.js';
 
 export const PAGE_SIZES = [10, 25, 50, 100] as const;
 export const MENU_PAGE_SIZES = [8, 16, 32, 60] as const;
@@ -11,17 +11,19 @@ export const PageSizeSchema = z.coerce
   .number()
   .pipe(z.union([z.literal(10), z.literal(25), z.literal(50), z.literal(100)]));
 
-export interface PaginationInfo {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
+export const PaginationInfoSchema = z.object({
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  total: z.number().int().nonnegative(),
+  totalPages: z.number().int().positive(),
+});
+export type PaginationInfo = z.infer<typeof PaginationInfoSchema>;
 
-export interface OrderPage {
-  orders: OrderDetails[];
-  pagination: PaginationInfo;
-}
+export const OrderPageSchema = z.object({
+  orders: z.array(OrderDetailsSchema),
+  pagination: PaginationInfoSchema,
+});
+export type OrderPage = z.infer<typeof OrderPageSchema>;
 
 export function paginate(total: number, requestedPage: number, pageSize: number): PaginationInfo {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));

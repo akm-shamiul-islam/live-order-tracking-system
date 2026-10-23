@@ -299,8 +299,13 @@ export class AuthOtpService {
     return verified;
   }
 
-  async createResetGrant(challenge: AuthChallengeDocument): Promise<string> {
-    if (!challenge.userId)
+  async createResetGrant(challenge: AuthChallengeDocument, code: string): Promise<string> {
+    if (
+      challenge.purpose !== 'password_reset' ||
+      !challenge.userId ||
+      !challenge.verifiedAt ||
+      challenge.userTokenVersion === null
+    )
       throw new BadRequestException('This reset code is invalid or expired. Request a new code.');
     const user = await this.userModel
       .findOne({
@@ -316,7 +321,20 @@ export class AuthOtpService {
     const token = `reset_${randomBytes(32).toString('base64url')}`;
     const expiresAt = new Date(Date.now() + getRuntimeSettings().AUTH_OTP_TTL_SECONDS * 1000);
     const updated = await this.challengeModel.findOneAndUpdate(
-      { _id: challenge._id, verifiedAt: { $ne: null }, consumedAt: null },
+      {
+        _id: challenge._id,
+        purpose: 'password_reset',
+        userId: challenge.userId,
+        userTokenVersion: challenge.userTokenVersion,
+        codeHash: this.hashCode(challenge._id, 'password_reset', code),
+        verifiedAt: challenge.verifiedAt,
+        lastSentAt: challenge.lastSentAt,
+        expiresAt: { $gt: new Date() },
+        consumedAt: null,
+        // Exchange one verified code once; a delayed/resubmitted exchange must
+        // neither acquire another generation's authority nor replace its grant.
+        resetGrantHash: { $exists: false },
+      },
       {
         $set: {
           resetGrantHash: digest(token),

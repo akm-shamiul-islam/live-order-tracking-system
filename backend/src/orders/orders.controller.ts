@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Inject,
   BadRequestException,
+  UnauthorizedException,
   Headers,
   Res,
 } from '@nestjs/common';
@@ -301,12 +302,13 @@ export class OrdersController {
     @Param('orderId', new ZodValidationPipe(OrderIdentifierSchema)) orderId: string,
     @Body(new ZodValidationPipe(OrderStatusChangeSchema))
     body: Omit<UpdateOrderStatusDto, 'orderId'>,
-    @CurrentUser() user: UserSummary,
+    @CurrentUser() user: UserSummary | undefined,
   ): Promise<{ success: boolean; order: OrderDetails }> {
+    if (!user) throw new UnauthorizedException('Sign in before updating an order.');
     const result = await this.ordersService.updateOrderStatus(orderId, body.status, body.note, {
-      userId: user?.id,
-      role: user?.role || UserRole.ADMIN,
-      name: user?.name || 'Dispatcher',
+      userId: user.id,
+      role: user.role,
+      name: user.name,
     });
 
     await this.ordersGateway.notifyStatusUpdated(result.order, result.logEntry);
@@ -321,12 +323,13 @@ export class OrdersController {
     @Param('orderId', new ZodValidationPipe(OrderIdentifierSchema)) orderId: string,
     @Body(new ZodValidationPipe(z.object({ reason: CancellationReasonSchema })))
     body: { reason: string },
-    @CurrentUser() user: UserSummary,
+    @CurrentUser() user: UserSummary | undefined,
   ): Promise<{ success: boolean; order: OrderDetails }> {
+    if (!user) throw new UnauthorizedException('Sign in before cancelling an order.');
     const result = await this.ordersService.cancelOrder(orderId, body.reason, {
-      userId: user?.id,
-      role: user?.role || UserRole.CUSTOMER,
-      name: user?.name || 'Customer',
+      userId: user.id,
+      role: user.role,
+      name: user.name,
     });
 
     await this.ordersGateway.notifyOrderCancelled(result.order, result.logEntry, body.reason);

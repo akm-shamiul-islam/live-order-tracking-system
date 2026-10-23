@@ -37,7 +37,8 @@ Reviewed against TypeScript **7.0.2**, the installed compiler, on 2026-10-23. Ap
 - Use `vi.fn<FunctionSignature>()` and inferred mock factories. Test fixture types can model partial records without claiming to construct complete Mongoose documents.
 - Keep unavoidable partial-double assertions at service/framework construction boundaries. Do not propagate them into application code. Exercise database/framework behavior with integration tests.
 - The Socket.IO adapter has one documented options assertion: Nest 12 declares complete `ServerOptions`, while Socket.IO accepts partial options and supplies defaults. Keep this compatibility bridge local and check the returned server before use.
-- Some HTTP response helpers still rely on declared successful-response types. Add a shared response schema when changing those endpoint contracts; do not treat the generic helper as a runtime validator.
+- Every successful JSON response in the frontend API client passes through a shared Zod schema before entering application state. Keep response envelopes, pagination and nested DTOs synchronized with backend changes. Translate malformed responses into a readable ApiError; retain checkout retry keys until the returned order validates.
+- Keep browser-storage failures separate from authentication failure. A failed write must preserve the active in-memory session; routine synchronization must not restore the older saved snapshot. Real storage events still reconcile account changes from other tabs.
 
 ## Checks
 

@@ -104,8 +104,12 @@ export class AuthService {
     try {
       return await this.otp.begin(newUser.email, 'email_verification', newUser._id.toString());
     } catch (error) {
-      await this.userModel.deleteOne({ _id: newUser._id }).catch(() => undefined);
-      if (registrationPhotoId)
+      // SMTP can deliver an email before its acknowledgement fails. Verification
+      // may already have activated this account while the registration waits.
+      const removed = await this.userModel
+        .deleteOne({ _id: newUser._id, emailVerified: false })
+        .catch(() => undefined);
+      if (removed?.deletedCount && registrationPhotoId)
         await this.profiles.discardPhoto(registrationPhotoId).catch(() => undefined);
       throw error;
     }
@@ -411,7 +415,7 @@ export class AuthService {
     code: string,
   ): Promise<{ resetToken: string }> {
     const challenge = await this.otp.verify(challengeId, code, 'password_reset');
-    return { resetToken: await this.otp.createResetGrant(challenge) };
+    return { resetToken: await this.otp.createResetGrant(challenge, code) };
   }
 
   async resetPassword(token: string, password: string): Promise<void> {

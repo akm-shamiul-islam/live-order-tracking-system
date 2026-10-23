@@ -80,15 +80,16 @@ export const DeliveryRequestSchema = z.object({
   requestedAt: z.string(),
 });
 export type DeliveryRequest = z.infer<typeof DeliveryRequestSchema>;
-export interface AvailableDelivery {
-  id: string;
-  orderNumber: string;
-  status: OrderStatus;
-  items: OrderItem[];
-  total: number;
-  createdAt: string;
-  request?: DeliveryRequest;
-}
+export const AvailableDeliverySchema = z.object({
+  id: z.string(),
+  orderNumber: z.string(),
+  status: z.enum(OrderStatus),
+  items: z.array(OrderItemSchema),
+  total: z.number().nonnegative(),
+  createdAt: z.iso.datetime(),
+  request: DeliveryRequestSchema.optional(),
+});
+export type AvailableDelivery = z.infer<typeof AvailableDeliverySchema>;
 export const CancellationReasonSchema = z
   .string()
   .trim()

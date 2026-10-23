@@ -5,6 +5,7 @@ import {
   OrderStatus,
   UserSummary,
   AuthResponseSchema,
+  UserSummarySchema,
   AuthChallengeResponseSchema,
   AuthFlowResponseSchema,
   PasswordResetGrantSchema,
@@ -22,7 +23,18 @@ import {
   LanguagePreferenceResponseSchema,
   type LanguagePreference,
   ProfileResponseSchema,
-  ProfileChangeSchema,
+  UserPageSchema,
+  NotificationPageSchema,
+  OrderPageResponseSchema,
+  SuccessResponseSchema,
+  OrderResponseSchema,
+  OrderListResponseSchema,
+  AvailableDeliveryPageSchema,
+  CouriersResponseSchema,
+  ManagedUserResponseSchema,
+  UserManagementHistoryResponseSchema,
+  ProfileUpdateResponseSchema,
+  ProfileNotificationResponseSchema,
   type ProfileResponse,
   type ProfileChange,
   type UpdateProfileDto,
@@ -30,9 +42,9 @@ import {
   type NotificationPage,
   NotificationQuerySchema,
   type NotificationQuery,
-  UserManagementHistorySchema,
   type UserManagementHistory,
 } from '@kitchentodoor/shared';
+import { z } from '@kitchentodoor/shared/zod';
 import {
   clearSession,
   getSession,
@@ -49,6 +61,7 @@ const API_BASE = '/api';
 let refreshInFlight: Promise<AuthResponse | null> | undefined;
 let authIntent = 0;
 let authQueue = Promise.resolve();
+let currentDeviceId: string | undefined;
 
 function withSessionLock<T>(run: () => Promise<T>): Promise<T> {
   if (typeof navigator !== 'undefined' && navigator.locks) {
@@ -65,6 +78,9 @@ function withSessionLock<T>(run: () => Promise<T>): Promise<T> {
 }
 
 function getDeviceId(): string {
+  // A different tab may update storage during OTP entry. Keep this page bound to
+  // the identity used to request its challenge until the page is reloaded.
+  if (currentDeviceId) return currentDeviceId;
   const key = 'kitchentodoor.device-id';
   try {
     const existing = localStorage.getItem(key);
@@ -72,20 +88,17 @@ function getDeviceId(): string {
       existing &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)
     )
-      return existing;
-    const id = crypto.randomUUID();
-    localStorage.setItem(key, id);
-    return id;
+      return (currentDeviceId = existing);
   } catch {
-    return crypto.randomUUID();
+    // Browser policy can block reading storage as well as writing it.
   }
-}
-
-function parseAuthFlowResponse(data: unknown): AuthFlowResponse {
-  const parsed = AuthFlowResponseSchema.safeParse(data);
-  if (!parsed.success)
-    throw new ApiError('The service returned an unexpected response. Please try again.', 502);
-  return parsed.data;
+  currentDeviceId ??= crypto.randomUUID();
+  try {
+    localStorage.setItem(key, currentDeviceId);
+  } catch {
+    // Keep one device identity for this page's login/OTP flow when persistence is unavailable.
+  }
+  return currentDeviceId;
 }
 
 function authenticate(
@@ -106,7 +119,7 @@ function authenticate(
       method: 'POST',
       body: JSON.stringify(body),
     });
-    const result = parseAuthFlowResponse(await handleResponse<unknown>(res));
+    const result = await handleResponse(res, AuthFlowResponseSchema);
     if (!isCurrent()) throw new ApiError('This sign-in was cancelled. Please try again.', 409);
     if ('accessToken' in result) {
       saveSession(result);
@@ -140,7 +153,7 @@ function verifyAuthentication(
       method: 'POST',
       body: JSON.stringify({ challengeId, code, deviceId: getDeviceId() }),
     });
-    const auth = parseAuthResponse(await handleResponse<unknown>(response));
+    const auth = await handleResponse(response, AuthResponseSchema);
     if (!isCurrent()) throw new ApiError('This sign-in was cancelled. Please try again.', 409);
     saveSession(auth);
     logoutFeedbackStore.setState({ failed: false });
@@ -171,7 +184,7 @@ async function refreshSession(failedToken: string): Promise<AuthResponse | null>
         if (intent === authIntent && getSession().token === before.token) clearSession();
         return null;
       }
-      const auth = parseAuthResponse(await handleResponse<unknown>(response));
+      const auth = await handleResponse(response, AuthResponseSchema);
       if (intent !== authIntent || getSession().token !== before.token) return null;
       saveSession(auth);
       return auth;
@@ -208,14 +221,6 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
-}
-
-function parseAuthResponse(data: unknown): AuthResponse {
-  const parsed = AuthResponseSchema.safeParse(data);
-  if (!parsed.success) {
-    throw new ApiError('The service returned an unexpected response. Please try again.', 502);
-  }
-  return parsed.data;
 }
 
 function retryAfterMessage(response: Response): string {
@@ -282,7 +287,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
+async function handleResponse<T>(
+  res: Response,
+  schema: z.ZodType<T>,
+  unexpectedMessage = 'The service returned an unexpected response. Please try again.',
+): Promise<T> {
   const data: unknown = await res.json().catch(() => null);
   const body = isRecord(data) ? data : undefined;
   if (!res.ok) {
@@ -317,54 +326,51 @@ async function handleResponse<T>(res: Response): Promise<T> {
     }
     throw new ApiError(errorMsg, res.status, fieldErrors);
   }
-  if (!isRecord(data)) {
-    throw new ApiError('The service returned an unexpected response. Please try again.', 502);
-  }
-  return data as T;
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) throw new ApiError(unexpectedMessage, 502);
+  return parsed.data;
 }
 
 export const api = {
   settings: {
     async get(): Promise<PublicConfig> {
       const response = await request(`${API_BASE}/config`);
-      const parsed = PublicConfigSchema.safeParse(await handleResponse<unknown>(response));
-      if (!parsed.success)
-        throw new ApiError('Delivery pricing could not be loaded. Please try again.', 502);
-      return parsed.data;
+      return handleResponse(
+        response,
+        PublicConfigSchema,
+        'Delivery pricing could not be loaded. Please try again.',
+      );
     },
   },
   auth: {
     async forgotPassword(email: string): Promise<AuthChallengeResponse> {
-      return AuthChallengeResponseSchema.parse(
-        await handleResponse<unknown>(
-          await request(`${API_BASE}/auth/forgot-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          }),
-        ),
+      return handleResponse(
+        await request(`${API_BASE}/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }),
+        AuthChallengeResponseSchema,
       );
     },
 
     async resendOtp(challengeId: string): Promise<AuthChallengeResponse> {
-      return AuthChallengeResponseSchema.parse(
-        await handleResponse<unknown>(
-          await request(`${API_BASE}/auth/otp/resend`, {
-            method: 'POST',
-            body: JSON.stringify({ challengeId }),
-          }),
-        ),
+      return handleResponse(
+        await request(`${API_BASE}/auth/otp/resend`, {
+          method: 'POST',
+          body: JSON.stringify({ challengeId }),
+        }),
+        AuthChallengeResponseSchema,
       );
     },
 
     async requestEmailVerification(email: string): Promise<AuthChallengeResponse> {
-      return AuthChallengeResponseSchema.parse(
-        await handleResponse<unknown>(
-          await request(`${API_BASE}/auth/email/verification/request`, {
-            method: 'POST',
-            body: JSON.stringify({ email }),
-          }),
-        ),
+      return handleResponse(
+        await request(`${API_BASE}/auth/email/verification/request`, {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        }),
+        AuthChallengeResponseSchema,
       );
     },
 
@@ -377,13 +383,12 @@ export const api = {
     },
 
     async verifyPasswordReset(challengeId: string, code: string): Promise<string> {
-      const grant = PasswordResetGrantSchema.parse(
-        await handleResponse<unknown>(
-          await request(`${API_BASE}/auth/reset-password/verify`, {
-            method: 'POST',
-            body: JSON.stringify({ challengeId, code }),
-          }),
-        ),
+      const grant = await handleResponse(
+        await request(`${API_BASE}/auth/reset-password/verify`, {
+          method: 'POST',
+          body: JSON.stringify({ challengeId, code }),
+        }),
+        PasswordResetGrantSchema,
       );
       return grant.resetToken;
     },
@@ -397,6 +402,7 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token, password, confirmPassword }),
           }),
+          SuccessResponseSchema,
         );
         clearSession();
       });
@@ -428,7 +434,7 @@ export const api = {
       const res = await request(`${API_BASE}/auth/me`, {
         headers: getHeaders(),
       });
-      return handleResponse<UserSummary>(res);
+      return handleResponse(res, UserSummarySchema);
     },
 
     async updateLanguage(this: void, language: Language): Promise<LanguagePreference> {
@@ -440,7 +446,7 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify({ language }),
       });
-      const preference = LanguagePreferenceResponseSchema.parse(await handleResponse<unknown>(res));
+      const preference = await handleResponse(res, LanguagePreferenceResponseSchema);
       if (intent !== authIntent || getSession().user?.id !== owner)
         throw new ApiError('Your account changed. Sign in and try again.', 409);
       return preference;
@@ -456,6 +462,7 @@ export const api = {
         try {
           await handleResponse(
             await request(`${API_BASE}/auth/logout`, { method: 'POST', headers, keepalive: true }),
+            SuccessResponseSchema,
           );
           logoutFeedbackStore.setState({ failed: false });
           return true;
@@ -484,6 +491,7 @@ export const api = {
           `${API_BASE}/orders/available?${new URLSearchParams({ page: String(page), limit: String(pageSize) })}`,
           { headers: getHeaders() },
         ),
+        AvailableDeliveryPageSchema,
       );
     },
     async requestDelivery(orderId: string): Promise<void> {
@@ -492,6 +500,7 @@ export const api = {
           method: 'POST',
           headers: getHeaders(),
         }),
+        SuccessResponseSchema,
       );
     },
     async reviewDelivery(
@@ -504,22 +513,25 @@ export const api = {
           `${API_BASE}/orders/${encodeURIComponent(orderId)}/delivery-requests/${encodeURIComponent(courierId)}`,
           { method: 'POST', headers: getHeaders(), body: JSON.stringify({ decision }) },
         ),
+        SuccessResponseSchema,
       );
     },
     async getCouriers(): Promise<UserSummary[]> {
-      const data = await handleResponse<{ couriers: UserSummary[] }>(
+      const data = await handleResponse(
         await request(`${API_BASE}/orders/couriers`, { headers: getHeaders() }),
+        CouriersResponseSchema,
       );
       return data.couriers;
     },
 
     async assignCourier(orderId: string, courierId?: string | null): Promise<OrderDetails> {
-      const data = await handleResponse<{ order: OrderDetails }>(
+      const data = await handleResponse(
         await request(`${API_BASE}/orders/${encodeURIComponent(orderId)}/courier`, {
           method: 'POST',
           headers: getHeaders(),
           body: JSON.stringify({ courierId }),
         }),
+        OrderResponseSchema,
       );
       return data.order;
     },
@@ -535,7 +547,7 @@ export const api = {
         headers: { ...getHeaders(), 'Idempotency-Key': attempt.key },
         body: JSON.stringify(dto),
       });
-      const result = await handleResponse<{ success: boolean; order: OrderDetails }>(res);
+      const result = await handleResponse(res, OrderResponseSchema);
       completeCheckoutAttempt(attempt.key);
       // A saved order belongs to the original checkout. Its late response must not
       // clear another session's cart or navigate that session to the previous order.
@@ -549,7 +561,7 @@ export const api = {
         headers: getHeaders(),
         signal,
       });
-      const data = await handleResponse<{ success: boolean; order: OrderDetails }>(res);
+      const data = await handleResponse(res, OrderResponseSchema);
       return data.order;
     },
 
@@ -566,7 +578,7 @@ export const api = {
         `${API_BASE}/orders/${encodeURIComponent(orderId)}/receipt?${params}`,
         { headers: getHeaders(), signal },
       );
-      if (!response.ok) await handleResponse<never>(response);
+      if (!response.ok) await handleResponse(response, z.never());
       if (!response.headers.get('Content-Type')?.toLowerCase().startsWith('application/pdf'))
         throw new ApiError('The service returned an invalid receipt. Please try again.', 502);
       const receipt = await response.blob();
@@ -595,7 +607,7 @@ export const api = {
       if (assignment && assignment !== 'ALL') params.set('assignment', assignment);
       if (search) params.set('search', search);
       const res = await request(`${API_BASE}/orders?${params}`, { headers: getHeaders() });
-      return handleResponse<import('@kitchentodoor/shared').OrderPage>(res);
+      return handleResponse(res, OrderPageResponseSchema);
     },
 
     async getHistoryPage(
@@ -612,7 +624,7 @@ export const api = {
       const res = await request(`${API_BASE}/orders/my-orders?${params}`, {
         headers: getHeaders(),
       });
-      return handleResponse<import('@kitchentodoor/shared').OrderPage>(res);
+      return handleResponse(res, OrderPageResponseSchema);
     },
 
     async getAll(status?: string): Promise<OrderDetails[]> {
@@ -622,11 +634,7 @@ export const api = {
       const res = await request(url, {
         headers: getHeaders(),
       });
-      const data = await handleResponse<{
-        success: boolean;
-        count: number;
-        orders: OrderDetails[];
-      }>(res);
+      const data = await handleResponse(res, OrderListResponseSchema);
       return data.orders;
     },
 
@@ -634,11 +642,7 @@ export const api = {
       const res = await request(`${API_BASE}/orders/my-orders?phone=${encodeURIComponent(phone)}`, {
         headers: getHeaders(),
       });
-      const data = await handleResponse<{
-        success: boolean;
-        count: number;
-        orders: OrderDetails[];
-      }>(res);
+      const data = await handleResponse(res, OrderListResponseSchema);
       return data.orders;
     },
 
@@ -648,7 +652,7 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify({ status, note }),
       });
-      const data = await handleResponse<{ success: boolean; order: OrderDetails }>(res);
+      const data = await handleResponse(res, OrderResponseSchema);
       return data.order;
     },
 
@@ -658,7 +662,7 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify({ reason }),
       });
-      const data = await handleResponse<{ success: boolean; order: OrderDetails }>(res);
+      const data = await handleResponse(res, OrderResponseSchema);
       return data.order;
     },
 
@@ -673,56 +677,57 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify({ lat, lng, timestamp }),
       });
-      await handleResponse<{ success: boolean }>(res);
+      await handleResponse(res, SuccessResponseSchema);
     },
   },
   users: {
     async history(id: string): Promise<UserManagementHistory[]> {
-      const result = await handleResponse<{ history: unknown[] }>(
+      const result = await handleResponse(
         await request(`${API_BASE}/users/${encodeURIComponent(id)}/history`, {
           headers: getHeaders(),
         }),
+        UserManagementHistoryResponseSchema,
       );
-      return result.history.map((item) => UserManagementHistorySchema.parse(item));
+      return result.history;
     },
     async list(page: number, pageSize: number, q = '', role?: UserRole): Promise<UserPage> {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize), q });
       if (role) params.set('role', role);
       return handleResponse(
         await request(`${API_BASE}/users?${params}`, { headers: getHeaders() }),
+        UserPageSchema,
       );
     },
     async update(id: string, dto: UpdateUserDto): Promise<ManagedUser> {
-      const data = await handleResponse<{ user: ManagedUser }>(
+      const data = await handleResponse(
         await request(`${API_BASE}/users/${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: getHeaders(),
           body: JSON.stringify(dto),
         }),
+        ManagedUserResponseSchema,
       );
       return data.user;
     },
   },
   profile: {
     async get(): Promise<ProfileResponse> {
-      return ProfileResponseSchema.parse(
-        await handleResponse(await request(`${API_BASE}/profile`, { headers: getHeaders() })),
+      return handleResponse(
+        await request(`${API_BASE}/profile`, { headers: getHeaders() }),
+        ProfileResponseSchema,
       );
     },
     async update(
       body: UpdateProfileDto,
     ): Promise<{ change: ProfileChange; profile: ProfileResponse }> {
-      const result = await handleResponse<{ change: unknown; profile: unknown }>(
+      return handleResponse(
         await request(`${API_BASE}/profile`, {
           method: 'PATCH',
           headers: getHeaders(),
           body: JSON.stringify(body),
         }),
+        ProfileUpdateResponseSchema,
       );
-      return {
-        change: ProfileChangeSchema.parse(result.change),
-        profile: ProfileResponseSchema.parse(result.profile),
-      };
     },
     async photo(id: string, signal?: AbortSignal): Promise<string> {
       const owner = getSession().user?.id;
@@ -730,7 +735,7 @@ export const api = {
         headers: getHeaders(),
         signal,
       });
-      if (!response.ok) await handleResponse(response);
+      if (!response.ok) await handleResponse(response, z.never());
       if (!response.headers.get('Content-Type')?.startsWith('image/webp'))
         throw new ApiError('The photo could not be loaded.', 502);
       const blob = await response.blob();
@@ -766,21 +771,19 @@ export const api = {
         ...(status ? { status } : {}),
         ...(userId ? { userId } : {}),
       });
-      const result = await handleResponse<NotificationPage>(
+      return handleResponse(
         await request(`${API_BASE}/notifications?${params}`, { headers: getHeaders() }),
+        NotificationPageSchema,
       );
-      return {
-        ...result,
-        notifications: result.notifications.map((item) => ProfileChangeSchema.parse(item)),
-      };
     },
     async get(id: string): Promise<ProfileChange> {
-      const result = await handleResponse<{ notification: unknown }>(
+      const result = await handleResponse(
         await request(`${API_BASE}/notifications/${encodeURIComponent(id)}`, {
           headers: getHeaders(),
         }),
+        ProfileNotificationResponseSchema,
       );
-      return ProfileChangeSchema.parse(result.notification);
+      return result.notification;
     },
     async read(id: string, unread: boolean, expectedUpdatedAt?: string): Promise<void> {
       await handleResponse(
@@ -789,6 +792,7 @@ export const api = {
           headers: getHeaders(),
           body: JSON.stringify({ unread, expectedUpdatedAt }),
         }),
+        SuccessResponseSchema,
       );
     },
     async dismiss(id: string, expectedUpdatedAt?: string): Promise<void> {
@@ -798,17 +802,19 @@ export const api = {
           headers: getHeaders(),
           body: JSON.stringify({ expectedUpdatedAt }),
         }),
+        SuccessResponseSchema,
       );
     },
     async review(id: string, body: ProfileDecisionDto): Promise<ProfileChange> {
-      const result = await handleResponse<{ notification: unknown }>(
+      const result = await handleResponse(
         await request(`${API_BASE}/notifications/${encodeURIComponent(id)}/review`, {
           method: 'POST',
           headers: getHeaders(),
           body: JSON.stringify(body),
         }),
+        ProfileNotificationResponseSchema,
       );
-      return ProfileChangeSchema.parse(result.notification);
+      return result.notification;
     },
   },
 };

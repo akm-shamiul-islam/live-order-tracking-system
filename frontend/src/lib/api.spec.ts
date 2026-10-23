@@ -1,10 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AuthResponse, OrderDetails } from '@kitchentodoor/shared';
+
+function orderResponse(id: string) {
+  const order: OrderDetails = {
+    id,
+    orderNumber: 'KTD-1234',
+    customer: { name: 'Test Customer', phone: '555-1234', address: '123 Test Street' },
+    items: [{ itemId: 'item-1', name: 'Burger', price: 10, quantity: 1 }],
+    pricing: { subtotal: 10, deliveryFee: 5, tax: 0.8, total: 15.8 },
+    status: 'PLACED',
+    deliveryCoordinates: { lat: 35, lng: 139 },
+    deliveryLocationProvided: false,
+    deliveryRequests: [],
+    statusHistory: [],
+    createdAt: '2026-10-23T00:00:00.000Z',
+    updatedAt: '2026-10-23T00:00:00.000Z',
+  };
+  return { success: true, order };
+}
 
 describe('API requests and shared authentication', () => {
   const fetchMock = vi.fn<typeof fetch>();
   let api: typeof import('./api').api;
   let session: typeof import('./authSession');
-  const response = {
+  const response: AuthResponse = {
     accessToken: 'signed-token',
     user: { id: 'admin-1', name: 'Dispatcher', email: 'admin@example.com', role: 'ADMIN' },
   };
@@ -86,7 +105,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('clears an expired session when both access and refresh credentials are rejected', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     fetchMock.mockResolvedValueOnce(Response.json({ message: 'Unauthorized' }, { status: 401 }));
     fetchMock.mockResolvedValueOnce(Response.json({ message: 'Unauthorized' }, { status: 401 }));
     await expect(api.auth.getMe()).rejects.toMatchObject({ status: 401 });
@@ -94,7 +113,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('rotates expired credentials once and retries the original request', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     const refreshed = { ...response, accessToken: 'refreshed-token' };
     fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
     fetchMock.mockResolvedValueOnce(Response.json(refreshed));
@@ -108,7 +127,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('preserves a saved session during a refresh service outage', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
     fetchMock.mockResolvedValueOnce(Response.json({}, { status: 503 }));
     await expect(api.auth.getMe()).rejects.toMatchObject({ status: 503 });
@@ -116,7 +135,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('cannot restore a session after sign-out while a refresh response is pending', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     let finish!: (response: Response) => void;
     fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
     fetchMock.mockImplementationOnce(
@@ -179,7 +198,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('reports failed server revocation while clearing credentials on this device', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     fetchMock.mockResolvedValueOnce(Response.json({}, { status: 503 }));
     await expect(api.auth.logout()).resolves.toBe(false);
     expect(session.getSession().token).toBeNull();
@@ -191,7 +210,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('does not cancel a new login when a previous refresh is rejected', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     let finish!: (response: Response) => void;
     fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
     fetchMock.mockImplementationOnce(
@@ -220,7 +239,7 @@ describe('API requests and shared authentication', () => {
     );
     const logout = api.auth.logout();
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     finish(Response.json({ success: true }));
     await expect(logout).resolves.toBe(true);
     expect(session.getSession().token).toBeNull();
@@ -228,7 +247,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('does not clear a newer session when an older request returns 401', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     let finish!: (response: Response) => void;
     fetchMock.mockImplementationOnce(
       () =>
@@ -237,9 +256,7 @@ describe('API requests and shared authentication', () => {
         }),
     );
     const request = api.auth.getMe();
-    session.saveSession({ ...response, accessToken: 'new-token' } as Parameters<
-      typeof session.saveSession
-    >[0]);
+    session.saveSession({ ...response, accessToken: 'new-token' });
     finish(Response.json({ message: 'Unauthorized' }, { status: 401 }));
     await expect(request).rejects.toMatchObject({ status: 401 });
     expect(session.getSession().token).toBe('new-token');
@@ -347,7 +364,7 @@ describe('API requests and shared authentication', () => {
   });
 
   it('reuses the checkout key after a lost response and reload, then starts a new successful checkout', async () => {
-    session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+    session.saveSession(response);
     const dto = {
       customer: { name: 'Test Customer', phone: '555-1234', address: '123 Test Street' },
       deliveryAddress: '123 Test Street',
@@ -362,11 +379,11 @@ describe('API requests and shared authentication', () => {
     );
     vi.resetModules();
     ({ api } = await import('./api'));
-    fetchMock.mockResolvedValueOnce(Response.json({ success: true, order: { id: 'saved-order' } }));
+    fetchMock.mockResolvedValueOnce(Response.json(orderResponse('saved-order')));
     await expect(api.orders.create(dto)).resolves.toMatchObject({ order: { id: 'saved-order' } });
     expect(new Headers(fetchMock.mock.calls[1]![1]!.headers).get('Idempotency-Key')).toBe(key);
     expect(sessionStorage.getItem('ktd_checkout_attempt')).toBeNull();
-    fetchMock.mockResolvedValueOnce(Response.json({ success: true, order: { id: 'new-order' } }));
+    fetchMock.mockResolvedValueOnce(Response.json(orderResponse('new-order')));
     await api.orders.create(dto);
     expect(new Headers(fetchMock.mock.calls[2]![1]!.headers).get('Idempotency-Key')).not.toBe(key);
   });
@@ -374,7 +391,7 @@ describe('API requests and shared authentication', () => {
   it.each(['different account', 'new session for the same account'] as const)(
     'discards a late checkout result after switching to a %s',
     async (replacement) => {
-      session.saveSession(response as Parameters<typeof session.saveSession>[0]);
+      session.saveSession(response);
       const dto = {
         customer: { name: 'Test Customer', phone: '555-1234', address: '123 Test Street' },
         deliveryAddress: '123 Test Street',
@@ -399,7 +416,7 @@ describe('API requests and shared authentication', () => {
       };
       fetchMock.mockResolvedValueOnce(Response.json(fresh));
       await api.auth.login(fresh.user.email, 'password');
-      finish(Response.json({ success: true, order: { id: 'previous-session-order' } }));
+      finish(Response.json(orderResponse('previous-session-order')));
       await expect(checkout).resolves.toMatchObject({ status: 409 });
       expect(session.getSession()).toMatchObject({ token: fresh.accessToken, user: fresh.user });
     },
@@ -420,4 +437,178 @@ describe('API requests and shared authentication', () => {
     void api.auth.logout();
     expect(session.getSession().token).toBeNull();
   });
+
+  it.each(['read', 'write'] as const)(
+    'keeps the same device identity through OTP when storage %s is blocked',
+    async (blocked) => {
+      vi.stubGlobal('localStorage', {
+        getItem() {
+          if (blocked === 'read') throw new Error('Storage blocked');
+          return null;
+        },
+        setItem() {
+          throw new Error('Storage blocked');
+        },
+        removeItem() {},
+      });
+      const challenge = {
+        status: 'verification_required',
+        purpose: 'new_device_login',
+        challengeId: 'a'.repeat(43),
+        email: response.user.email,
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+      fetchMock.mockResolvedValueOnce(Response.json(challenge));
+      fetchMock.mockResolvedValueOnce(Response.json(response));
+      await api.auth.login(response.user.email, 'password');
+      await api.auth.verifyLogin(challenge.challengeId, '123456');
+      const bodies = fetchMock.mock.calls.map(([, options]) => {
+        if (typeof options?.body !== 'string') throw new Error('Expected a JSON body');
+        const body: unknown = JSON.parse(options.body);
+        if (
+          !body ||
+          typeof body !== 'object' ||
+          !('deviceId' in body) ||
+          typeof body.deviceId !== 'string'
+        )
+          throw new Error('Expected a device identity in the request');
+        return { deviceId: body.deviceId };
+      });
+      expect(bodies[0]?.deviceId).toMatch(/^[a-f\d-]{36}$/i);
+      expect(bodies[1]?.deviceId).toBe(bodies[0]?.deviceId);
+      expect(session.getSession().token).toBe(response.accessToken);
+    },
+  );
+
+  it('refreshes an in-memory session when browser storage remains readable but writes fail', async () => {
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Storage quota exceeded');
+    });
+    session.saveSession(response);
+    fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
+    fetchMock.mockResolvedValueOnce(Response.json({ ...response, accessToken: 'rotated-token' }));
+    fetchMock.mockResolvedValueOnce(Response.json(response.user));
+    await expect(api.auth.getMe()).resolves.toEqual(response.user);
+    expect(session.getSession().token).toBe('rotated-token');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/refresh');
+  });
+
+  it.each(['removed', 'replaced'] as const)(
+    'keeps an OTP login bound to its original device when another tab has %s the stored ID',
+    async (change) => {
+      const original = '00000000-0000-4000-8000-000000000001';
+      localStorage.setItem('kitchentodoor.device-id', original);
+      const challenge = {
+        status: 'verification_required',
+        purpose: 'new_device_login',
+        challengeId: 'a'.repeat(43),
+        email: response.user.email,
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+      fetchMock.mockResolvedValueOnce(Response.json(challenge));
+      fetchMock.mockResolvedValueOnce(Response.json(response));
+      await api.auth.login(response.user.email, 'password');
+      if (change === 'removed') localStorage.removeItem('kitchentodoor.device-id');
+      else localStorage.setItem('kitchentodoor.device-id', '00000000-0000-4000-8000-000000000002');
+      await api.auth.verifyLogin(challenge.challengeId, '123456');
+      const body = fetchMock.mock.calls[1]?.[1]?.body;
+      if (typeof body !== 'string') throw new Error('Expected a JSON verification body');
+      const submitted: unknown = JSON.parse(body);
+      expect(submitted).toMatchObject({ deviceId: original });
+      expect(session.getSession().token).toBe(response.accessToken);
+    },
+  );
+
+  it('preserves the checkout retry key when a successful HTTP response has no valid order', async () => {
+    session.saveSession(response);
+    const dto = {
+      customer: { name: 'Test Customer', phone: '555-1234', address: '123 Test Street' },
+      deliveryAddress: '123 Test Street',
+      items: [{ itemId: 'item-1', name: 'Burger', price: 10, quantity: 1 }],
+    };
+    fetchMock.mockResolvedValueOnce(Response.json({ success: true, order: null }));
+    await expect(api.orders.create(dto)).rejects.toMatchObject({ status: 502 });
+    const key = new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('Idempotency-Key');
+    if (!key) throw new Error('Expected a checkout retry key');
+    expect(sessionStorage.getItem('ktd_checkout_attempt')).toContain(key);
+    fetchMock.mockRejectedValueOnce(new TypeError('Temporary outage'));
+    await expect(api.orders.create(dto)).rejects.toMatchObject({ status: 0 });
+    expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('Idempotency-Key')).toBe(key);
+    fetchMock.mockResolvedValueOnce(Response.json(orderResponse('saved-order')));
+    await expect(api.orders.create(dto)).resolves.toMatchObject({ order: { id: 'saved-order' } });
+    expect(new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get('Idempotency-Key')).toBe(key);
+    expect(sessionStorage.getItem('ktd_checkout_attempt')).toBeNull();
+  });
+
+  it.each([
+    { name: 'current user', data: {}, run: () => api.auth.getMe() },
+    {
+      name: 'order details',
+      data: { success: true, order: null },
+      run: () => api.orders.getById('order'),
+    },
+    {
+      name: 'dispatch pagination',
+      data: { success: true, count: 0, orders: [] },
+      run: () => api.orders.getPage({ page: 1, pageSize: 10 }),
+    },
+    {
+      name: 'order history pagination',
+      data: {
+        success: true,
+        count: 0,
+        orders: [],
+        pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+      },
+      run: () => api.orders.getHistoryPage(undefined, 1, 10),
+    },
+    {
+      name: 'delivery summaries',
+      data: {
+        orders: [{ id: 'order', status: 'INVALID' }],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+      },
+      run: () => api.orders.available(1, 10),
+    },
+    { name: 'couriers', data: { couriers: [null] }, run: () => api.orders.getCouriers() },
+    { name: 'user list', data: { users: [] }, run: () => api.users.list(1, 10) },
+    { name: 'user history', data: {}, run: () => api.users.history('user') },
+    { name: 'profile', data: {}, run: () => api.profile.get() },
+    {
+      name: 'notification count',
+      data: {
+        notifications: [],
+        pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 },
+        unreadCount: 'one',
+      },
+      run: () => api.notifications.list(),
+    },
+    {
+      name: 'notification details',
+      data: { notification: null },
+      run: () => api.notifications.get('notification'),
+    },
+    {
+      name: 'mutation acknowledgement',
+      data: { success: false },
+      run: () => api.orders.requestDelivery('order'),
+    },
+    { name: 'OTP request', data: {}, run: () => api.auth.forgotPassword('customer@example.test') },
+    {
+      name: 'reset grant',
+      data: { resetToken: null },
+      run: () => api.auth.verifyPasswordReset('challenge', '123456'),
+    },
+  ])(
+    'rejects a malformed successful $name response with a readable error',
+    async ({ data, run }) => {
+      fetchMock.mockResolvedValueOnce(Response.json(data));
+      await expect(run()).rejects.toMatchObject({
+        status: 502,
+        message: 'The service returned an unexpected response. Please try again.',
+      });
+    },
+  );
 });

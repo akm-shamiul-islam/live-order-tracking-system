@@ -173,4 +173,45 @@ describe('Zustand authentication persistence and tab synchronization', () => {
     expect(getSession()).toEqual({ user, token: 'memory-token' });
     stop();
   });
+
+  it('keeps an in-memory login when storage is readable but cannot save it', async () => {
+    const { getSession, saveSession, synchronizeStoredSession } = await import('./authSession');
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Storage quota exceeded');
+    });
+    saveSession({ user, accessToken: 'memory-token' });
+    synchronizeStoredSession();
+    expect(getSession()).toEqual({ user, token: 'memory-token' });
+    write.mockRestore();
+    saveSession({ user, accessToken: 'persisted-token' });
+    expect(localStorage.getItem('ktd_token')).toBe('persisted-token');
+    synchronizeStoredSession();
+    expect(getSession().token).toBe('persisted-token');
+  });
+
+  it('does not restore old credentials when storage removal fails during logout', async () => {
+    const { getSession, saveSession, clearSession, synchronizeStoredSession } =
+      await import('./authSession');
+    saveSession({ user, accessToken: 'previous-token' });
+    vi.spyOn(localStorage, 'removeItem').mockImplementation(() => {
+      throw new Error('Storage is read-only');
+    });
+    clearSession();
+    synchronizeStoredSession();
+    expect(getSession()).toEqual({ user: null, token: null });
+  });
+
+  it('honors another tab signing out after a local persistence failure', async () => {
+    const { getSession, saveSession, listenForSessionChanges } = await import('./authSession');
+    const stop = listenForSessionChanges();
+    saveSession({ user, accessToken: 'previous-token' });
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Storage quota exceeded');
+    });
+    saveSession({ user, accessToken: 'memory-token' });
+    localStorage.clear();
+    storageEvent(null);
+    expect(getSession()).toEqual({ user: null, token: null });
+    stop();
+  });
 });

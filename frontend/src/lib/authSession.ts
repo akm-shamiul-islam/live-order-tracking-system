@@ -7,6 +7,7 @@ interface AuthSession {
 }
 
 const emptySession: AuthSession = { user: null, token: null };
+let persistenceFailed = false;
 
 function readStoredSession(): AuthSession | undefined {
   let token: string | null;
@@ -106,7 +107,9 @@ export function saveSession(response: AuthResponse) {
   try {
     if (stored.token) localStorage.setItem('ktd_token', stored.token);
     localStorage.setItem('ktd_user', JSON.stringify(stored.user));
+    persistenceFailed = false;
   } catch {
+    persistenceFailed = true;
     // The active session still works when browser storage is unavailable.
   }
 }
@@ -117,20 +120,32 @@ export function clearSession() {
     localStorage.removeItem('ktd_token');
     localStorage.removeItem('ktd_user');
     localStorage.removeItem('ktd_last_phone');
+    persistenceFailed = false;
   } catch {
+    persistenceFailed = true;
     // Storage may be blocked by the browser.
   }
 }
 
 function handleStorage(event: StorageEvent) {
   if (event.key === null || event.key === 'ktd_token' || event.key === 'ktd_user') {
-    synchronizeStoredSession();
+    // An actual change from another tab remains authoritative, including sign-out.
+    restoreStoredSession();
+  }
+}
+
+function restoreStoredSession() {
+  const stored = readStoredSession();
+  if (stored) {
+    updateSession(stored);
+    persistenceFailed = false;
   }
 }
 
 export function synchronizeStoredSession() {
-  const stored = readStoredSession();
-  if (stored) updateSession(stored);
+  // A failed write/removal leaves an older readable snapshot. Do not let a local
+  // refresh or listener mount overwrite the active in-memory login/logout with it.
+  if (!persistenceFailed) restoreStoredSession();
 }
 
 export function listenForSessionChanges() {

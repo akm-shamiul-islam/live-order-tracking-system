@@ -3,9 +3,9 @@ import { AuthService } from './auth.service.js';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { UserRole } from '@kitchentodoor/shared';
 import bcrypt from 'bcryptjs';
-import { RecoveryMailer } from './recovery-mailer.js';
-import { ProfilesService } from '../profiles/profiles.service.js';
-import { AuthOtpService } from './auth-otp.service.js';
+import type { RecoveryMailer } from './recovery-mailer.js';
+import type { ProfilesService } from '../profiles/profiles.service.js';
+import type { AuthOtpService } from './auth-otp.service.js';
 import type { JwtService } from '@nestjs/jwt';
 import type { Model } from 'mongoose';
 import type { User, UserDocument } from '../database/schemas/user.schema.js';
@@ -36,14 +36,40 @@ function jwtServiceMock() {
   };
 }
 
+function profilesServiceMock() {
+  return {
+    preparePhoto: vi.fn<ProfilesService['preparePhoto']>(),
+    discardPhoto: vi.fn<ProfilesService['discardPhoto']>().mockResolvedValue(undefined),
+  };
+}
+
+function otpServiceMock() {
+  return {
+    hashDeviceId: vi.fn<AuthOtpService['hashDeviceId']>(() => 'trusted-device-hash'),
+    begin: vi.fn<AuthOtpService['begin']>(async (email, purpose) => ({
+      status: 'verification_required',
+      purpose,
+      challengeId: 'A'.repeat(43),
+      email,
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
+    })),
+    requireConfigured: vi.fn<AuthOtpService['requireConfigured']>(),
+  };
+}
+
 describe('AuthService Unit Tests', () => {
   let service: AuthService;
   let mockUserModel: ReturnType<typeof userModelMock>;
   let mockJwtService: ReturnType<typeof jwtServiceMock>;
+  let mockProfiles: ReturnType<typeof profilesServiceMock>;
+  let mockOtp: ReturnType<typeof otpServiceMock>;
 
   beforeEach(() => {
     mockUserModel = userModelMock();
     mockJwtService = jwtServiceMock();
+    mockProfiles = profilesServiceMock();
+    mockOtp = otpServiceMock();
     service = new AuthService(
       mockUserModel as unknown as Model<UserDocument>,
       mockJwtService as unknown as JwtService,
@@ -52,19 +78,8 @@ describe('AuthService Unit Tests', () => {
         updateMany: vi.fn<() => Promise<unknown>>().mockResolvedValue({}),
       } as unknown as Model<AuthSessionDocument>,
       {} as RecoveryMailer,
-      {} as ProfilesService,
-      {
-        hashDeviceId: vi.fn<AuthOtpService['hashDeviceId']>(() => 'trusted-device-hash'),
-        begin: vi.fn<AuthOtpService['begin']>(async (email, purpose) => ({
-          status: 'verification_required',
-          purpose,
-          challengeId: 'A'.repeat(43),
-          email,
-          expiresAt: new Date(Date.now() + 600_000).toISOString(),
-          resendAvailableAt: new Date(Date.now() + 60_000).toISOString(),
-        })),
-        requireConfigured: vi.fn<AuthOtpService['requireConfigured']>(),
-      } as unknown as AuthOtpService,
+      mockProfiles as unknown as ProfilesService,
+      mockOtp as unknown as AuthOtpService,
     );
   });
 
@@ -198,6 +213,41 @@ describe('AuthService Unit Tests', () => {
       }),
     ).rejects.toThrow(ConflictException);
   });
+
+  it.each(['pending', 'already activated', 'cleanup unavailable'] as const)(
+    'cleans up a failed registration email safely when the account is %s',
+    async (state) => {
+      const created = {
+        _id: { toString: () => 'new-user' },
+        email: 'pending@example.test',
+        registrationPhotoId: 'registration-photo',
+      };
+      mockUserModel.findOne.mockResolvedValue(null);
+      mockUserModel.create.mockResolvedValue(created);
+      if (state === 'cleanup unavailable')
+        mockUserModel.deleteOne.mockRejectedValue(new Error('Synthetic database outage'));
+      else mockUserModel.deleteOne.mockResolvedValue({ deletedCount: state === 'pending' ? 1 : 0 });
+      mockProfiles.preparePhoto.mockResolvedValue('registration-photo');
+      mockOtp.begin.mockRejectedValue(new Error('Synthetic SMTP failure'));
+      await expect(
+        service.register({
+          name: 'Pending Customer',
+          email: created.email,
+          password: 'Registration#2026!Password',
+          role: UserRole.CUSTOMER,
+          phone: '555-1234',
+          photo: 'data:image/png;base64,cGhvdG8=',
+        }),
+      ).rejects.toThrow('Synthetic SMTP failure');
+      expect(mockUserModel.deleteOne).toHaveBeenCalledWith({
+        _id: created._id,
+        emailVerified: false,
+      });
+      expect(mockProfiles.discardPhoto.mock.calls).toEqual(
+        state === 'pending' ? [['registration-photo']] : [],
+      );
+    },
+  );
 
   it('verifyToken decodes valid token', async () => {
     mockUserModel.findById.mockResolvedValue({

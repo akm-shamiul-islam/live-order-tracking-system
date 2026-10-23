@@ -122,6 +122,8 @@ if (!updatedOrder) {
 
 ## 4. WebSocket Gateway Standards
 
+Use the project's `OrderSocket` and `OrderSocketServer` aliases from `backend/src/auth/authenticated-context.ts` so shared event contracts and authenticated socket data stay typed. `WsJwtGuard` populates `client.data.user`; reject a missing actor before a mutation. Keep handshake credentials and message payloads untrusted until validated.
+
 ```typescript
 import {
   WebSocketGateway,
@@ -129,17 +131,13 @@ import {
   SubscribeMessage,
   ConnectedSocket,
   MessageBody,
+  WsException,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
 import { Inject, UseGuards } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service.js';
+import type { OrderSocket, OrderSocketServer } from '../auth/authenticated-context.js';
 import { OrdersService } from './orders.service.js';
-import {
-  CancellationReasonSchema,
-  OrderLookupSchema,
-  UserRole,
-  type UserSummary,
-} from '@kitchentodoor/shared';
+import { CancellationReasonSchema, OrderLookupSchema, UserRole } from '@kitchentodoor/shared';
 import { allowedOrigins } from '../common/cors.js';
 import { WsJwtGuard } from '../auth/guards/ws-jwt.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -154,18 +152,18 @@ export class OrdersGateway {
   ) {}
 
   @WebSocketServer()
-  server: Server;
+  server: OrderSocketServer;
 
   // Validate handshake credentials; verify the caller again before privileged work.
-  async handleConnection(client: Socket) {
+  async handleConnection(client: OrderSocket) {
     // Process handshake auth token if present
   }
 
   // Validate and authorize before joining a customer-specific room.
   @SubscribeMessage('order:join')
-  async handleJoinOrder(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+  async handleJoinOrder(@ConnectedSocket() client: OrderSocket, @MessageBody() payload: unknown) {
     const { orderId } = OrderLookupSchema.parse(payload);
-    const token = client.handshake.auth?.token;
+    const token: unknown = client.handshake.auth?.token;
     const actor = typeof token === 'string' ? await this.authService.verifyToken(token) : undefined;
     const order = await this.ordersService.getOrderById(orderId, actor);
     await client.join(`order_${order.id}`);
@@ -176,11 +174,12 @@ export class OrdersGateway {
   @UseGuards(WsJwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COURIER)
   @SubscribeMessage('order:cancel')
-  async handleCancelOrder(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+  async handleCancelOrder(@ConnectedSocket() client: OrderSocket, @MessageBody() payload: unknown) {
     const { orderId, reason } = OrderLookupSchema.extend({
       reason: CancellationReasonSchema,
     }).parse(payload);
-    const actor = client.data.user as UserSummary;
+    const actor = client.data.user;
+    if (!actor) throw new WsException('Sign in before updating an order.');
     // Pass the authenticated actor to the service; enforce assignment and role there too.
     await this.ordersService.cancelOrder(orderId, reason, {
       userId: actor.id,

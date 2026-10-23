@@ -139,7 +139,7 @@ export class ProfilesService implements OnModuleInit, OnModuleDestroy {
   }
 
   async registrationPhoto(user: UserDocument): Promise<void> {
-    if (!user.registrationPhotoId) return;
+    if (!user.registrationPhotoId || user.emailVerified === false || user.disabled) return;
     const proposed = { ...snapshot(user), photoId: user.registrationPhotoId };
     await this.changes.updateOne(
       { _id: user.registrationPhotoId },
@@ -442,7 +442,11 @@ export class ProfilesService implements OnModuleInit, OnModuleDestroy {
     try {
       const limit = getRuntimeSettings().PROFILE_RECOVERY_BATCH_SIZE;
       const registrations = await this.users
-        .find({ registrationPhotoId: { $exists: true } })
+        .find({
+          registrationPhotoId: { $exists: true },
+          emailVerified: { $ne: false },
+          disabled: { $ne: true },
+        })
         .select('+registrationPhotoId')
         .limit(limit);
       await Promise.all(registrations.map((user) => this.registrationPhoto(user)));

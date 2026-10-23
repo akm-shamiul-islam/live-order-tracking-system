@@ -2,7 +2,7 @@ import { z } from '../zod.js';
 import { RegisterSchema, UserSummarySchema } from './auth.schema.js';
 import { UserIdSchema } from './user.schema.js';
 import { ProfilePhotoUploadSchema } from './profile-photo.schema.js';
-import { PageNumberSchema, PageSizeSchema, type PaginationInfo } from '../pagination.js';
+import { PageNumberSchema, PageSizeSchema, PaginationInfoSchema } from '../pagination.js';
 
 export const ProfileSnapshotSchema = z.object({
   name: z.string(),
@@ -83,8 +83,9 @@ export const NotificationReadSchema = z.strictObject({
 export type NotificationReadDto = z.infer<typeof NotificationReadSchema>;
 export const NotificationDismissSchema = NotificationReadSchema.pick({ expectedUpdatedAt: true });
 export type NotificationDismissDto = z.infer<typeof NotificationDismissSchema>;
-export interface NotificationPage {
-  notifications: ProfileChange[];
-  pagination: PaginationInfo;
-  unreadCount: number;
-}
+export const NotificationPageSchema = z.object({
+  notifications: z.array(ProfileChangeSchema),
+  pagination: PaginationInfoSchema,
+  unreadCount: z.number().int().nonnegative(),
+});
+export type NotificationPage = z.infer<typeof NotificationPageSchema>;

@@ -7,6 +7,7 @@ export * from './schemas/order.schema.js';
 export * from './schemas/telemetry.schema.js';
 export * from './schemas/lookup.schema.js';
 export * from './schemas/public-config.schema.js';
+export * from './schemas/api-response.schema.js';
 export * from './socket-events.js';
 export * from './catalog.js';
 export * from './pricing.js';

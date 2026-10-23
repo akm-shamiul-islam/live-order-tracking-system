@@ -150,6 +150,53 @@ describe('Profile approval, protected photos and notification ownership', () => 
     });
   }
 
+  it.each(['unverified', 'disabled'] as const)(
+    'waits for an active account before recovering a registration photo for a %s customer',
+    async (state) => {
+      const email = `${randomUUID()}@example.test`;
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: { name: 'Pending Photo Customer', email, phone: '555-1234567', password, photo },
+      });
+      expect(response.statusCode).toBe(201);
+      const challenge = response.json<AuthChallengeResponse>();
+      const owner = await users.findOne({ email }).select('+registrationPhotoId');
+      if (!owner?.registrationPhotoId) throw new Error('Expected a registration photo');
+      if (state === 'disabled')
+        await users.updateOne(
+          { _id: owner._id },
+          { $set: { emailVerified: true, disabled: true } },
+        );
+      // Observe two recovery intervals before activating this account.
+      await new Promise<void>((resolve) => setTimeout(resolve, 450));
+      expect(await changes.countDocuments({ userId: owner._id.toString() })).toBe(0);
+      expect(
+        (await users.findById(owner._id).select('+registrationPhotoId'))?.registrationPhotoId,
+      ).toBe(owner.registrationPhotoId);
+      let activated: boolean;
+      if (state === 'unverified') {
+        const code = await smtp.takeOtp(email);
+        const verified = await app.inject({
+          method: 'POST',
+          url: '/api/auth/email/verify',
+          payload: { challengeId: challenge.challengeId, code, deviceId: randomUUID() },
+        });
+        activated = verified.statusCode === 200;
+      } else {
+        const enabled = await users.updateOne({ _id: owner._id }, { $set: { disabled: false } });
+        activated = enabled.matchedCount === 1;
+      }
+      expect(activated).toBe(true);
+      await vi.waitFor(
+        async () => {
+          expect(await changes.countDocuments({ userId: owner._id.toString() })).toBe(1);
+        },
+        { timeout: 2000 },
+      );
+    },
+  );
+
   it('keeps registration photos pending, strips metadata and protects both pending and approved photos', async () => {
     const owner = await register(true);
     const other = await register();

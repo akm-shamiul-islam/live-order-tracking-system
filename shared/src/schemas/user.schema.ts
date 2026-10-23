@@ -2,7 +2,7 @@ import { z } from '../zod.js';
 import { EmailSchema, UserSummarySchema } from './auth.schema.js';
 import { PhoneSchema, OptionalDeliveryAddressSchema } from './lookup.schema.js';
 import { UserRole } from '../enums.js';
-import type { PaginationInfo } from '../pagination.js';
+import { PaginationInfoSchema } from '../pagination.js';
 
 export const UserIdSchema = z.string().regex(/^[a-f\d]{24}$/i, 'Choose a valid user');
 export const UserRoleSchema = z.enum(UserRole);
@@ -29,10 +29,11 @@ export const UpdateUserSchema = z.object({
   expectedUpdatedAt: z.iso.datetime(),
 });
 export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;
-export interface UserPage {
-  users: ManagedUser[];
-  pagination: PaginationInfo;
-}
+export const UserPageSchema = z.object({
+  users: z.array(ManagedUserSchema),
+  pagination: PaginationInfoSchema,
+});
+export type UserPage = z.infer<typeof UserPageSchema>;
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.CUSTOMER]: 'User (customer)',
