@@ -48,6 +48,14 @@ Saved-address validation and persistence follow the current [Zod string/default 
 
 ## Verification evidence
 
+### TypeScript best-practices follow-up (2026-10-23)
+
+- Added shared typed HTTP/Socket.IO authentication contexts and bound gateway broadcasts to the shared event contracts. Guarded mutations also reject missing actors inside the handler; no administrator fallback is supplied. The leave-room payload now uses shared Zod validation.
+- Decoded API error envelopes now enter as unknown and are narrowed before use. Invalid issue entries cannot interrupt display of valid field errors or the readable fallback message.
+- Replaced legacy explicit-any model mocks with typed factories/fixtures. Both lint configurations reject explicit any and enforce the suppression-comment policy. The compiler base also checks unused locals/parameters, complete returns and side-effect imports, and prevents emit on errors.
+- [The TypeScript guide](TYPESCRIPT_GUIDE.md) records runtime/module settings, external-data validation and the intentional Nest/Mongoose/test-double exceptions. The requested audit report is stored in documentation/audit.
+- Verification passed: 269 source tests across 29 files, 39 integration tests, workspace/tooling typechecks, production build and 20 compiled-app browser scenarios. The password-control phase also passed all 16 profile/notification/receipt scenarios. Lint has zero errors and documented nonblocking warnings; formatting passes across 249 files.
+
 ### Account menu, profile and OTP review (2026-10-23)
 
 - The avatar dropdown uses slate surfaces, theme-aware text and subtle teal accents. It contains identity details, Profile and Sign Out; the drawer retains KitchenToDoor/Explore. The wider Profile modal places Email between Name and Phone and uses matching one/two/three-column contact/password layouts. The address spans the complete row at small-tablet widths.
@@ -124,12 +132,12 @@ All nine remaining handwritten JavaScript files were converted to TypeScript: br
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Workspace/tooling typecheck                           | Passed, including orders.integration.ts socket types, the TypeScript source gate and EN/JA copy checks                                                                                                                                                       |
 | Production build                                      | Passed; compressed frontend assets and runnable backend/shared exports                                                                                                                                                                                       |
-| Source tests                                          | 249 passed across 26 files                                                                                                                                                                                                                                   |
+| Source tests                                          | 269 passed across 29 files                                                                                                                                                                                                                                   |
 | MongoDB/HTTP/socket integration                       | 39 passed across 2 files, including OTP activation/recovery, profile/notification permissions, receipt authorization and order/socket behavior |
-| Browser workflows                                     | 20 scenarios passed on the final compiled app; [saved summary](../quality/browser-2026-10-22.json) |
+| Browser workflows                                     | 20 scenarios passed on the final compiled app; [saved summary](../quality/browser-2026-10-23.json) |
 | Profile/notification/receipt browser workflows         | 16 scenarios passed in Chrome 156.0.8078.47 across customer, courier and admin sessions, including short/multi-page EN/JA receipts, profile drafts/navigation guards, notifications, review metadata, tooltips and mobile dialogs |
 | Lighthouse (historical; not rerun for this follow-up) | [Eight-case summary](../quality/lighthouse-2026-10-21.json), [registration/courier follow-up](../quality/lighthouse-registration-courier-2026-10-21.json) and [TypeScript/theme follow-up](../quality/lighthouse-typescript-2026-10-21.json); see QUALITY.md |
-| Registry/security/lint/format gates                   | 67 direct packages / 80 declarations after removing obsolete Nodemailer types; the recorded production audit found 0 known advisories; lint 0 errors; formatting passed across 243 files; the documented Vite+ peer warning and nonblocking lint warnings remain |
+| Registry/security/lint/format gates                   | 67 direct packages / 80 declarations after removing obsolete Nodemailer types; the recorded production audit found 0 known advisories; lint 0 errors; formatting passed across 249 files; the documented Vite+ peer warning and nonblocking lint warnings remain |
 
 [QUALITY.md](QUALITY.md) explains commands, isolation, measurement settings and limitations. Test databases, synthetic accounts, browser profiles, proxy ports and API processes are separate from existing development services. Run resource-heavy checks sequentially; concurrent runners caused local fixture timeouts and were rerun independently.
 

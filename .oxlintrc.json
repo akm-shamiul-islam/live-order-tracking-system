@@ -18,7 +18,9 @@
     "react/react-in-jsx-scope": "off",
     "typescript/no-extraneous-class": ["warn", { "allowWithDecorator": true }],
     "no-underscore-dangle": ["warn", { "allow": ["_id", "_zod"] }],
-    "typescript/no-deprecated": "error"
+    "typescript/no-deprecated": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/ban-ts-comment": "error"
   },
   "ignorePatterns": [
     "dist/**",

@@ -7,32 +7,44 @@ import {
   ConflictException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { Types } from 'mongoose';
+import { Types, type Model } from 'mongoose';
 import { AccountAccessCoordinator } from '../common/account-access-coordinator.js';
+import type { Order, OrderDocument } from '../database/schemas/order.schema.js';
+import type { OrderStatusLogDocument } from '../database/schemas/order-status-log.schema.js';
+import type { UserDocument } from '../database/schemas/user.schema.js';
+
+type OrderFixture = Partial<Omit<Order, '_id'>> & { _id: { toString(): string } };
+function orderModelMock() {
+  return {
+    findOne: vi.fn<(filter: unknown) => Promise<OrderFixture | null>>(),
+    findOneAndUpdate: vi.fn<(...args: unknown[]) => Promise<OrderFixture | null>>(),
+    exists: vi.fn<(filter: unknown) => Promise<{ _id: unknown } | null>>(),
+    find: vi.fn<(filter: unknown) => unknown>(),
+    countDocuments: vi.fn<(filter: unknown) => Promise<number>>(),
+    create: vi.fn<(doc: Partial<Order>) => Promise<OrderFixture>>(),
+    updateOne:
+      vi.fn<(...args: unknown[]) => Promise<{ matchedCount: number; modifiedCount: number }>>(),
+  };
+}
+function statusLogModelMock() {
+  return {
+    create: vi.fn<(doc: Record<string, unknown>) => Promise<unknown>>(),
+    find: vi.fn<(filter: unknown) => unknown>(),
+  };
+}
 
 describe('OrdersService Unit Tests', () => {
   let service: OrdersService;
-  let mockOrderModel: any;
-  let mockStatusLogModel: any;
+  let mockOrderModel: ReturnType<typeof orderModelMock>;
+  let mockStatusLogModel: ReturnType<typeof statusLogModelMock>;
 
   beforeEach(() => {
-    mockOrderModel = {
-      findOne: vi.fn<any>(),
-      findOneAndUpdate: vi.fn<any>(),
-      exists: vi.fn<any>(),
-      find: vi.fn<any>(),
-      countDocuments: vi.fn<any>(),
-      create: vi.fn<any>(),
-      updateOne: vi.fn<any>(),
-    };
-    mockStatusLogModel = {
-      create: vi.fn<any>(),
-      find: vi.fn<any>(),
-    };
+    mockOrderModel = orderModelMock();
+    mockStatusLogModel = statusLogModelMock();
     service = new OrdersService(
-      mockOrderModel,
-      mockStatusLogModel,
-      {} as any,
+      mockOrderModel as unknown as Model<OrderDocument>,
+      mockStatusLogModel as unknown as Model<OrderStatusLogDocument>,
+      {} as Model<UserDocument>,
       new AccountAccessCoordinator(),
     );
   });
@@ -167,7 +179,7 @@ describe('OrdersService Unit Tests', () => {
     };
 
     mockOrderModel.findOne.mockResolvedValue(null);
-    mockOrderModel.create.mockImplementation((doc: any) =>
+    mockOrderModel.create.mockImplementation((doc) =>
       Promise.resolve({
         _id: { toString: () => 'order123' },
         ...doc,
@@ -175,7 +187,7 @@ describe('OrdersService Unit Tests', () => {
         updatedAt: new Date(),
       }),
     );
-    mockStatusLogModel.create.mockImplementation((doc: any) =>
+    mockStatusLogModel.create.mockImplementation((doc) =>
       Promise.resolve({
         _id: { toString: () => 'log123' },
         ...doc,
@@ -193,16 +205,15 @@ describe('OrdersService Unit Tests', () => {
     expect(result.pricing.total).toBe(46.56);
     expect(result.status).toBe('PLACED');
     expect(result.statusHistory).toHaveLength(1);
-    expect(mockOrderModel.create.mock.calls[0][0].auditTrail).toHaveLength(1);
+    expect(mockOrderModel.create.mock.calls[0]?.[0].auditTrail).toHaveLength(1);
     expect(mockStatusLogModel.create).not.toHaveBeenCalled();
   });
 
   it('updateOrderStatus advances status and creates audit log', async () => {
-    const mockOrder: any = {
+    const mockOrder: OrderFixture = {
       _id: { toString: () => '64f1a2b3c4d5e6f7a8b9c0d1' },
       orderNumber: 'KTD-1001',
       status: OrderStatus.PLACED,
-      save: vi.fn<any>().mockResolvedValue(true),
       customer: { name: 'Bob', phone: '555-0000', address: '123 St' },
       items: [],
       pricing: { subtotal: 20, deliveryFee: 5, tax: 2, total: 27 },
@@ -227,7 +238,7 @@ describe('OrdersService Unit Tests', () => {
       timestamp: new Date(),
     });
     mockStatusLogModel.find.mockReturnValue({
-      sort: vi.fn<any>().mockResolvedValue([]),
+      sort: vi.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
     });
 
     const result = await service.updateOrderStatus('KTD-1001', OrderStatus.CONFIRMED);
@@ -270,7 +281,7 @@ describe('OrdersService Unit Tests', () => {
   });
 
   it('updateOrderStatus rejects invalid status progression with BadRequestException', async () => {
-    const mockOrder: any = {
+    const mockOrder: OrderFixture = {
       _id: { toString: () => '64f1a2b3c4d5e6f7a8b9c0d1' },
       orderNumber: 'KTD-1002',
       status: OrderStatus.PLACED,
@@ -292,11 +303,10 @@ describe('OrdersService Unit Tests', () => {
   });
 
   it('cancelOrder cancels order in PLACED state', async () => {
-    const mockOrder: any = {
+    const mockOrder: OrderFixture = {
       _id: { toString: () => '64f1a2b3c4d5e6f7a8b9c0d1' },
       orderNumber: 'KTD-1003',
       status: OrderStatus.PLACED,
-      save: vi.fn<any>().mockResolvedValue(true),
       customer: { name: 'Charlie', phone: '555-1111', address: '456 St' },
       items: [],
       pricing: { subtotal: 10, deliveryFee: 5, tax: 1, total: 16 },
@@ -319,7 +329,7 @@ describe('OrdersService Unit Tests', () => {
       timestamp: new Date(),
     });
     mockStatusLogModel.find.mockReturnValue({
-      sort: vi.fn<any>().mockResolvedValue([]),
+      sort: vi.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
     });
 
     const result = await service.cancelOrder('KTD-1003', 'User changed mind');
@@ -327,7 +337,7 @@ describe('OrdersService Unit Tests', () => {
   });
 
   it('cancelOrder rejects cancellation after delivery is complete', async () => {
-    const mockOrder: any = {
+    const mockOrder: OrderFixture = {
       _id: { toString: () => '64f1a2b3c4d5e6f7a8b9c0d1' },
       orderNumber: 'KTD-1004',
       status: OrderStatus.DELIVERED,

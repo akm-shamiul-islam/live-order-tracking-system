@@ -278,40 +278,46 @@ async function request(url: string, options: RequestInit = {}): Promise<Response
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
-  const data = await res.json().catch(() => null);
+  const data: unknown = await res.json().catch(() => null);
+  const body = isRecord(data) ? data : undefined;
   if (!res.ok) {
-    const details = Array.isArray(data?.errors)
-      ? data.errors
-          .map((error: { message?: string }) => error.message)
-          .filter(Boolean)
-          .join(' ')
-      : undefined;
+    const issues = Array.isArray(body?.errors) ? body.errors.filter(isRecord) : [];
+    const details = issues
+      .flatMap((issue) => (typeof issue.message === 'string' ? [issue.message] : []))
+      .join(' ');
+    const message = Array.isArray(body?.message)
+      ? body.message.filter((part): part is string => typeof part === 'string').join(' ')
+      : typeof body?.message === 'string'
+        ? body.message
+        : undefined;
     const errorMsg =
       res.status >= 500
         ? 'The service is temporarily unavailable. Please try again shortly.'
         : res.status === 429
           ? retryAfterMessage(res)
           : details ||
-            (Array.isArray(data?.message) ? data.message.join(' ') : data?.message) ||
+            message ||
             (res.status === 401
               ? 'Your session has expired. Please sign in again.'
               : 'The request could not be completed. Please try again.');
     const fieldErrors: Record<string, string> = {};
-    if (Array.isArray(data?.errors)) {
-      for (const issue of data.errors) {
-        if (
-          typeof issue?.field === 'string' &&
-          typeof issue?.message === 'string' &&
-          !fieldErrors[issue.field]
-        ) {
-          fieldErrors[issue.field] = issue.message;
-        }
+    for (const issue of issues) {
+      if (
+        typeof issue?.field === 'string' &&
+        typeof issue?.message === 'string' &&
+        !fieldErrors[issue.field]
+      ) {
+        fieldErrors[issue.field] = issue.message;
       }
     }
     throw new ApiError(errorMsg, res.status, fieldErrors);
   }
-  if (!data || typeof data !== 'object') {
+  if (!isRecord(data)) {
     throw new ApiError('The service returned an unexpected response. Please try again.', 502);
   }
   return data as T;

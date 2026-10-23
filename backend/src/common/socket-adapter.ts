@@ -1,5 +1,6 @@
 import { IoAdapter } from '@nestjs/platform-socket.io';
-import type { ServerOptions } from 'socket.io';
+import { Server, type ServerOptions } from 'socket.io';
+import type { OrderSocketServer } from '../auth/authenticated-context.js';
 import { getRuntimeSettings } from '../config/runtime-settings.js';
 import { SocketRateLimiter } from './socket-rate-limiter.js';
 import { isAllowedOrigin } from './cors.js';
@@ -17,10 +18,9 @@ export class BoundedSocketAdapter extends IoAdapter {
     };
   });
 
-  override createIOServer(port: number, options?: ServerOptions) {
-    // Socket.IO merges these partial options with its defaults; Nest types this as ServerOptions.
+  override createIOServer(port: number, options?: Partial<ServerOptions>): OrderSocketServer {
     const settings = getRuntimeSettings();
-    const server = super.createIOServer(port, {
+    const configuration: Partial<ServerOptions> = {
       ...options,
       maxHttpBufferSize: settings.SOCKET_MAX_PAYLOAD_BYTES,
       allowRequest: (request, callback) => {
@@ -37,7 +37,13 @@ export class BoundedSocketAdapter extends IoAdapter {
         if (options?.allowRequest) return options.allowRequest(request, callback);
         callback(null, true);
       },
-    } as ServerOptions);
+    };
+    // Narrow Nest's untyped factory result before exposing the application server.
+    // Nest 12 declares complete options here, while Socket.IO accepts Partial
+    // and supplies its defaults. Keep this declaration bridge at the adapter.
+    const created: unknown = super.createIOServer(port, configuration as ServerOptions);
+    if (!(created instanceof Server)) throw new TypeError('Expected a Socket.IO server.');
+    const server: OrderSocketServer = created;
     server.engine.on('connection', (connection) => {
       const ip = clientAddress(connection.request);
       const count = this.activeAddresses.get(ip) ?? 0;

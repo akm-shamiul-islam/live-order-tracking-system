@@ -289,6 +289,40 @@ describe('API requests and shared authentication', () => {
     });
   });
 
+  it('ignores malformed error entries while retaining valid inline messages', async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json(
+        {
+          message: { unexpected: true },
+          errors: [
+            null,
+            'invalid entry',
+            { message: 42 },
+            { field: 'email', message: 'Check email' },
+          ],
+        },
+        { status: 400 },
+      ),
+    );
+    await expect(api.auth.login('invalid', 'password')).rejects.toMatchObject({
+      status: 400,
+      message: 'Check email',
+      fieldErrors: { email: 'Check email' },
+    });
+  });
+
+  it.each([null, { message: { unexpected: true } }, { errors: [null, 42] }])(
+    'uses a readable fallback for an unrecognized error envelope',
+    async (data) => {
+      fetchMock.mockResolvedValueOnce(Response.json(data, { status: 400 }));
+      await expect(api.auth.login('invalid', 'password')).rejects.toMatchObject({
+        status: 400,
+        message: 'The request could not be completed. Please try again.',
+        fieldErrors: {},
+      });
+    },
+  );
+
   it('uses the server Retry-After window instead of a fixed wait message', async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json(

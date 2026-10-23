@@ -6,7 +6,8 @@ import {
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole } from '@kitchentodoor/shared';
+import { UserRole, type UserSummary } from '@kitchentodoor/shared';
+import type { AuthenticatedRequest, OrderSocket } from '../authenticated-context.js';
 import { ROLES_KEY } from '../decorators/roles.decorator.js';
 import { WsException } from '@nestjs/websockets';
 
@@ -24,11 +25,11 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    let user: any;
+    let user: UserSummary | undefined;
     if (context.getType() === 'http') {
-      user = context.switchToHttp().getRequest().user;
+      user = context.switchToHttp().getRequest<AuthenticatedRequest>().user;
     } else if (context.getType() === 'ws') {
-      user = context.switchToWs().getClient().user;
+      user = context.switchToWs().getClient<OrderSocket>().data.user;
     }
 
     if (!user || !requiredRoles.includes(user.role)) {

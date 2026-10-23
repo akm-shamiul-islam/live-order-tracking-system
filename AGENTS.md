@@ -71,6 +71,8 @@ To prevent context bloat and wasteful token usage:
 
 Load these skills on demand for detailed guides, checklists, and templates:
 
+For cross-workspace type contracts, compiler policy and external-data boundaries, follow [the TypeScript implementation guide](documentation/docs/TYPESCRIPT_GUIDE.md).
+
 - **Frontend Engineering:** [`.agents/skills/ktd-frontend/SKILL.md`](.agents/skills/ktd-frontend/SKILL.md)
   _Covers React 19, TanStack Router routes, Tailwind v4, Zustand 5, TanStack Query, and `<dialog>` modals._
 - **Backend Architecture:** [`.agents/skills/ktd-backend/SKILL.md`](.agents/skills/ktd-backend/SKILL.md)

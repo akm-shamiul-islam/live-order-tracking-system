@@ -6,31 +6,51 @@ import bcrypt from 'bcryptjs';
 import { RecoveryMailer } from './recovery-mailer.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { AuthOtpService } from './auth-otp.service.js';
+import type { JwtService } from '@nestjs/jwt';
+import type { Model } from 'mongoose';
+import type { User, UserDocument } from '../database/schemas/user.schema.js';
+import type { AuthSessionDocument } from '../database/schemas/auth-session.schema.js';
+
+type UserFixture = Partial<Omit<User, '_id'>> & { _id?: { toString(): string } };
+
+function userModelMock() {
+  return {
+    findOne: vi.fn<(filter: unknown, projection?: string) => Promise<UserFixture | null>>(),
+    create: vi.fn<(doc: Partial<User>) => Promise<UserFixture>>(),
+    findById: vi.fn<(id: unknown) => Promise<UserFixture | null>>(),
+    updateOne: vi
+      .fn<(...args: unknown[]) => Promise<{ modifiedCount: number }>>()
+      .mockResolvedValue({ modifiedCount: 1 }),
+    deleteOne: vi
+      .fn<(filter: unknown) => Promise<{ deletedCount: number }>>()
+      .mockResolvedValue({ deletedCount: 1 }),
+  };
+}
+
+function jwtServiceMock() {
+  return {
+    sign: vi
+      .fn<(payload: Record<string, unknown>) => string>()
+      .mockReturnValue('mock_jwt_token_xyz'),
+    verify: vi.fn<(token: string) => Record<string, unknown>>(),
+  };
+}
 
 describe('AuthService Unit Tests', () => {
   let service: AuthService;
-  let mockUserModel: any;
-  let mockJwtService: any;
+  let mockUserModel: ReturnType<typeof userModelMock>;
+  let mockJwtService: ReturnType<typeof jwtServiceMock>;
 
   beforeEach(() => {
-    mockUserModel = {
-      findOne: vi.fn<any>(),
-      create: vi.fn<any>(),
-      findById: vi.fn<any>(),
-      updateOne: vi.fn<any>().mockResolvedValue({ modifiedCount: 1 }),
-      deleteOne: vi.fn<any>().mockResolvedValue({ deletedCount: 1 }),
-    };
-    mockJwtService = {
-      sign: vi.fn<any>().mockReturnValue('mock_jwt_token_xyz'),
-      verify: vi.fn<any>(),
-    };
+    mockUserModel = userModelMock();
+    mockJwtService = jwtServiceMock();
     service = new AuthService(
-      mockUserModel,
-      mockJwtService,
+      mockUserModel as unknown as Model<UserDocument>,
+      mockJwtService as unknown as JwtService,
       {
         create: vi.fn<() => Promise<unknown>>().mockResolvedValue({}),
         updateMany: vi.fn<() => Promise<unknown>>().mockResolvedValue({}),
-      } as any,
+      } as unknown as Model<AuthSessionDocument>,
       {} as RecoveryMailer,
       {} as ProfilesService,
       {
@@ -135,7 +155,7 @@ describe('AuthService Unit Tests', () => {
 
   it('register creates a pending user and returns an email verification challenge', async () => {
     mockUserModel.findOne.mockResolvedValue(null);
-    mockUserModel.create.mockImplementation((doc: any) =>
+    mockUserModel.create.mockImplementation((doc) =>
       Promise.resolve({
         _id: { toString: () => 'new_user_1' },
         ...doc,

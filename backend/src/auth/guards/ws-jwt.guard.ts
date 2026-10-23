@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
 import { AuthService } from '../auth.service.js';
+import { socketCredential, type OrderSocket } from '../authenticated-context.js';
 
 @Injectable()
 export class WsJwtGuard implements CanActivate {
@@ -16,8 +17,8 @@ export class WsJwtGuard implements CanActivate {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const client = context.switchToWs().getClient();
-    const token = client.handshake?.auth?.token || client.handshake?.headers?.authorization;
+    const client = context.switchToWs().getClient<OrderSocket>();
+    const token = socketCredential(client);
 
     if (!token) {
       this.logger.warn(`Rejected unauthenticated socket connection: ${client.id}`);
@@ -28,7 +29,7 @@ export class WsJwtGuard implements CanActivate {
       if (typeof token !== 'string')
         throw new UnauthorizedException('Invalid authentication token');
       const user = await this.authService.verifyToken(token.replace(/^Bearer\s+/i, ''));
-      client.user = user;
+      client.data.user = user;
       return true;
     } catch (error) {
       if (!(error instanceof UnauthorizedException))
