@@ -2,7 +2,7 @@
 
 > Fresh from the kitchen, tracked to your door.
 
-**A full-stack TypeScript application connecting customer ordering, kitchen dispatch and live courier tracking—with reusable engineering skills for your next project.**
+**A full-stack TypeScript application connecting customer ordering, kitchen dispatch and live courier tracking—with reusable engineering skills for using in different project.**
 
 [Explore the features](#overview) · [Run locally](#quick-start) · [Reuse the skills](#reusable-feature-skills) · [Architecture](documentation/docs/ARCHITECTURE.md) · [Verification](documentation/docs/QUALITY.md)
 
