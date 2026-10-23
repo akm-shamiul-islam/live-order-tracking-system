@@ -15,6 +15,7 @@ import type {
 } from '../shared/src/index.ts';
 import { MENU_ITEMS } from '../shared/src/catalog.ts';
 import { parseJson, responseJson } from './lib/json.ts';
+import { checkPasswordVisibility } from './lib/password-controls.ts';
 
 const runtime = await createIsolatedRuntime({ count: 2, serveFrontend: true });
 const directory = await mkdtemp(join(tmpdir(), 'ktd-profile-browser-'));
@@ -405,6 +406,9 @@ try {
   );
   await customer.fill('#profile-name', 'Unsaved Browser Draft');
   await customer.fill('#profile-password', 'Draft-only#Password2026!');
+  await checkPasswordVisibility(customerPage, 'profile-currentPassword');
+  await checkPasswordVisibility(customerPage, 'profile-password');
+  await checkPasswordVisibility(customerPage, 'profile-confirmPassword');
   await customer.text('Unsaved Changes');
   await waitFor(
     () =>

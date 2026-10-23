@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useDialog } from '../../hooks/useDialog';
 import { useZodForm } from '../../hooks/useZodForm';
 import { FieldError } from '../forms/FieldError';
+import { PasswordInput } from '../forms/PasswordInput';
 import { ApiError } from '../../lib/api';
 import {
   LoginSchema,
@@ -12,7 +13,7 @@ import {
   type AuthChallengeResponse,
   type AuthResponse,
 } from '@kitchentodoor/shared';
-import { X, Shield, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { X, Shield, Lock, Mail, AlertCircle } from 'lucide-react';
 import { OtpVerificationForm } from '../auth/OtpVerificationForm';
 
 interface AdminLoginModalProps {
@@ -30,7 +31,6 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
     { email: '', password: '' },
     'staff',
   );
-  const [showPassword, setShowPassword] = useState(false);
   const [challenge, setChallenge] = useState<AuthChallengeResponse | null>(null);
   const dialogRef = useDialog(isOpen);
   const [error, setError] = useState<string | null>(null);
@@ -198,9 +198,11 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
                 {c('Password')}{' '}
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
+                <Lock
+                  aria-hidden="true"
+                  className="pointer-events-none z-10 w-4 h-4 text-slate-400 absolute left-3.5 top-3"
+                />
+                <PasswordInput
                   {...form.field('password')}
                   autoComplete="current-password"
                   disabled={loading}
@@ -208,15 +210,6 @@ export function AdminLoginModal({ isOpen, onClose, onLoginSuccess }: AdminLoginM
                   placeholder={c('Enter password')}
                   className="w-full pl-10 pr-12 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 shadow-xs"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  aria-label={showPassword ? c('Hide password') : c('Show password')}
-                  aria-pressed={showPassword}
-                  className="absolute right-2 top-1.5 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
               <FieldError id="staff-password-error" message={form.errors.password} />
             </div>

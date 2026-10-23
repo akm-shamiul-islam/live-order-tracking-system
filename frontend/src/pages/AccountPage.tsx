@@ -26,6 +26,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useZodForm } from '../hooks/useZodForm';
 import { api, ApiError } from '../lib/api';
 import { FieldError } from '../components/forms/FieldError';
+import { PasswordInput } from '../components/forms/PasswordInput';
 import { Spinner } from '../components/layout/Loading';
 import { ProfilePhotoUploader } from '../components/profile/ProfilePhotoUploader';
 import { OtpVerificationForm } from '../components/auth/OtpVerificationForm';
@@ -49,6 +50,7 @@ function AccountField({
   label,
   error,
   field,
+  type,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
   label: string;
@@ -62,7 +64,11 @@ function AccountField({
       <label htmlFor={field.id} className="block text-sm font-semibold">
         {c(label)}
       </label>
-      <input {...field} {...props} className={inputClass} />
+      {type === 'password' ? (
+        <PasswordInput {...field} {...props} className={inputClass} />
+      ) : (
+        <input {...field} {...props} type={type} className={inputClass} />
+      )}
       <FieldError id={`${field.id}-error`} message={c(error)} />
     </div>
   );

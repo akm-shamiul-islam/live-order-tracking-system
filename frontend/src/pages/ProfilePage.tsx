@@ -22,6 +22,7 @@ import { useZodForm } from '../hooks/useZodForm';
 import { LoadingState, PageSkeleton, Spinner } from '../components/layout/Loading';
 import { ProfilePhotoUploader } from '../components/profile/ProfilePhotoUploader';
 import { FieldError } from '../components/forms/FieldError';
+import { PasswordInput } from '../components/forms/PasswordInput';
 import {
   dangerButton,
   formInput,
@@ -335,10 +336,10 @@ function ProfileForm({
                         : 'Confirm New Password',
                   )}
                 </label>
-                <input
+                <PasswordInput
                   {...form.field(field)}
-                  type="password"
                   autoComplete={field === 'currentPassword' ? 'current-password' : 'new-password'}
+                  disabled={disabled}
                   className={formInput}
                 />
                 <FieldError id={`profile-${field}-error`} message={form.errors[field]} />

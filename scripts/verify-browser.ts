@@ -23,6 +23,7 @@ import type {
   UserSummary,
 } from '../shared/src/index.ts';
 import { responseJson } from './lib/json.ts';
+import { checkPasswordVisibility } from './lib/password-controls.ts';
 
 interface ApiOptions {
   token?: string | null;
@@ -187,6 +188,7 @@ try {
     await goto('/account', 'Welcome Back');
     await input('#customer-login-email', email);
     await input('#customer-login-password', password);
+    await checkPasswordVisibility(page, 'customer-login-password');
     await clickText('Sign In');
     await waitFor(
       () =>
@@ -575,6 +577,8 @@ try {
     'Red registration address border',
   );
   await input('#register-address', savedAddress);
+  await checkPasswordVisibility(page, 'register-password');
+  await checkPasswordVisibility(page, 'register-confirmPassword');
   await evaluate('scrollTo({top:0,behavior:"instant"})');
   await screenshot('registration-desktop');
   await clickText('Create Account');
@@ -1228,6 +1232,8 @@ try {
   const browserChangedPassword = 'Browser-recovery#2026!';
   await input('#reset-password', browserChangedPassword);
   await input('#reset-confirmPassword', browserChangedPassword);
+  await checkPasswordVisibility(page, 'reset-password');
+  await checkPasswordVisibility(page, 'reset-confirmPassword');
   await clickText('Save New Password');
   await waitText('Your password has been changed. Sign in again with your new password.');
   await clickText('Request a New Code', 'a');
